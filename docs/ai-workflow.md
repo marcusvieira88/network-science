@@ -64,7 +64,6 @@ draw in a fixture that held a real chance shift.
 
 - Briefs that described an interface in prose let two agents disagree about it; typed
   interfaces in the foundation would have caught this at the gate.
-- Several agents had to place constants outside `config.py` because it was frozen; they were
-  moved into `Config` once the foundation was unfrozen.
+- Several agents had to place constants outside `config.py` because it was frozen.
 - Pre-registered robustness checks were necessary but not sufficient; the threats that mattered
   were found by looking at the shape of the data, not by the plan.

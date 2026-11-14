@@ -1,5 +1,5 @@
 {
-  "code_version": "94affb0",
+  "code_version": "9d671fa",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -21,7 +21,29 @@
     "sensitivity_variants": [
       "cap=20",
       "window=month"
-    ]
+    ],
+    "batch_rows": 50000,
+    "download_timeout_seconds": 60,
+    "role_min_mass_sends": 2,
+    "manual_sample_size": 50,
+    "alpha": 0.05,
+    "ci_level": 0.95,
+    "block_weeks": 4,
+    "min_after_weeks": 4,
+    "min_baseline_weeks": 2,
+    "null_replicates": 20,
+    "placebo_max_effect": 2.0,
+    "min_unit_events": 30,
+    "degree_bucket_floors": [
+      1,
+      2,
+      5,
+      10
+    ],
+    "r2_noise_scale": 1.0,
+    "a2_seeds": 3,
+    "a2_min_support": 2,
+    "distance_chunk_rows": 1024
   },
   "key_fingerprint": "78015958",
   "corpus_sha256": null,
@@ -57,43 +79,43 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.19
+      "seconds": 0.18
     },
     {
       "stage": "parse",
-      "seconds": 30.86
+      "seconds": 29.02
     },
     {
       "stage": "clean",
-      "seconds": 25.85
+      "seconds": 24.58
     },
     {
       "stage": "identity",
-      "seconds": 4.89
+      "seconds": 4.72
     },
     {
       "stage": "pseudo",
-      "seconds": 16.18
+      "seconds": 15.96
     },
     {
       "stage": "network",
-      "seconds": 0.94
+      "seconds": 0.7
     },
     {
       "stage": "finding",
-      "seconds": 30.5
+      "seconds": 20.57
     },
     {
       "stage": "risk",
-      "seconds": 36.57
+      "seconds": 34.35
     },
     {
       "stage": "release",
-      "seconds": 0.07
+      "seconds": 0.12
     },
     {
       "stage": "report",
-      "seconds": 0.01
+      "seconds": 0.02
     }
   ]
 }
