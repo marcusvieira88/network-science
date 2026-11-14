@@ -131,6 +131,12 @@ function clamp(value: number, low: number, high: number): number {
   return Math.min(Math.max(value, low), high);
 }
 
+/** Label order with `other` last: the order groups are listed and coloured in. */
+export function compareGroups(a: string, b: string): number {
+  if (a === OTHER_GROUP || b === OTHER_GROUP) return Number(a === OTHER_GROUP) - Number(b === OTHER_GROUP);
+  return a.localeCompare(b);
+}
+
 /** Fixed colour slot per group by label order; `other` is neutral. Colour follows the group. */
 export function groupColor(group: string, orderedGroups: string[]): string {
   if (group === OTHER_GROUP) return "var(--chart-other)";

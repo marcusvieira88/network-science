@@ -67,6 +67,12 @@ PUBLIC_EVENTS: tuple[tuple[date, str], ...] = (
     (date(2001, 12, 2), "Chapter 11 filing"),
 )
 
+# Exploratory windows (docs/hypotheses-exploratory.md), fixed by public dates and never searched
+# for in the data: CEO resignation to Chapter 11 filing, and the same calendar weeks a year
+# earlier. The exploratory analysis and the UI export both read them from here.
+CRISIS_WINDOW: tuple[date, date] = (date(2001, 8, 14), date(2001, 12, 2))
+REFERENCE_WINDOW: tuple[date, date] = (date(2000, 8, 14), date(2000, 12, 2))
+
 
 @dataclass(frozen=True)
 class Config:

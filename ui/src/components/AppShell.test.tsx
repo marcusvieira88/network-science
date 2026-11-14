@@ -23,7 +23,7 @@ function renderShell(onSelect = vi.fn(), source: "release" | "sample" = "sample"
 }
 
 describe("AppShell", () => {
-  it("lists the seven views in order and marks the current one", () => {
+  it("lists the eight views in order and marks the current one", () => {
     renderShell();
     const nav = screen.getByRole("navigation", { name: "Views" });
     const buttons = within(nav).getAllByRole("button");

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { ArtifactChecksTable } from "@/components/ArtifactChecksTable";
+import { ClusterView } from "@/components/ClusterView";
 import { CommunityGraph } from "@/components/CommunityGraph";
 import { ExploratoryTable } from "@/components/ExploratoryTable";
 import { HypothesesTable } from "@/components/HypothesesTable";
@@ -11,12 +12,19 @@ import { Overview } from "@/components/Overview";
 import { QualityPanel } from "@/components/QualityPanel";
 import { RiskPanel } from "@/components/RiskPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { driftCheckPasses } from "@/lib/clusters";
 import { type LoadResult, type ReleaseData, loadRelease } from "@/lib/data";
 import { minimumGroupSize } from "@/lib/privacy";
 import { analysisWeeks, baselinePeriod, headline } from "@/lib/series";
 import type { ViewId } from "@/lib/views";
 
-export function View({ view, data }: { view: ViewId; data: ReleaseData }) {
+interface ViewProps {
+  view: ViewId;
+  data: ReleaseData;
+  onSelect: (view: ViewId) => void;
+}
+
+export function View({ view, data, onSelect }: ViewProps) {
   const { tables } = data;
   switch (view) {
     case "overview":
@@ -44,6 +52,26 @@ export function View({ view, data }: { view: ViewId; data: ReleaseData }) {
           minGroupSize={minimumGroupSize(data)}
         />
       );
+    case "clusters": {
+      const baseline = baselinePeriod(data);
+      if (baseline === null) {
+        return (
+          <p role="alert" className="text-sm text-destructive">
+            The run parameters lack the baseline period, so the clusters cannot be compared over time.
+          </p>
+        );
+      }
+      return (
+        <ClusterView
+          groups={tables.community_groups}
+          edges={tables.community_graph}
+          periods={{ baseline, crisis: data.windows.crisis }}
+          minGroupSize={minimumGroupSize(data)}
+          driftCheck={driftCheckPasses(tables.artifact_checks)}
+          onShowHypotheses={() => onSelect("hypotheses")}
+        />
+      );
+    }
     case "hypotheses":
       return (
         <div className="space-y-6">
@@ -119,7 +147,7 @@ export function App({ load = loadRelease }: { load?: () => Promise<LoadResult> }
       contractVersion={result.data.contract_version}
       source={result.source}
     >
-      <View view={view} data={result.data} />
+      <View view={view} data={result.data} onSelect={setView} />
     </AppShell>
   );
 }

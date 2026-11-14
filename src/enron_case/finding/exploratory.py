@@ -15,7 +15,7 @@ import numpy as np
 import polars as pl
 from scipy.stats import wilcoxon
 
-from enron_case.config import Config
+from enron_case.config import CRISIS_WINDOW, REFERENCE_WINDOW, Config
 from enron_case.contracts import schemas, vocab
 from enron_case.finding import stats
 
@@ -44,8 +44,6 @@ CAVEATS = schemas.EXPLORATORY_CAVEATS
 LOOKBACK_MEASURES = frozenset({"E15"})
 
 Window = tuple[date, date]
-CRISIS: Window = (date(2001, 8, 14), date(2001, 12, 2))
-REFERENCE: Window = (date(2000, 8, 14), date(2000, 12, 2))
 PLACEBO_AFTER: Window = (date(2001, 1, 1), date(2001, 4, 30))
 PLACEBO_BEFORE: Window = (date(2000, 1, 1), date(2000, 4, 30))
 
@@ -464,7 +462,7 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
     for index, hyp in enumerate(FAMILY):
         measure = MEASURES[hyp.id]
         minimum = config.exploratory_min_messages
-        d = paired_differences(tables, measure, CRISIS, REFERENCE, minimum)
+        d = paired_differences(tables, measure, CRISIS_WINDOW, REFERENCE_WINDOW, minimum)
         crisis = compare(d, config, index)
         placebo = compare(
             paired_differences(tables, measure, PLACEBO_AFTER, PLACEBO_BEFORE, minimum),
@@ -488,7 +486,12 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
             outcome = NOT_SUPPORTED
         equalised = (
             volume_equalised(
-                tables, MEASURES[hyp.id], CRISIS, REFERENCE, config, EQUALISED_STREAM + order
+                tables,
+                MEASURES[hyp.id],
+                CRISIS_WINDOW,
+                REFERENCE_WINDOW,
+                config,
+                EQUALISED_STREAM + order,
             )
             if outcome != NOT_SUPPORTED and valid and hyp.id not in LOOKBACK_MEASURES
             else None

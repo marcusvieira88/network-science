@@ -1,4 +1,4 @@
-import type { HypothesisRow, ReleaseData, Scope, WeeklyMetricRow } from "@/lib/data";
+import type { HypothesisRow, Period, ReleaseData, Scope, WeeklyMetricRow } from "@/lib/data";
 
 export const DEFAULT_VARIANT = "default";
 
@@ -40,11 +40,6 @@ export function hypothesisFor(
 
 export function headline(hypotheses: HypothesisRow[]): HypothesisRow | undefined {
   return hypotheses.find((row) => row.is_headline && row.supported === "yes");
-}
-
-export interface Period {
-  start: string;
-  end: string;
 }
 
 export function baselinePeriod(data: ReleaseData): Period | null {

@@ -5,6 +5,7 @@ import {
   Filter,
   LayoutDashboard,
   type LucideIcon,
+  Orbit,
   Share2,
   ShieldCheck,
 } from "lucide-react";
@@ -19,6 +20,7 @@ const ICONS: Record<ViewId, LucideIcon> = {
   overview: LayoutDashboard,
   metrics: BarChart3,
   network: Share2,
+  clusters: Orbit,
   hypotheses: CheckSquare,
   quality: Filter,
   risk: ShieldCheck,

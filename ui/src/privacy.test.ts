@@ -1,4 +1,5 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -63,7 +64,7 @@ describe("privacy of what the views render", () => {
   const data = sampleData();
 
   it.each(VIEWS.map((view) => view.id))("view %s renders no identifier and no per-person row", (view) => {
-    const { container, unmount } = render(createElement(View, { view, data }));
+    const { container, unmount } = render(createElement(View, { view, data, onSelect: () => undefined }));
     const text = container.textContent ?? "";
     expect(text).not.toMatch(LEAK_PATTERN);
     expect(container.querySelectorAll("[data-person], [data-pid]")).toHaveLength(0);
@@ -71,6 +72,38 @@ describe("privacy of what the views render", () => {
     const nodes = container.querySelectorAll("[data-testid=group-node]");
     if (view === "network") expect(nodes).toHaveLength(data.tables.community_groups.length);
     else expect(nodes).toHaveLength(0);
+    // The clusters view draws at most one arc and one table row per published group.
+    const arcs = [...container.querySelectorAll("[data-testid=group-arc]")];
+    const sizes = [...container.querySelectorAll("[data-testid=group-size]")];
+    if (view === "clusters") {
+      expect(arcs.length).toBeGreaterThan(0);
+      expect(sizes).toHaveLength(data.tables.community_groups.length);
+    } else {
+      expect(arcs).toHaveLength(0);
+      expect(sizes).toHaveLength(0);
+    }
+    unmount();
+  });
+
+  it("clusters view: every segment is a published group of at least k people, in every period", async () => {
+    const user = userEvent.setup();
+    const published = new Map(data.tables.community_groups.map((g) => [g.group, g.n_persons]));
+    const k = minimumGroupSize(data);
+    const { container, unmount } = render(createElement(View, { view: "clusters", data, onSelect: () => undefined }));
+    expect(container).toHaveTextContent(`Each segment is a group of at least ${k} people, never an individual`);
+    for (const period of ["Baseline year", "Crisis weeks", "All weeks"]) {
+      await user.click(screen.getByRole("tab", { name: period }));
+      const arcs = [...container.querySelectorAll("[data-testid=group-arc]")];
+      expect(arcs.length).toBeLessThanOrEqual(published.size);
+      for (const arc of arcs) {
+        const group = arc.getAttribute("data-group") ?? "";
+        expect(published.get(group)).toBeGreaterThanOrEqual(k);
+      }
+      for (const cell of container.querySelectorAll("[data-testid=group-size]")) {
+        expect(Number(cell.textContent)).toBeGreaterThanOrEqual(k);
+      }
+      expect(container.textContent ?? "").not.toMatch(LEAK_PATTERN);
+    }
     unmount();
   });
 });

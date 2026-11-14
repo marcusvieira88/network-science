@@ -5,11 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { METRICS, type PublicEvent, SCOPES, type HypothesisRow, type Scope, type WeeklyMetricRow } from "@/lib/data";
+import { METRICS, type Period, type PublicEvent, SCOPES, type HypothesisRow, type Scope, type WeeklyMetricRow } from "@/lib/data";
 import { formatNumber, metricLabel } from "@/lib/format";
 import {
   DEFAULT_VARIANT,
-  type Period,
   analysisWeeks,
   hypothesisFor,
   metricSeries,

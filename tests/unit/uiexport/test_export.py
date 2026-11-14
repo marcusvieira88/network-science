@@ -83,7 +83,14 @@ def test_shape_matches_documented_layout(synth: SynthOutput, tmp_path: Path) -> 
     ctx = release_ctx(synth, tmp_path)
     run(ctx)
     data = output(ctx)
-    assert sorted(data) == ["contract_version", "events", "format_version", "run", "tables"]
+    assert sorted(data) == [
+        "contract_version",
+        "events",
+        "format_version",
+        "run",
+        "tables",
+        "windows",
+    ]
     assert data["format_version"] == export.FORMAT_VERSION
     assert data["contract_version"] == schemas.CONTRACT_VERSION
     assert data["run"] == {
@@ -102,6 +109,16 @@ def test_shape_matches_documented_layout(synth: SynthOutput, tmp_path: Path) -> 
         assert len(rows) == expected.height, name
         names = [c.name for c in schemas.table(name).cols]
         assert all(list(row) == names for row in rows), name
+
+
+def test_exploratory_windows_are_exported(synth: SynthOutput, tmp_path: Path) -> None:
+    """The crisis and reference windows of docs/hypotheses-exploratory.md."""
+    ctx = release_ctx(synth, tmp_path)
+    run(ctx)
+    assert output(ctx)["windows"] == {
+        "crisis": {"start": "2001-08-14", "end": "2001-12-02"},
+        "reference": {"start": "2000-08-14", "end": "2000-12-02"},
+    }
 
 
 def test_values_round_trip_with_nulls_and_iso_dates(synth: SynthOutput, tmp_path: Path) -> None:
