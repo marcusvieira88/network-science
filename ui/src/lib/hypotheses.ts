@@ -1,12 +1,21 @@
 /**
- * One list of hypotheses: the `hypotheses` table (stated before any data) and the `exploratory`
- * table (stated before being computed) merged and ordered by the number in each id. Which table a
- * row comes from decides how it is read; the id strings themselves are never relied on.
+ * One list of hypotheses: the `hypotheses` table (stated before any data), the `exploratory`
+ * table (stated before being computed) and H26 from the `departures` and `departure_tests` tables
+ * (stated post hoc), merged and ordered by the number in each id. Which table a row comes from
+ * decides how it is read; the id strings themselves are never relied on.
  */
-import { type ArtifactCheckRow, DataError, type ExploratoryRow, HYPOTHESIS_ID, type HypothesisRow } from "@/lib/data";
+import {
+  type ArtifactCheckRow,
+  DataError,
+  type ExploratoryRow,
+  HYPOTHESIS_ID,
+  type HypothesisRow,
+  type ReleaseData,
+} from "@/lib/data";
+import { type Departure, departureFrom, isFinding } from "@/lib/departures";
 import { NOT_COMPUTABLE, formatFloat } from "@/lib/format";
 
-export type HypothesisKind = "preregistered" | "exploratory";
+export type HypothesisKind = "preregistered" | "exploratory" | "departure";
 
 interface EntryBase {
   id: string;
@@ -17,16 +26,22 @@ interface EntryBase {
 
 export type HypothesisEntry =
   | (EntryBase & { kind: "preregistered"; row: HypothesisRow; checks: ArtifactCheckRow[] })
-  | (EntryBase & { kind: "exploratory"; row: ExploratoryRow });
+  | (EntryBase & { kind: "exploratory"; row: ExploratoryRow })
+  | (EntryBase & { kind: "departure"; departure: Departure });
 
 /** When each kind of hypothesis was stated, relative to the analysis. */
 export const STATED: Record<HypothesisKind, string> = {
   preregistered: "before any data",
   exploratory: "before being computed",
+  departure: "post hoc, after every other result and before being computed",
 };
 
 /** Within one number, the hypotheses stated before any data come first. */
-const KIND_ORDER: Record<HypothesisKind, number> = { preregistered: 0, exploratory: 1 };
+const KIND_ORDER: Record<HypothesisKind, number> = { preregistered: 0, exploratory: 1, departure: 2 };
+
+function byNumber(a: HypothesisEntry, b: HypothesisEntry): number {
+  return a.number - b.number || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.id.localeCompare(b.id);
+}
 
 /** The number at the end of an id ("H12" → 12); parseRelease already refuses an id without one. */
 export function hypothesisNumber(id: string): number {
@@ -77,9 +92,25 @@ export function allHypotheses(
       row,
     })),
   ];
-  return entries.sort(
-    (a, b) => a.number - b.number || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.id.localeCompare(b.id),
-  );
+  return entries.sort(byNumber);
+}
+
+/**
+ * Every hypothesis of a release, H26 included. H26 was stated after every other hypothesis, so it
+ * is numbered one past their count (config.HYPOTHESES_STATED).
+ */
+export function releaseHypotheses(data: ReleaseData): HypothesisEntry[] {
+  const { hypotheses, exploratory, artifact_checks: checks } = data.tables;
+  const others = allHypotheses(hypotheses, exploratory, checks);
+  const departure = departureFrom(data, others.length + 1);
+  const entry: HypothesisEntry = {
+    kind: "departure",
+    id: departure.id,
+    number: hypothesisNumber(departure.id),
+    heldTrue: isFinding(departure),
+    departure,
+  };
+  return [...others, entry].sort(byNumber);
 }
 
 /** How many hypotheses of each kind there are: the size of each Holm correction. */
@@ -87,6 +118,7 @@ export function countByKind(entries: HypothesisEntry[]): Record<HypothesisKind, 
   return {
     preregistered: entries.filter((entry) => entry.kind === "preregistered").length,
     exploratory: entries.filter((entry) => entry.kind === "exploratory").length,
+    departure: entries.filter((entry) => entry.kind === "departure").length,
   };
 }
 

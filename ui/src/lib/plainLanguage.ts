@@ -4,7 +4,8 @@
  * Hypotheses table and the finding card use); nothing here adds a claim the data does not make.
  */
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
-import { formatNumber, metricLabel } from "@/lib/format";
+import { capitalised, formatNumber, metricLabel } from "@/lib/format";
+import { type Departure, departureVerdictSentence, structureSentence } from "@/lib/departures";
 import type { HypothesisEntry } from "@/lib/hypotheses";
 import { type GroupTie, OTHER_GROUP } from "@/lib/network";
 
@@ -38,10 +39,6 @@ export interface PlainVerdict {
 export interface ExecutiveSummary {
   answer: string;
   points: string[];
-}
-
-function capitalised(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function verdict(kind: Verdict, sentence: string): PlainVerdict {
@@ -109,10 +106,30 @@ function exploratoryVerdict(row: ExploratoryRow): PlainVerdict {
   }
 }
 
+/** H26: a finding (high or moderate) held up; low is a lead, not a finding; else nothing is established. */
+function departureVerdict(departure: Departure): PlainVerdict {
+  const sentence = departureVerdictSentence(departure);
+  switch (departure.primary.outcome) {
+    case "high":
+    case "moderate":
+      return verdict("held", sentence);
+    case "low":
+      return verdict("weak", sentence);
+    case "not established":
+    case null:
+      return verdict("none", sentence);
+  }
+}
+
 export function plainVerdict(entry: HypothesisEntry): PlainVerdict {
-  return entry.kind === "preregistered"
-    ? preregisteredVerdict(entry.row, entry.checks, entry.heldTrue)
-    : exploratoryVerdict(entry.row);
+  switch (entry.kind) {
+    case "preregistered":
+      return preregisteredVerdict(entry.row, entry.checks, entry.heldTrue);
+    case "exploratory":
+      return exploratoryVerdict(entry.row);
+    case "departure":
+      return departureVerdict(entry.departure);
+  }
 }
 
 /** One bullet per reason, singular or plural; the long tail ("no reliable change") is not listed by id. */
@@ -139,14 +156,19 @@ function summaryPoint(kind: Verdict, ids: string[]): string {
   }
 }
 
-/** The one-line answer and the reasons, for the Overview. */
+/**
+ * The one-line answer and the reasons, for the Overview. The behavioural hypotheses are counted by
+ * reason; H26, the question about structure, gets a sentence of its own after them.
+ */
 export function executiveSummary(entries: HypothesisEntry[]): ExecutiveSummary {
   const byVerdict = new Map<Verdict, string[]>();
   for (const entry of entries) {
+    if (entry.kind === "departure") continue;
     const kind = plainVerdict(entry).verdict;
     byVerdict.set(kind, [...(byVerdict.get(kind) ?? []), entry.id]);
   }
-  const held = byVerdict.get("held") ?? [];
+  const heldBehaviour = byVerdict.get("held") ?? [];
+  const held = entries.filter((entry) => plainVerdict(entry).verdict === "held").map((entry) => entry.id);
   const answer =
     held.length === 0
       ? `None of the ${entries.length} hypotheses held up under the checks.`
@@ -155,7 +177,10 @@ export function executiveSummary(entries: HypothesisEntry[]): ExecutiveSummary {
     const ids = byVerdict.get(kind);
     return ids ? [summaryPoint(kind, ids)] : [];
   });
-  return { answer, points };
+  const structure = entries.flatMap((entry) =>
+    entry.kind === "departure" ? [structureSentence(entry.departure, heldBehaviour.length === 0)] : [],
+  );
+  return { answer, points: [...points, ...structure] };
 }
 
 /**

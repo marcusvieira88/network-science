@@ -16,7 +16,11 @@ The tables are `RELEASE_TABLES`, among them `artifact_checks` (hypothesis, check
 ci_low, ci_high, n_units, passes, note; `passes` is null when the check could not run) and
 `exploratory` (H5–H25, recorded as E1–E21 in docs/hypotheses-exploratory.md: the columns of
 `contracts/schemas.py` `_exploratory_cols`; `caveat` is "" when there is none and the
-`equalised_*` and `retention_*` cells are null unless computed).
+`equalised_*` and `retention_*` cells are null unless computed), and `departures` and
+`departure_tests` (H26, contract 1.7: the columns of `contracts/schemas.py`; counts below k,
+counts whose complement is below k, and the p-values and shares derived from them are null).
+New tables leave the document's shape alone, so they do not change `format_version`; the
+`contract_version` names the tables' version.
 
 Rows keep the contract's column order and sort order; dates are ISO strings; suppressed cells
 and non-finite numbers (NaN, ±inf: not computable) are null. The run block is the run manifest
@@ -52,6 +56,8 @@ RELEASE_TABLES = (
     "degree_distribution",
     "community_graph",
     "community_groups",
+    "departures",
+    "departure_tests",
 )
 
 MANIFEST_RUN_FIELDS = ("code_version", "sample", "seed", "parameters")

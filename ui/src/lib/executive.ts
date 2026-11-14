@@ -7,7 +7,7 @@
 import type { DataQualityRow, ExploratoryRow, HeaderFieldRow, Period, ReleaseData, RiskRow, Scope } from "@/lib/data";
 import { CONFIDENCE } from "@/lib/data";
 import { formatNumber, formatShare, metricLabel } from "@/lib/format";
-import { type HypothesisEntry, allHypotheses } from "@/lib/hypotheses";
+import { type HypothesisEntry, releaseHypotheses } from "@/lib/hypotheses";
 import { type Verdict, executiveSummary, plainVerdict, untestableReason } from "@/lib/plainLanguage";
 import { minimumGroupSize } from "@/lib/privacy";
 import { PERSON_LEVEL, PUBLISHED, worstReidentification } from "@/lib/risk";
@@ -59,11 +59,6 @@ function step(steps: DataQualityRow[], name: string): DataQualityRow | undefined
   return steps.find((row) => row.step === name);
 }
 
-function entriesOf(data: ReleaseData): HypothesisEntry[] {
-  const { hypotheses, exploratory, artifact_checks: checks } = data.tables;
-  return allHypotheses(hypotheses, exploratory, checks);
-}
-
 function withVerdict(entries: HypothesisEntry[], kind: Verdict): HypothesisEntry[] {
   return entries.filter((entry) => plainVerdict(entry).verdict === kind);
 }
@@ -91,6 +86,11 @@ function heldCount(entries: HypothesisEntry[]): number {
   return withVerdict(entries, "held").length;
 }
 
+/** H26 asks about structure (who left), not about how people communicated. */
+function behaviouralHeldCount(entries: HypothesisEntry[]): number {
+  return withVerdict(entries, "held").filter((entry) => entry.kind !== "departure").length;
+}
+
 export function studiedCard(data: ReleaseData): SummaryCard {
   const dedupe = step(data.tables.data_quality, STEPS.dedupe);
   const weeks = analysisWeeks(data.tables.weekly_metrics);
@@ -110,7 +110,7 @@ export function studiedCard(data: ReleaseData): SummaryCard {
     points: [
       `${messages}${span}.`,
       `Only each message's envelope was analysed: sender, recipients and time.${contentText} Bodies and attachments were never parsed or stored.`,
-      `${entriesOf(data).length} hypotheses about how communication changed around ${events.length} public events${eventSpan}, each written down before its result was computed.`,
+      `${releaseHypotheses(data).length} hypotheses about how communication changed around ${events.length} public events${eventSpan}, each written down before its result was computed.`,
     ],
     view: "quality",
     linkLabel: "How the data was cleaned",
@@ -118,7 +118,7 @@ export function studiedCard(data: ReleaseData): SummaryCard {
 }
 
 export function foundCard(data: ReleaseData): SummaryCard {
-  const { answer, points } = executiveSummary(entriesOf(data));
+  const { answer, points } = executiveSummary(releaseHypotheses(data));
   return {
     key: "found",
     eyebrow: "What we found",
@@ -161,7 +161,7 @@ function exploratoryRange(entries: HypothesisEntry[]): string {
 }
 
 export function recordCard(data: ReleaseData): SummaryCard {
-  const entries = entriesOf(data);
+  const entries = releaseHypotheses(data);
   const shifted = entries.filter(shiftedRecord);
   const artifacts = withVerdict(entries, "artifact").map((entry) => entry.id);
   const untestable = withVerdict(entries, "untestable").filter((entry) => !shiftedRecord(entry));
@@ -176,7 +176,7 @@ export function recordCard(data: ReleaseData): SummaryCard {
       : []),
   ];
   const title =
-    shifted.length && heldCount(entries) === 0
+    shifted.length && behaviouralHeldCount(entries) === 0
       ? "The record changed; no change in behaviour is established"
       : points.length
         ? "Some results reflect how the data was kept"
@@ -203,7 +203,7 @@ function retentionSentence(id: string, row: ExploratoryRow, median: number): str
 }
 
 export function confidenceCard(data: ReleaseData): SummaryCard {
-  const entries = entriesOf(data);
+  const entries = releaseHypotheses(data);
   const counts = confidenceCounts(entries);
   const retentionFailed = entries.flatMap((entry) =>
     entry.kind === "exploratory" && entry.row.retention_passes === false && entry.row.median_change !== null
@@ -305,7 +305,7 @@ export function summaryCards(data: ReleaseData): SummaryCard[] {
 
 /** "What this means for a real organisation": each lesson tied to this release's own numbers. */
 export function whatItMeans(data: ReleaseData): string[] {
-  const entries = entriesOf(data);
+  const entries = releaseHypotheses(data);
   const traced = entries
     .filter((entry) => ["artifact", "untestable"].includes(plainVerdict(entry).verdict))
     .map((entry) => entry.id);

@@ -3,11 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { Overview } from "@/components/Overview";
+import { withRealDepartures } from "@/test/departures";
 import { handBuilt } from "@/test/hypotheses";
 import { sampleData } from "@/test/sample";
 
 function dataWith(rows = handBuilt()) {
-  const data = sampleData();
+  const data = withRealDepartures(sampleData());
   return {
     ...data,
     tables: { ...data.tables, hypotheses: rows.hypotheses, exploratory: rows.exploratory, artifact_checks: rows.checks },
@@ -33,8 +34,10 @@ describe("Overview", () => {
   it("answers first, in plain words, with the reasons and the privacy result", () => {
     render(<Overview data={dataWith()} />);
     // handBuilt: H1 is the headline and H16 is confident; the other 22 show no reliable change.
-    expect(screen.getByText("2 of 24 hypotheses held up: H1, H16.")).toBeInTheDocument();
+    // The real H26 follows its 24 hypotheses, so it is numbered H25 here and has a sentence of its own.
+    expect(screen.getByText("2 of 25 hypotheses held up: H1, H16.")).toBeInTheDocument();
     expect(screen.getByText("22 showed no reliable change.")).toBeInTheDocument();
+    expect(screen.getByText(/^No structural change can be established: H25 asked whether custodians left/)).toBeInTheDocument();
     expect(screen.getByText(/re-identifies .* of people/)).toBeInTheDocument();
   });
 

@@ -21,6 +21,8 @@ describe("glossary", () => {
       "Core and observed network",
       "Precision and recall",
       "Anonymity set and unique share",
+      "Departure and record end",
+      "Post hoc",
     ]) {
       expect(terms).toContain(term);
     }

@@ -9,9 +9,12 @@ import {
   formatEstimate,
   heldTrueLines,
   hypothesisNumber,
+  releaseHypotheses,
   retentionCheck,
 } from "@/lib/hypotheses";
+import { withRealDepartures } from "@/test/departures";
 import { check, exploratory, handBuilt, preregistered } from "@/test/hypotheses";
+import { sampleData } from "@/test/sample";
 
 function merged() {
   const { hypotheses, exploratory: rows, checks } = handBuilt();
@@ -36,7 +39,7 @@ describe("allHypotheses", () => {
     const entries = allHypotheses([...hypotheses].reverse(), [...rows].reverse(), checks);
     expect(entries.map((e) => e.id)).toEqual(Array.from({ length: 24 }, (_, i) => `H${i + 1}`));
     expect(entries.map((e) => e.number)).toEqual(Array.from({ length: 24 }, (_, i) => i + 1));
-    expect(countByKind(entries)).toEqual({ preregistered: 4, exploratory: 20 });
+    expect(countByKind(entries)).toEqual({ preregistered: 4, exploratory: 20, departure: 0 });
   });
 
   it("takes the kind from the table a row comes from, not from its id", () => {
@@ -117,5 +120,24 @@ describe("retentionCheck", () => {
       retention_ci_high: 0.3,
     });
     expect(retentionCheck(failed)).toMatch(/^fails, /);
+  });
+});
+
+describe("releaseHypotheses", () => {
+  it("adds H26 after every other hypothesis, as its own kind", () => {
+    const entries = releaseHypotheses(withRealDepartures(sampleData()));
+    expect(entries).toHaveLength(26);
+    const last = entries[entries.length - 1];
+    expect([last?.id, last?.kind, last?.heldTrue]).toEqual(["H26", "departure", false]);
+    expect(countByKind(entries)).toEqual({ preregistered: 4, exploratory: 21, departure: 1 });
+  });
+
+  it("holds H26 true only for an outcome of high or moderate confidence", () => {
+    const held = releaseHypotheses(sampleData()).find((entry) => entry.kind === "departure");
+    expect(held?.heldTrue).toBe(true);
+  });
+
+  it("says when H26 was stated", () => {
+    expect(STATED.departure).toBe("post hoc, after every other result and before being computed");
   });
 });

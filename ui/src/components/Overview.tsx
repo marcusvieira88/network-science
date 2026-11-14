@@ -2,13 +2,13 @@ import { ExecutiveSummary } from "@/components/ExecutiveSummary";
 import { FindingCard } from "@/components/FindingCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ReleaseData } from "@/lib/data";
-import { allHypotheses, heldTrueLines } from "@/lib/hypotheses";
+import { heldTrueLines, releaseHypotheses } from "@/lib/hypotheses";
 import { keyNumbers } from "@/lib/overview";
 import type { ViewId } from "@/lib/views";
 
 export function Overview({ data, onSelect }: { data: ReleaseData; onSelect?: (view: ViewId) => void }) {
-  const { hypotheses, exploratory, artifact_checks: checks } = data.tables;
-  const leads = heldTrueLines(allHypotheses(hypotheses, exploratory, checks));
+  const { hypotheses, artifact_checks: checks } = data.tables;
+  const leads = heldTrueLines(releaseHypotheses(data));
   return (
     <div className="space-y-6">
       <ExecutiveSummary data={data} onSelect={onSelect} />

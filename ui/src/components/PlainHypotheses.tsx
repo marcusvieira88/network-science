@@ -1,3 +1,4 @@
+import { DepartureDetails } from "@/components/DepartureDetails";
 import { Badge } from "@/components/ui/badge";
 import type { HypothesisEntry } from "@/lib/hypotheses";
 import { type PlainVerdict, type Verdict, plainVerdict } from "@/lib/plainLanguage";
@@ -17,6 +18,11 @@ const VERDICT_VARIANT: Record<Verdict, "default" | "secondary" | "outline" | "de
 /** The common outcomes, folded under one line so the noteworthy ones are read first. */
 const FOLDED: ReadonlySet<Verdict> = new Set<Verdict>(["none", "withheld"]);
 
+/** H26 carries its own evidence and is the one question about structure, so it is never folded. */
+function isFolded({ entry, plain }: Reading): boolean {
+  return entry.kind !== "departure" && FOLDED.has(plain.verdict);
+}
+
 interface Reading {
   entry: HypothesisEntry;
   plain: PlainVerdict;
@@ -26,13 +32,26 @@ function ReadingItem({ entry, plain }: Reading) {
   return (
     <li
       data-verdict={plain.verdict}
-      className={cn("rounded-lg border bg-card p-3", plain.verdict === "held" && "border-primary/50 bg-primary/10")}
+      className={cn(
+        "rounded-lg border bg-card p-3",
+        plain.verdict === "held" && "border-primary/50 bg-primary/10",
+        entry.kind === "departure" && "md:col-span-2",
+      )}
     >
       <div className="mb-1 flex items-center gap-2">
         <span className="font-medium">{entry.id}</span>
         <Badge variant={VERDICT_VARIANT[plain.verdict]}>{plain.label}</Badge>
+        {entry.kind === "departure" && <Badge variant="outline">post hoc</Badge>}
       </div>
       <p className="text-sm text-muted-foreground">{plain.sentence}</p>
+      {entry.kind === "departure" && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-sm">Statement, windows, counts, tests and power</summary>
+          <div className="mt-3">
+            <DepartureDetails departure={entry.departure} />
+          </div>
+        </details>
+      )}
     </li>
   );
 }
@@ -40,8 +59,8 @@ function ReadingItem({ entry, plain }: Reading) {
 /** Every hypothesis in one plain sentence: noteworthy outcomes first, the rest folded. */
 export function PlainHypotheses({ entries }: { entries: HypothesisEntry[] }) {
   const readings = entries.map((entry) => ({ entry, plain: plainVerdict(entry) }));
-  const shown = readings.filter((r) => !FOLDED.has(r.plain.verdict));
-  const folded = readings.filter((r) => FOLDED.has(r.plain.verdict));
+  const shown = readings.filter((r) => !isFolded(r));
+  const folded = readings.filter(isFolded);
   return (
     <section aria-label="Hypotheses in plain words" className="space-y-3">
       <ul className="grid gap-3 md:grid-cols-2">

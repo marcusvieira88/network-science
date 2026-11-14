@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ReleaseData } from "@/lib/data";
 import { formatShare } from "@/lib/format";
-import { allHypotheses } from "@/lib/hypotheses";
+import { releaseHypotheses } from "@/lib/hypotheses";
 import { worstReid } from "@/lib/overview";
 import { executiveSummary } from "@/lib/plainLanguage";
 import { minimumGroupSize } from "@/lib/privacy";
@@ -31,8 +31,7 @@ function privacyLine(data: ReleaseData): string | null {
 
 /** The answer first, in plain words, for readers who will not read the tables. */
 export function ExecutiveSummary({ data, onSelect }: { data: ReleaseData; onSelect?: (view: ViewId) => void }) {
-  const { hypotheses, exploratory, artifact_checks: checks } = data.tables;
-  const { answer, points } = executiveSummary(allHypotheses(hypotheses, exploratory, checks));
+  const { answer, points } = executiveSummary(releaseHypotheses(data));
   const privacy = privacyLine(data);
   return (
     <Card className="border-primary/40">

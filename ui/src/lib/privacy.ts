@@ -1,8 +1,10 @@
 /**
  * The UI's own privacy guard, mirroring the export's refusal rules (uiexport/export.py):
- * no address, no person or organisation pseudonym, no person count below k.
+ * no address, no person or organisation pseudonym, no person count below k, and no H26 cell that
+ * reveals a group below k by subtraction.
  */
-import type { ReleaseData } from "@/lib/data";
+import type { DeparturePeriodRow, ReleaseData } from "@/lib/data";
+import { DEPARTURE_PRIMARY, DEPARTURE_SPLITS, DEPARTURE_WINDOWS } from "@/lib/departureVocab";
 
 /** Same patterns as LEAK_PATTERNS in src/enron_case/contracts/vocab.py. */
 export const LEAK_PATTERN = /@|p_[a-z2-7]{16}|o_[a-z2-7]{16}/;
@@ -17,7 +19,12 @@ export const PERSON_COUNT_COLUMNS = {
   degree_distribution: ["persons"],
   community_groups: ["n_persons"],
   exploratory: ["custodians", "placebo_custodians"],
+  departures: ["at_risk", "departures", "record_ends"],
 } as const;
+
+/** The crisis window and its two parts. */
+const CRISIS_PARTS: readonly DeparturePeriodRow["period"][] = [DEPARTURE_WINDOWS[0], ...DEPARTURE_SPLITS];
+const SPLIT_COUNTS = ["departures", "record_ends"] as const;
 
 /** The weekly metric whose value is itself a person count (PERSON_COUNT_METRIC in schemas.py). */
 const PERSON_COUNT_METRIC = "active_persons";
@@ -68,9 +75,47 @@ export function smallPersonCounts(data: ReleaseData): number {
   return small;
 }
 
+function smallComplements(row: DeparturePeriodRow, k: number): boolean {
+  const { at_risk: atRisk, departures, record_ends: ends } = row;
+  if (atRisk === null) return false;
+  const complements = [
+    departures === null ? null : atRisk - departures,
+    ends === null ? null : atRisk - ends,
+    departures === null || ends === null ? null : atRisk - departures - ends,
+  ];
+  return complements.some((value) => value !== null && value < k);
+}
+
+/** Two of the crisis total and its two parts give the third by subtraction. */
+function revealingSplits(rows: DeparturePeriodRow[]): number {
+  const parts = rows.filter((row) => CRISIS_PARTS.includes(row.period));
+  return SPLIT_COUNTS.filter((column) => parts.filter((row) => row[column] !== null).length === 2).length;
+}
+
+/**
+ * H26 cells that would reveal a group below k though no count in them is below k (release/kanon.py
+ * and release/tables.py): a complement in its row (at risk minus a count), a share published for a
+ * suppressed count, a crisis split two of whose counts give the third, and a p-value or power count
+ * for a robustness variant, whose counts are nested in the primary's.
+ */
+export function departureDisclosures(data: ReleaseData): number {
+  const k = minimumGroupSize(data);
+  const periods = data.tables.departures;
+  const complements = periods.filter((row) => smallComplements(row, k)).length;
+  const shares = periods.filter((row) => row.hazard !== null && (row.departures === null || row.at_risk === null)).length;
+  const variants = data.tables.departure_tests.filter(
+    (row) =>
+      row.variant !== DEPARTURE_PRIMARY &&
+      [row.p, row.placebo_p, row.detectable_departures, row.placebo_detectable_departures].some((value) => value !== null),
+  ).length;
+  return complements + shares + revealingSplits(periods) + variants;
+}
+
 export function assertReleasePrivacy(data: ReleaseData): void {
   const identifiers = identifierCount(data);
   if (identifiers) throw new PrivacyError(`release data holds ${identifiers} identifier-shaped values`);
   const small = smallPersonCounts(data);
   if (small) throw new PrivacyError(`release data holds ${small} person counts below the minimum group size`);
+  const disclosures = departureDisclosures(data);
+  if (disclosures) throw new PrivacyError(`release data holds ${disclosures} departure cells that reveal a group below the minimum size`);
 }

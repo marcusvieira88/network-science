@@ -1,5 +1,9 @@
 const DECIMALS = 2;
 
+export function capitalised(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 export function formatNumber(value: number | null, decimals: number = DECIMALS): string {
   if (value === null) return "suppressed";
   return value.toLocaleString("en-US", { maximumFractionDigits: decimals, minimumFractionDigits: 0 });

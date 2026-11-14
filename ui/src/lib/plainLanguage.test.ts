@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { allHypotheses } from "@/lib/hypotheses";
+import { allHypotheses, releaseHypotheses } from "@/lib/hypotheses";
 import { VERDICT_LABELS, executiveSummary, plainVerdict, weekInPlainWords } from "@/lib/plainLanguage";
+import { realTests, withRealDepartures } from "@/test/departures";
 import { check, exploratory, preregistered } from "@/test/hypotheses";
+import { sampleData } from "@/test/sample";
 
 function verdictOf(...args: Parameters<typeof allHypotheses>) {
   const [entry] = allHypotheses(...args);
@@ -114,6 +116,39 @@ describe("executiveSummary", () => {
   it("names what held up", () => {
     const entries = allHypotheses([preregistered("H1", { is_headline: true, supported: "yes" })], [exploratory(5)], []);
     expect(executiveSummary(entries).answer).toBe("1 of 2 hypotheses held up: H1.");
+  });
+});
+
+describe("H26 in plain words", () => {
+  function departureVerdict(data = withRealDepartures(sampleData())) {
+    const entry = releaseHypotheses(data).find((item) => item.kind === "departure");
+    if (!entry) throw new Error("no H26 entry");
+    return plainVerdict(entry);
+  }
+
+  it("reads the real outcome as no reliable change, with its reasons", () => {
+    const verdict = departureVerdict();
+    expect(verdict.verdict).toBe("none");
+    expect(verdict.sentence).toMatch(/^No wave of custodian departures in the crisis can be established: fewer than 5 custodians departed/);
+  });
+
+  it("reads high or moderate as held up, and low as not robust", () => {
+    expect(departureVerdict(sampleData()).verdict).toBe("held");
+    const data = withRealDepartures(sampleData());
+    const departure_tests = realTests().map((row) => (row.variant === "primary" ? { ...row, outcome: "low" as const } : row));
+    expect(departureVerdict({ ...data, tables: { ...data.tables, departure_tests } }).verdict).toBe("weak");
+  });
+
+  it("counts 26 hypotheses and adds one sentence on structure, keeping H26 out of the other reasons", () => {
+    // The sample's H1 holds up, so H26's sentence does not say "either".
+    const summary = executiveSummary(releaseHypotheses(withRealDepartures(sampleData())));
+    expect(summary.answer).toBe("1 of 26 hypotheses held up: H1.");
+    expect(summary.points.filter((point) => point.includes("H26"))).toEqual([
+      "No structural change can be established: H26 asked whether custodians left during the crisis, and no wave of " +
+        "departures can be established; the test could only have seen a large wave (at least 9 of the 66 custodians at risk), " +
+        "so a smaller one is not ruled out.",
+    ]);
+    expect(summary.points[summary.points.length - 1]).toContain("H26");
   });
 });
 

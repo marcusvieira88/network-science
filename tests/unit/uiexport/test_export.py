@@ -187,6 +187,43 @@ def test_exploratory_hypotheses_are_exported(synth: SynthOutput, tmp_path: Path)
     assert isinstance(e1_caveat, str) and e1_caveat.startswith("invalid:")
 
 
+def test_departure_tables_are_exported(synth: SynthOutput, tmp_path: Path) -> None:
+    """H26: the fixture's two departures in each other window are below k, so their count and
+    share are null; the crisis wave of twelve of forty is published."""
+    ctx = release_ctx(synth, tmp_path)
+    run(ctx)
+    tables = released(ctx)
+    periods = {row["period"]: row for row in tables["departures"]}
+    assert list(periods) == list(schemas.DEPARTURE_PERIODS)
+    assert periods["crisis"] == {
+        "order": 1,
+        "period": "crisis",
+        "period_start": "2001-08-14",
+        "period_end": "2001-12-02",
+        "at_risk": 40,
+        "departures": 12,
+        "record_ends": None,
+        "hazard": 0.3,
+    }
+    assert (periods["reference"]["departures"], periods["reference"]["hazard"]) == (None, None)
+    tests = tables["departure_tests"]
+    assert [(row["variant"], row["outcome"]) for row in tests] == [
+        ("primary", "moderate"),
+        ("silence 8", None),
+    ]
+    assert tests[1]["p"] is None
+    assert "smallest_cell" not in tests[0]
+
+
+@pytest.mark.parametrize("column", ["at_risk", "departures"])
+def test_refuses_departure_count_below_k(synth: SynthOutput, tmp_path: Path, column: str) -> None:
+    ctx = release_ctx(synth, tmp_path)
+    df = synth.table("departures").with_columns(pl.lit(ctx.config.k_min - 1).alias(column))
+    replace_table(ctx, "departures", df)
+    with pytest.raises(PrivacyViolation):
+        run(ctx)
+
+
 def test_same_input_gives_byte_identical_json(synth: SynthOutput, tmp_path: Path) -> None:
     first = release_ctx(synth, tmp_path / "a")
     second = release_ctx(synth, tmp_path / "b")

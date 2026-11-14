@@ -19,12 +19,13 @@ import {
 } from "@/lib/executive";
 import { worstReidentification } from "@/lib/risk";
 import { metricSeries } from "@/lib/series";
+import { withRealDepartures } from "@/test/departures";
 import { sampleData } from "@/test/sample";
 
 /**
  * The sample reshaped to the real release's outcomes (values copied from release/*.csv): no
- * headline, H2 and H3 fail their artifact checks, H5's shift lies far from zero, and the published
- * release R1 re-identifies nobody.
+ * headline, H2 and H3 fail their artifact checks, H5's shift lies far from zero, H26 establishes no
+ * departure wave, and the published release R1 re-identifies nobody.
  */
 function realShaped(): ReleaseData {
   const data = sampleData();
@@ -61,11 +62,11 @@ function realShaped(): ReleaseData {
     { order: 4, step: "manual merge check", count_in: 50, count_out: 50, removed: 0, rule: "seeded sample, judged by a person", precision: 1, recall: null, precision_ci_low: 0.929, precision_ci_high: 1 },
     { order: 15, step: "events in the network", count_in: 1328123, count_out: 823488, removed: 504635, rule: "sender-recipient events", precision: null, recall: null, precision_ci_low: null, precision_ci_high: null },
   ];
-  return {
+  return withRealDepartures({
     ...data,
     run: { ...data.run, sample: false },
     tables: { ...tables, hypotheses, artifact_checks, exploratory, risk, data_quality },
-  };
+  });
 }
 
 describe("joinList", () => {
@@ -87,7 +88,7 @@ describe("summary cards on the sample", () => {
       points: [
         "2,721 distinct messages from the synthetic sample corpus, over 118 weeks (weeks of 1999-12-27 to 2002-03-25).",
         "Only each message's envelope was analysed: sender, recipients and time. Subject and X-Folder count as content and were never stored. Bodies and attachments were never parsed or stored.",
-        "25 hypotheses about how communication changed around 5 public events (2001-08-14 to 2001-12-02), each written down before its result was computed.",
+        "26 hypotheses about how communication changed around 5 public events (2001-08-14 to 2001-12-02), each written down before its result was computed.",
       ],
       view: "quality",
       linkLabel: "How the data was cleaned",
@@ -103,12 +104,13 @@ describe("summary cards on the sample", () => {
 
   it("says what was found, with the reasons", () => {
     const card = foundCard(data);
-    expect(card.title).toBe("1 of 25 hypotheses held up: H1.");
+    expect(card.title).toBe("2 of 26 hypotheses held up: H1, H26.");
     expect(card.points).toEqual([
       "1 looked real but is not robust enough to claim (H2).",
       "3 gave mixed evidence (H4, H16, H20).",
       "2 could not be tested with this data (H5, H7).",
       "18 showed no reliable change.",
+      "H26: custodians stopped sending while their mailbox kept receiving mail at a higher rate in the crisis than a year earlier (confidence: moderate).",
     ]);
     expect(card.view).toBe("hypotheses");
   });
@@ -167,8 +169,8 @@ describe("summary cards on the sample", () => {
 
   it("says what it means for an organisation", () => {
     expect(whatItMeans(data)).toEqual([
-      "Check how the data was kept before reading behaviour into it: here 2 of 25 results trace back to how the data was collected or analysed (H5, H7).",
-      "Fix the questions and checks before looking at results, label any check added later, and publish every outcome: all 25 hypotheses are published here, including the 24 that did not hold up.",
+      "Check how the data was kept before reading behaviour into it: here 2 of 26 results trace back to how the data was collected or analysed (H5, H7).",
+      "Fix the questions and checks before looking at results, label any check added later, and publish every outcome: all 26 hypotheses are published here, including the 24 that did not hold up.",
       "Treat pseudonymised person-level data as identifiable: a simulated attacker re-identified 90% of people from it here. Share only groups of at least 5 people.",
       "This kind of question can be studied without reading content: only sender, recipients and time were used, and Subject and X-Folder were never stored.",
       "Before applying this to your own staff's email: collect header fields only at the source, keep the pseudonymisation key in your own key store, replace the noise sketch with a formal privacy budget, and agree the questions and thresholds with employee representatives, such as a works council, first.",
@@ -181,14 +183,25 @@ describe("summary cards on the real outcomes", () => {
 
   it("answers that nothing held up", () => {
     const card = foundCard(data);
-    expect(card.title).toBe("None of the 25 hypotheses held up under the checks.");
+    expect(card.title).toBe("None of the 26 hypotheses held up under the checks.");
     expect(card.points).toEqual([
       "2 looked real at first but are explained by known artifacts of the data or the method (H2, H3).",
       "2 gave mixed evidence (H16, H20).",
       "2 could not be tested with this data (H5, H7).",
       "3 changed the opposite way to the prediction (H14, H21, H22).",
-    "16 showed no reliable change.",
+      "16 showed no reliable change.",
+      "No structural change can be established either: H26 asked whether custodians left during the crisis, and no wave of " +
+        "departures can be established; the test could only have seen a large wave (at least 9 of the 66 custodians at risk), " +
+        "so a smaller one is not ruled out.",
     ]);
+  });
+
+  it("keeps the record change as the main finding even when H26 holds, since H26 is not behaviour", () => {
+    const departure_tests = data.tables.departure_tests.map((row) =>
+      row.variant === "primary" ? { ...row, outcome: "moderate" as const } : row,
+    );
+    const card = recordCard({ ...data, tables: { ...data.tables, departure_tests } });
+    expect(card.title).toBe("The record changed; no change in behaviour is established");
   });
 
   it("leads with the change in the record", () => {
@@ -237,10 +250,10 @@ describe("summary cards on the real outcomes", () => {
   it("frames the lessons on the real outcomes", () => {
     const [record, publish, privacy] = whatItMeans(data);
     expect(record).toBe(
-      "Check how the data was kept before reading behaviour into it: here 4 of 25 results trace back to how the data was collected or analysed (H2, H3, H5, H7).",
+      "Check how the data was kept before reading behaviour into it: here 4 of 26 results trace back to how the data was collected or analysed (H2, H3, H5, H7).",
     );
     expect(publish).toBe(
-      "Fix the questions and checks before looking at results, label any check added later, and publish every outcome: all 25 hypotheses are published here, though none held up.",
+      "Fix the questions and checks before looking at results, label any check added later, and publish every outcome: all 26 hypotheses are published here, though none held up.",
     );
     expect(privacy).toBe(
       "Treat pseudonymised person-level data as identifiable: a simulated attacker re-identified 59.1% of people from it here. Share only groups of at least 5 people.",
