@@ -1,6 +1,7 @@
 # Hypotheses H1–H4
 
-Written and committed **before any analysis of the real corpus** (FR-016, research R10). The
+Written and committed **before any analysis of the real corpus** (FR-016, research R10), so
+H1–H4 carry the timing label "pre-registered". The
 hypotheses, their metrics, directions, periods and decision rules below are fixed. A change to
 any of them after real-data results exist must be logged in `docs/ai-workflow-log.md` with the
 reason, and the original version stays in the git history.
@@ -103,7 +104,7 @@ and is explained by its artifact check instead.
 
 ## Confidence and headline
 
-Confidence rule (research R11, until `docs/metrics.md` states it; the two must agree):
+Confidence rule (research R11; `docs/metrics.md` restates it, and the two must agree):
 
 - **high**: `supported = yes` and all three robustness checks (c), (d), (e) pass;
 - **moderate**: `supported = yes` and exactly one of (c), (d), (e) fails;
@@ -135,7 +136,9 @@ replaces "largest supported effect" so that it matches the pre-registered rule i
 - The collection was shaped by an investigation.
 - The permutation test assumes weeks are exchangeable under no change; serial correlation in a
   weekly series makes it optimistic. The block bootstrap interval partly offsets this.
-  *Calibration (added after the data-science review):* on 1,000 simulated 117-week series with
+  *Calibration (added after the data-science review):* on 1,000 simulated 117-week series (the
+  full weeks of the analysis window; the published series has 118 weekly rows, because the week
+  of 1999-12-27 holds 1 and 2 January 2000) with
   no change, the test at α = 0.05 rejects 3.2 % of independent series, but 14.8 % of AR(1)
   series with φ = 0.3 and 25.6 % with φ = 0.5 (`tests/unit/finding/test_stats.py`,
   `test_permutation_test_is_liberal_on_autocorrelated_no_change`). Weekly network metrics are
@@ -179,10 +182,13 @@ have no artifact check: neither was supported. The checks are in `src/enron_case
 artifacts.py`, their results in `release/artifact_checks.csv`, and both are tested on synthetic
 data where groups do not drift and the planted change is behavioural (both checks pass there).
 
-## Further hypotheses H5–H25
+## Further hypotheses H5–H26
 
-Twenty further hypotheses, stated by the project owner after the results of H1–H4 and committed
-before each was computed, continue this numbering, and H25, a post-hoc replication test of prior
-work, stated after every other result was known and before it was computed. Their definitions,
-windows and decision rule are in `docs/hypotheses-exploratory.md` (recorded there as E1–E21;
-E*n* = H*n*+4); Holm's correction runs across all twenty-one.
+Twenty further hypotheses, H5–H24, continue this numbering. They were stated by the project
+owner after the results of H1–H4 and committed before each was computed; their timing label is
+"stated before computed, after earlier results". Two more are "post hoc", stated after every
+other result was known and before being computed: H25, a replication test of prior work, and
+H26, a structural question (did custodians leave during the crisis?). Definitions, windows and
+decision rules are in `docs/hypotheses-exploratory.md` (recorded there as E1–E21, E*n* = H*n*+4,
+and O1 = H26). Holm's correction runs across H5–H25; H26 has its own rule with a Bonferroni
+bound over all twenty-six (`config.HYPOTHESES_STATED`).

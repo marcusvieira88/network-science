@@ -2,7 +2,10 @@
 
 Definitions of the network, its weekly snapshots and the eight metrics in `metric_series`
 (research R9), and the rule that turns the checks of research R11 into a stated confidence.
-Written before the code (`src/enron_case/network/`); the code implements exactly this.
+The definitions of the network, the snapshots and the metrics were written before the code
+(`src/enron_case/network/`), which implements them. Two parts were added later and describe what
+was built: how the release and the explorer treat the `other` bucket (under `communities`), and
+the confidence stated for the record change (at the end of "Evidence and confidence").
 
 ## The person network
 
@@ -147,6 +150,21 @@ direction `d` (+1 up, −1 down), α = 0.05 (`config.alpha`):
 A hypothesis whose check against a known artifact fails or could not run is capped at `low`
 (`docs/hypotheses.md`, "Artifact checks"). The headline is the supported, high-confidence
 hypothesis with the largest effect in its direction, if any.
+
+### Confidence that the record changed
+
+The record change is descriptive, not a hypothesis test, so the rule above does not apply to it.
+The report states "Confidence that the record changed: high" when both of these hold in the
+release tables, and names the cause as not established in every case:
+
+1. in `record_profile`, the after-hours shares of the reference months and of the crisis months
+   do not overlap (every crisis month lies beyond every reference month);
+2. in `exploratory`, the H5 interval (the same share, within each custodian) excludes zero.
+
+On the committed release both hold: the reference months lie between 0.43 and 0.54, the crisis
+months between 0.04 and 0.06, and the H5 interval is −0.51 to −0.37. H5's estimate is read here
+as a measurement of the record, not of behaviour; as a behavioural hypothesis H5 stays
+untestable.
 
 ## Known limits
 

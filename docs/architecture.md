@@ -18,7 +18,7 @@ flowchart TB
     subgraph ING["ingest · identifiers allowed, purged at end of run"]
         S1[parse<br/>headers only, allowlist]
         S2[clean<br/>normalize + dedupe]
-        S3[identity<br/>rules N1–N5]
+        S3[identity<br/>rules N1–N4, N5 flags custodians]
         T1[(header_records)]
         T2[(messages)]
         T3[(entities + address_map)]
@@ -30,7 +30,7 @@ flowchart TB
         T5[(snapshots, metric_series,<br/>communities)]
         S6[finding<br/>H1–H4, artifact checks, H5–H25,<br/>record profile, H26 departures]
         T6[(hypothesis_results,<br/>artifact_results,<br/>exploratory_results,<br/>profile_results,<br/>departure_results,<br/>departure_test_results)]
-        S7[risk<br/>attack R0 / R1 / R2<br/>with A1 / A2 / A3]
+        S7[risk<br/>attack R0 with A1 / A2 / A3,<br/>R1 and R2: nothing to match]
         T7[(risk_results)]
         CT[(counts/*.json<br/>counts only)]
     end
@@ -82,21 +82,26 @@ Four mechanisms make the picture enforceable:
    reads the ingest zone, the truth and the key (to score guesses, returning counts only).
 2. **StageContext** (`context.py`) is the only way a stage reads or writes data: `ctx.read`,
    `ctx.write`, `ctx.write_counts`, `ctx.read_counts`, `ctx.path`. Every table write is
-   conformed and validated against its contract, leak-checked (no `@` in restricted; no
-   address or pseudonym pattern in release) and fingerprinted for the run manifest. Only the
+   conformed and validated against its contract, leak-checked (no `@` in restricted; no `@`,
+   `p_…` or `o_…` pattern in release: a pattern check, which a bare name would pass) and
+   fingerprinted for the run manifest. Only the
    `release` package may write release tables; counts files refuse any `@`.
 3. **Import boundary** (`tests/privacy/test_import_boundary.py`). `network`, `finding`, `risk`,
    `release`, `report` and `uiexport` may not import `ingest`, `clean` or `identity`;
    `uiexport` may import only release-side helpers.
 4. **One release gate** (`release/kanon.py`). Every release table passes `kanon.enforce`: no
    identifier pattern, no person count below k in any column of
-   `schemas.PERSON_COUNT_COLUMNS`, only the default variant in `weekly_metrics`, no lone
-   recoverable cell in `degree_distribution`. A violation aborts the run.
+   `schemas.PERSON_COUNT_COLUMNS`, only the default variant in `weekly_metrics`, no core row
+   where observed minus core `n_active` would count 1 to k − 1 persons (the core is nested in
+   the observed network; the builder suppresses that core row), no lone recoverable cell in
+   `degree_distribution`, and no `departures` row whose complement (at risk minus a published
+   count) is below k. A violation aborts the run.
 
-The privacy canary (`tests/privacy/test_canary.py`) plants markers in bodies, subjects, folder
-names, file names and display names of the synthetic corpus and checks that none reaches the
-restricted zone, the release, the manifest or the logs, and that body and subject markers appear
-nowhere at all.
+The privacy canary (`tests/privacy/test_canary.py`) runs the pipeline on the synthetic corpus,
+which carries markers in bodies, subjects, folder names and file names, and checks that none of
+those four appears in any zone at all (ingest, restricted, release, ui, docs, logs) or in a log
+line. It also checks that no `@`, display name or mailbox owner's folder name reaches the
+restricted zone, the release, the UI data, the documents, the manifest or the logs.
 
 ### One-command run
 
@@ -124,12 +129,16 @@ sequenceDiagram
 Each step prints one line and logs to `data/logs/<step>.log`; the first failing step stops the
 run with its exit code. `make check` (`uv run enron-case check` on Windows) does everything
 except serving. On a fresh clone the whole
-run took about 24 minutes, 20 of them the download on that connection; the pipeline itself takes
-about 2.5 minutes (`stages` in `release/run_manifest.json`).
+run took about 25 minutes (about 20 the download, on that connection); the pipeline itself takes
+about 2.5 minutes (the one command prints each step's time, and each run writes the seconds per
+stage to `data/logs/stage_timings.json`, which is not committed; the manifest holds no
+durations). `enron-case run` purges the ingest zone when it ends, also on failure. A single
+`enron-case stage X` keeps it, so the next stage can read it, and prints a warning: finish with
+a full `run`, or delete `data/ingest/`, when done.
 `enron-case run --sample` (`make sample`) runs the same stages on the synthetic corpus into
 `release-sample/` with a fixed test key; documents are written only on real-corpus runs.
 `enron-case review-merges` is the manual merge check: it shows a seeded sample of merges in a
-terminal and stores only counts (`identity_manual`: total and per rule).
+terminal and stores only two counts (`identity_manual`: `manual_checked`, `manual_correct`).
 
 ### Identity resolution and pseudonymization
 
@@ -191,14 +200,17 @@ flowchart TB
     DT --> T4[(departures, departure_tests)]
 ```
 
-H5–H24 were stated in `docs/hypotheses-exploratory.md` (as E1–E20) before they were computed,
-after H1–H4 had been run; H25 (E21), a replication test of a published "denser network in the
-crisis" result, was stated post hoc, after every other result was known, and before it was
-computed. H26, custodian departures, was stated post hoc in the same way. They are reported as one list H1–H26 everywhere. In the real-corpus run **no
+Three timing labels are used on every surface. H1–H4 are "pre-registered" (before any real
+data). H5–H24 are "stated before computed, after earlier results": written in
+`docs/hypotheses-exploratory.md` (as E1–E20) after H1–H4 had been run. H25 (E21), a replication
+test of the "denser network in the crisis" reported by Diesner & Carley (2005), and H26,
+custodian departures, are "post hoc": stated after every other result was known, and before
+being computed. They are reported as one list H1–H26 everywhere. In the real-corpus run **no
 hypothesis is held true**: H2 and H3 pass the pre-registered rule but fail their artifact checks
 (baseline drift; a change in which mailboxes hold mail), H1 and H4 are not supported, and of
-H5–H25 none is confident. H16, the strongest lead, fails its retention check and is capped at
-inconclusive; H25 finds no change within custodians.
+H5–H25 none is confident. H16, the strongest lead, is not established once inbox retention is
+accounted for and is capped at inconclusive; H20 is inconclusive (its placebo fails); H14, H21
+and H22 changed the other way; H25 is not established within custodians.
 
 H26, a structural question stated post hoc (O1 in `docs/hypotheses-exploratory.md`), asks
 whether custodians left during the crisis: a departure is a custodian who stops sending for 16
@@ -206,11 +218,13 @@ weeks while their own mailbox keeps receiving mail that only it can hold, so a m
 no longer collected (a record end) does not count. It is **not established**: too few
 departures in the crisis window to publish, and not a higher share than a year earlier.
 
-The published finding is about the **record**, not behaviour: the record profile
-(`record_profile`) shows the share of the custodians' weekday sent mail stamped outside working
-hours dropping from about half (up to April 2001) to a few percent (from August 2001 on), falling
-from May 2001, while the received mail kept per month grows up to several-fold. The `Date` convention changed between the windows every comparison
-sets against each other, so the report states that change first.
+The finding: the record changed (high confidence that it changed; cause not established). No
+behavioural finding about the crisis year is claimed. The record profile (`record_profile`)
+shows the share of the custodians' weekday sent mail stamped outside working hours dropping from
+about half (up to April 2001) to a few percent (from August 2001 on), falling from May 2001,
+while the received mail kept per month grows up to about 3.5 times the largest reference month
+(about five times October on October). The `Date` convention changed between the windows every
+comparison sets against each other, so the report states that change first.
 
 ### Re-identification test
 
@@ -223,8 +237,8 @@ flowchart LR
         ATT[matching / seed propagation]
     end
     R0[(R0 node-level edges<br/>observed-scope snapshots,<br/>in memory only)] --> ATT
-    R1[(R1 = published aggregates, k ≥ 5,<br/>no pseudonyms)] --> ATT
-    R2[(R2 = R1 + seeded Laplace noise)] --> ATT
+    R1[(R1 = published aggregates, k ≥ 5,<br/>no pseudonyms)] -. no person-level record,<br/>nothing to match .-> ATT
+    R2[(R2 = R1 + seeded Laplace noise)] -. nothing to match .-> ATT
     AUX1 --> ATT
     AUX2 --> ATT
     AUX3 --> ATT
@@ -233,9 +247,9 @@ flowchart LR
     SC --> RT[(risk_results:<br/>uniqueness, re-id rate + CI,<br/>utility per release)]
 ```
 
-R1 and R2 contain no person-level records, so the attackers have nothing to match: their rate is
-zero by construction. That is reported as such, not as a measured group-level attack (none was
-built).
+R0, which is never published, is the only release measured. R1 and R2 contain no person-level
+records, so the attackers have nothing to match: their rate is 0 by construction, not a
+measurement. No group-level attack was built.
 
 ### Explorer UI
 
@@ -248,31 +262,35 @@ flowchart LR
     S10 --> J[(ui/public/data/release.json<br/>the UI's only input)]
     J --> APP[React 18 + TypeScript · Vite<br/>shadcn/ui · dark theme]
     subgraph Views
+        V0[Executive summary<br/>landing view: six plain-language cards]
         V1[Overview<br/>plain-language answer, finding statement, key numbers]
         V2["Metrics<br/>metric / scope / variant selectors<br/>(only the default variant is published),<br/>change point, public events, baseline band"]
-        V3[Network<br/>plain-language week summary; Sigma.js WebGL<br/>graph of groups, ForceAtlas2, zoom, fullscreen,<br/>search, hover, week slider; Individuals and<br/>Overlap modes; SVG fallback]
+        V3[Network<br/>plain-language week summary; Sigma.js WebGL<br/>graph of groups, ForceAtlas2, zoom, fullscreen,<br/>search, hover, week slider; group-size dots and<br/>Overlap modes; SVG fallback]
         V4[Clusters<br/>chord diagram of group-to-group weight,<br/>per-group table]
         V5[Hypotheses<br/>plain-language verdicts; one list H1–H26,<br/>artifact and retention checks,<br/>H26 counts, tests and power]
         V6[Data quality<br/>cleaning funnel, header rulings,<br/>manual merge check]
         V7[Privacy and risk<br/>R0 / R1 / R2 by attacker A1–A3]
         V8[Limits]
+        V9[Glossary]
     end
-    APP --> V1 & V2 & V3 & V4 & V5 & V6 & V7 & V8
+    APP --> V0 & V1 & V2 & V3 & V4 & V5 & V6 & V7 & V8 & V9
 ```
 
 Rules for the UI:
 
 1. It is a static site. Its only input is `release.json`, produced from `release/` alone (the
-   release tables plus the manifest's run block without fingerprints or timings), so it cannot
-   show anything the report could not. `ui/src/lib/data.ts` validates the file at load.
+   release tables except `record_profile`, plus the manifest's run block without
+   fingerprints), so it shows nothing that is not in the release. `ui/src/lib/data.ts`
+   validates the file at load. The ten views are listed in `ui/src/lib/views.ts`.
 2. The network and cluster views draw **groups** (baseline communities with at least k members)
    and the weekly tie weight between them. The Network view draws them with Sigma.js (WebGL)
    through React Sigma and graphology, loaded as a separate chunk when the view opens; positions
    come from one deterministic ForceAtlas2 run over all weeks. It has zoom, fullscreen, search by
    group label and hover highlighting; without WebGL, or if the WebGL view fails, it shows an SVG
-   network laid out with `d3-force`. The Individuals mode draws, inside each group, as many points as the group has
-   persons, at seeded random positions: decoration with no label, tooltip, hover text, tie or
-   data (Sigma keys are opaque sequence numbers). The Overlap mode (WebGL only) draws the week's six
+   network laid out with `d3-force`. The group-size dots mode draws, inside each group, as many dots as the group has
+   persons, at seeded random positions: the dots only show how many people a group has, not real
+   individuals or ties; they carry no label, tooltip, hover text, tie or data (Sigma keys are
+   opaque sequence numbers). The Overlap mode (WebGL only) draws the week's six
    heaviest group pairs by message count as intersecting outlined contours (one `@sigma/layer-webgl` layer, drawn from group nodes only); an overlap is mail
    between groups, never shared members. The release's `other` bucket (people with no tie in the
    baseline plus communities under k) is not a group: neither view draws or lays it out as one;
@@ -282,5 +300,6 @@ Rules for the UI:
 3. No outside requests: fonts and assets are bundled; no analytics, no CDN.
    `ui/scripts/check-build.mjs` (run by `make ui-gate`) scans the build for external URLs.
 4. `make` builds and serves the UI as its last steps (so it needs Node 20+); `make ui` exports
-   the data, builds and serves the interface on its own. The UI does not show the record profile;
-   it is in the report.
+   the data, builds and serves the interface on its own. The UI does not show the month-by-month
+   record profile, which is in the report; its Executive summary names the record change through
+   H5 and the two comparison windows.
