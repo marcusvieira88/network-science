@@ -391,3 +391,18 @@ def test_held_true_statement_gives_the_family_adjusted_equalised_p(synth: SynthO
     text = render.exploratory_statement(exploratory)
     assert "Held true: H20" in text
     assert "family-adjusted p = 0.02" in text
+
+
+def test_risk_section_says_why_utility_is_empty_without_headline(
+    synth_nochange: SynthOutput, tmp_path: Path
+) -> None:
+    risk = render_report(synth_nochange, tmp_path).split("## Privacy and re-identification", 1)[1]
+    assert "no headline finding to recompute" in risk
+    assert "H5–H24 are computed in the finding stage on restricted data" in risk
+
+
+def test_risk_section_has_no_empty_utility_note_with_headline(
+    synth: SynthOutput, tmp_path: Path
+) -> None:
+    risk = render_report(synth, tmp_path).split("## Privacy and re-identification", 1)[1]
+    assert "no headline finding to recompute" not in risk

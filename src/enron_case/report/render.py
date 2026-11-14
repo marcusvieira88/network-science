@@ -507,9 +507,18 @@ def risk_verdicts(risk: pl.DataFrame) -> list[str]:
     return lines
 
 
-def risk_section(risk: pl.DataFrame, k_min: int) -> str:
+NO_HEADLINE_UTILITY = (
+    'The effect ratio and "finding survives" columns are empty because there is no headline '
+    "finding to recompute on the mitigated releases: they measure how much of the headline "
+    "effect R1 and R2 keep. H5–H24 are computed in the finding stage on restricted data, not "
+    "from a release, so the release mitigations do not change them."
+)
+
+
+def risk_section(risk: pl.DataFrame, k_min: int, has_headline: bool) -> str:
     variants = bullets(f"**{name}**: {text}" for name, text in RELEASE_VARIANTS.items())
     attackers = bullets(f"**{name}**: {text}" for name, text in ATTACKERS.items())
+    utility_note = () if has_headline else (NO_HEADLINE_UTILITY,)
     return "\n\n".join(
         (
             "## Privacy and re-identification risk",
@@ -523,6 +532,7 @@ def risk_section(risk: pl.DataFrame, k_min: int) -> str:
             "Attackers:",
             attackers,
             risk_table(risk),
+            *utility_note,
             "Before and after mitigation:",
             bullets(risk_verdicts(risk)),
         )
@@ -575,7 +585,7 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
         finding_section(tables.hypotheses, tables.artifact_checks),
         hypotheses_section(tables.hypotheses),
         exploratory_section(tables.exploratory),
-        risk_section(tables.risk, config.k_min),
+        risk_section(tables.risk, config.k_min, headline(tables.hypotheses) is not None),
         limits_section(tables.data_quality),
     )
     text = "\n\n".join(sections) + "\n"
