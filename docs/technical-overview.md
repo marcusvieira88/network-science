@@ -10,23 +10,25 @@ the published results.
 
 The corpus is public; the pipeline is built as if it were not.
 
-**Results in brief.** One list of 24 hypotheses (H1–H24), all defined by the project owner, in
-three batches, each committed before it was computed.
+**Results in brief.** One list of 25 hypotheses (H1–H25), each committed before it was computed,
+and one descriptive profile of the record.
 
-- **H1–H4** (committed before any real data was analysed): two of four passed every planned
-  test, then failed checks against known artifacts of the data (stale baseline groups; a change
-  in which mailboxes hold mail). **No finding from H1–H4 is claimed.**
-- **H5–H24** (H5–H14 committed after the H1–H4 results, H15–H24 after the H5–H14 results):
-  within-custodian paired comparisons, with Holm's correction across those twenty. **None is
-  held true.** The strongest lead is H16 (originally E12): of the people a custodian wrote to, a
-  larger share also wrote to them than in the same weeks a year earlier. It met its stated rule,
-  but fails the retention check added after a data-science review: among
-  custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change
-  is not established (+0.11, interval −0.11 to +0.30), and the same subset already rises before
-  the crisis. The effect is largely explained by how much inbox mail was kept.
-- **So no hypothesis among H1–H24 is held true.**
-- **Found along the way:** the reference-year timestamps in the corpus are shifted by several
-  hours, and every Bcc line repeats the Cc line.
+- **The finding: the record changed under the analysis.** Within the same custodians, the share
+  of weekday sent mail stamped outside working hours falls from roughly half (every month up to
+  April 2001) to a few percent (from May 2001 on), and the mail kept per month grows several-fold
+  into the crisis. Working days do not move by hours: the `Date` convention changed, most likely
+  with a change of mail system (not verified: folder names would show it, and we do not read
+  them). Every within-custodian comparison sets a crisis window after that change against a
+  reference window before it. Confidence that the record changed: high. It is a finding about
+  the record, not about behaviour, and we present it as such.
+- **Behaviour: no hypothesis among H1–H25 is held true.** H2 and H3 passed their planned tests
+  and then failed checks against known artifacts (stale baseline groups; a change in which
+  mailboxes hold mail). H16 (ego reciprocity) fails its retention check. H25, a post-hoc
+  replication test of the "denser network in the crisis" reported by Diesner, Frantz & Carley
+  (2005), finds no change within custodians (median +0.008, interval 0 to 0.033).
+- **Also found:** every Bcc line repeats the Cc line; content-free deduplication lands within
+  1 % of published content-based dedupes; the public corpus names every custodian, so the
+  realistic insider (attacker A3) knows all of them.
 
 Numbers and limits are in [release/report.md](../release/report.md); every number there is produced
 by the run.
@@ -43,6 +45,7 @@ by the run.
   - [How a person becomes a pseudonym](#how-a-person-becomes-a-pseudonym)
   - [How the UI gets its data](#how-the-ui-gets-its-data): one JSON file, `ui/public/data/release.json`
 - [Network science methods](#network-science-methods)
+- [Related work and how this compares](#related-work-and-how-this-compares)
 - [Libraries and why each is here](#libraries-and-why-each-is-here)
 - [How correctness is kept](#how-correctness-is-kept)
 - [Next steps](#next-steps)
@@ -160,7 +163,7 @@ flowchart TB
     subgraph Z2["Zone 2 · restricted — pseudonyms only (git-ignored)"]
         PS["pseudo<br/>keyed HMAC per person"]
         N["network<br/>weekly snapshots,<br/>communities, 8 metrics"]
-        F["finding<br/>H1–H24 + artifact checks"]
+        F["finding<br/>H1–H25, artifact checks,<br/>record profile"]
         RK["risk<br/>attack our own output"]
     end
     subgraph Z3["Zone 3 · release — aggregates, every group ≥ 5 (committed)"]
@@ -208,7 +211,7 @@ two runs with one key can be compared byte for byte.
 | identity | `identity` | `messages`, `header_records` | `entities`, `address_map` |
 | pseudo | `pseudo` | the three above, the key | `events`, `entities_p` |
 | network | `network` | `events`, `entities_p` | `snapshots`, `communities`, `metric_series` |
-| finding | `finding` | metric series and network | `hypothesis_results`, `artifact_results`, `exploratory_results` |
+| finding | `finding` | metric series and network | `hypothesis_results`, `artifact_results`, `exploratory_results`, `profile_results` |
 | risk | `risk` | release variants, public corpus (as the attacker would) | `risk_results` |
 | release | `release` | restricted aggregates and counts | `release/*.csv` |
 | report | `report` | `release/` only | `release/report.md`, `docs/*.md` |
@@ -269,7 +272,7 @@ ui-sample` writes. So the UI cannot show anything the report could not. Its view
 | Metrics | each weekly metric by scope, with the change point, public events and baseline marked |
 | Network | a rotatable **3D graph of groups** and their ties, week by week (2D fallback without WebGL) |
 | Clusters | a **chord diagram** of mail between and within groups for the baseline year, the crisis weeks or all weeks; each group's size, within-group share and top partner groups; and the group whose cross-group share changed most, with the stale-baseline caveat |
-| Hypotheses | H1–H4 with their artifact checks, and H5–H24 |
+| Hypotheses | H1–H4 with their artifact checks, and H5–H25 |
 | Data quality, Privacy and risk, Limits | the cleaning funnel, header rulings, the attacks before and after mitigation, and the limits |
 
 Every node, arc and segment is a **group of at least five people**, never an individual; group
@@ -374,7 +377,7 @@ flowchart LR
   point; median with a bootstrap interval over custodians; passes only if the interval lies
   below zero. A failed check, or one that could not run, caps confidence at low.
 
-### Within-custodian hypotheses H5–H24 (`finding/exploratory.py`)
+### Within-custodian hypotheses H5–H25 (`finding/exploratory.py`)
 
 - **Unit and comparison.** Each custodian against themselves: d_i = m_i(crisis) − m_i(reference),
   with windows fixed by public dates (2001-08-14 to 2001-12-02 against the same weeks of 2000).
@@ -382,8 +385,11 @@ flowchart LR
   messages (not only network ties); a custodian needs at least 20 messages in each window. H16
   is ego-level reciprocity: the share of a custodian's sent-to contacts who also wrote to the
   custodian in the same window (any message, not necessarily a reply).
+- **H25 (post hoc, replication of Diesner et al.).** Each custodian's share of the other
+  custodians they exchanged at least one message with, either direction; its retention check
+  counts only the custodians written to.
 - **Test.** Wilcoxon signed-rank (two-sided) on d; median of d with a percentile bootstrap
-  interval over custodians (2000 draws); Holm across all twenty.
+  interval over custodians (2000 draws); Holm across all twenty-one.
 - **Pre-crisis placebo.** The same difference for January–April 2001 against January–April 2000;
   passes if its interval covers zero or its median is less than half the crisis median.
 - **Leave-one-out.** The median recomputed without each custodian; every one must keep the sign.
@@ -400,6 +406,16 @@ flowchart LR
   change is not established (+0.11, interval −0.11 to +0.30) and the subset already rises before
   the crisis, so H16 is not held true.
 
+### The record profile (`finding/profile.py`, `report/record.py`)
+
+Descriptive, added in the review. Per month and over the custodians: how many sent and received
+mail, how many messages, and the share of their weekday sent mail stamped outside 07:00–19:00
+Houston time (the H5 definition), published as `release/record_profile.csv` with months below k
+suppressed. The report compares the reference and crisis months and names the first month from
+which every later month lies beyond every month up to the end of the reference window. Read with
+H5 (the same share within each custodian), it shows a change of the `Date` convention, not of
+working hours.
+
 ### Re-identification attacks as graph matching (`risk/attack.py`)
 
 The attacks target **R0**, a pseudonymised node-level weekly edge list. The attacker's auxiliary
@@ -410,6 +426,8 @@ releases R1 and R2 contain no node to match, so the attacks return nothing on th
   out-neighbours and distinct in-neighbours per week, computed by the same function on both
   sides. Each pseudonym is matched to the Euclidean-nearest address (nearest neighbour, not
   one-to-one).
+- **A3, everyone holding the corpus: A2 with every custodian as a seed.** The mailbox folders
+  of the public corpus are named after their owners, so the custodians are public knowledge.
 - **A2, insider: seeded propagation.** Starting from 3 custodians whose addresses are known,
   every unmatched pseudonym p is scored against every unused address a by the number of
   (week, already-matched neighbour) contacts they share, divided by √(contacts of a) so busy
@@ -428,8 +446,92 @@ half of the targets; on R1 and R2, nobody.
 |--------|----------|--------|---------------|
 | H1–H4 (committed before any data) | weekly network series, after a searched change week vs 2000 | CUSUM + permutation p, standardised effect, block bootstrap, Holm over 4 | supported if p_holm < 0.05 and interval on the hypothesised side; confidence from null-model z, leave-one-mailbox-out, variants |
 | Artifact checks (H2, H3) | placebo half-year in 2000; custodians against themselves | refit Louvain on half the baseline; within-custodian median change with bootstrap | failed or not run caps confidence at low; no headline |
-| H5–H24 (within-custodian) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 20 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable, no caveat and (H16) the retention check passes; volume-equalised result reported alongside |
-| A1, A2 (risk) | release R0, R1, R2 against the public corpus | nearest-neighbour fingerprint matching; seeded propagation | share of targets re-identified (top-1), with interval |
+| H5–H25 (within-custodian; H25 post hoc) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 21 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable, no caveat and (H16) the retention check passes; volume-equalised result reported alongside |
+| A1, A2, A3 (risk) | release R0, R1, R2 against the public corpus | nearest-neighbour fingerprint matching; seeded propagation | share of targets re-identified (top-1), with interval |
+
+---
+
+## Related work and how this compares
+
+We used prior work only to compare counts, methods and known results. None of its data entered
+the pipeline or `data/`; no message body was downloaded. The EmailIntentDataSet labels are
+derived from message text and would break the content rule, so they were only read about.
+
+### Counts
+
+| Quantity | Ours | Theirs | Source | Why they differ |
+|----------|------|--------|--------|-----------------|
+| Files in the release | 517,401 | 517,431 in the 2004 release; 30 files deleted since (1 + 6 + 23) | Zhou et al. (2007); CMU `DELETIONS.txt` | None: 517,431 − 30 = 517,401, the May 2015 release we use |
+| Files parsed | 517,364 (30 without a clean header end, 7 outside a mailbox folder) | — | — | Our reader rejects a member rather than risk reading a body |
+| Messages after deduplication | 250,537 | 250,484 (body MD5 within a day, 149 people); 252,830 (recipients + day + content MD5); 252,759 (ISI database, also drops blank and junk mail) | Corrada-Emmanuel, cited in Diesner, Frantz & Carley (2005); Zhou et al. (2007); Shetty & Adibi (2004), secondary | We use no content: copies merge on sender, second and recipient set (+ subset merges). That merges distinct messages sent in the same second to the same people (over-merge) and keeps copies whose recipient lists were rewritten (under-merge). Net: within 0.03 % of the body-hash count and 0.9 % of the content+recipients count |
+| Messages after folder cleaning | — | 200,399 of 619,446 (158 users, an earlier release) | Klimt & Yang (2004) | They drop computer-generated folders (`all_documents`, `discussion_threads`) instead of deduplicating; we never read folder names beyond four classes |
+| Custodians | 147 custodian entities, 122 of them internal persons (restricted counts, not published) | 150 folders; 149 people after two duplicate mailboxes (`whalley-l`/`whalley-g`, `panus`/`phanis`); 151, 156, 158 and 184 in other counts | CALO / EnronData; Zhou et al. (2007); Priebe et al. (2005) | A custodian is the most frequent sender of a mailbox's sent copies; three mailboxes yield no custodian or share one. We did not investigate why 25 resolve to an external or non-person entity |
+| Addresses → persons | 85,388 → 84,759 (629 merges: N2 532, N4 97, N3 0) | 1,234 addresses → 557 Enron people (2.2 per person) | Diesner, Frantz & Carley (2005) | Theirs is a manual mapping of employees; ours is rule-based over all addresses and favours precision. It is **clearly weaker for employees**: the name rule N3 made no merge on real data (193 candidates blocked as name-only), so aliases split people. That lowers degree and density alike in every period, unless alias use changed over time (see the record change) |
+| Invalid dates | 370 messages outside 1998–2002 | 327 in the ISI database (e.g. 2044, 0001) | Diesner & Carley (2005) | Different windows and database; same order of magnitude |
+| Bcc | `Bcc` and `Cc` occur exactly as often (127,881); every Bcc line repeats Cc | "X-bcc not provided" | Zhou et al. (2007) | Consistent: the release carries no independent Bcc information, so H7 is untestable |
+| Timestamp convention | changes between April and May 2001 (record profile) | not documented in what we found; ISI dates lack a time zone, CALO "canonicalised" dates | Tsipenyuk & Crowcroft (2017); EnronData | To our knowledge not described before; worth checking against the folder names by someone allowed to read them |
+
+### Findings about 2001
+
+| Prior result | Source | Our test | Our result | Why the difference |
+|--------------|--------|----------|------------|--------------------|
+| Density 0.018 → 0.031 and 96 → 39 strong components, October 2000 against October 2001; executives form a tight-knit clique (no significance test) | Diesner & Carley (2005) | H25: each custodian's share of the other custodians they exchanged mail with, crisis weeks against the same weeks a year earlier, paired, with a placebo | +0.008 (interval 0 to 0.033), Holm p 0.24, placebo as large: **not supported** | Their comparison is two single months of the whole record. Mail received by custodians in October 2001 is about five times October 2000's (record profile), so any network density computed from the record rises with retention. Comparing each custodian with themselves removes who-is-in-the-data, and the change is no larger than before the crisis |
+| Employee-level density does not track the scandal; communication becomes "more diverse", previously disconnected people start to talk; betweenness centralisation peaks in December 2001 | Diesner, Frantz & Carley (2005) | H2 (crossing frozen groups), H1 (in-degree concentration in the core) | H2 passes its tests (+13.8 sd) but a calm half-year out of sample already jumps 10.8 sd: groups fitted on a baseline go stale. H1 not supported | "Previously disconnected people start to talk" is what stale groups produce mechanically. Our frozen communities make the artifact visible; a refitted or descriptive analysis cannot see it |
+| Scan-statistic anomalies in late April 2001 and mid-August 2001 | Priebe et al. (2005); Wang et al. (2014) | change points of H2 and H3 | H2 changes in the week of 2001-04-16, H3 on 2001-05-21; the timestamp convention changes between April and May 2001 | Not tested, but the coincidence suggests at least the spring anomaly is a change of the record, not of behaviour |
+
+**Why our design does not reproduce published effects.** Three choices, each deliberate: (1) a
+custodian-only core and within-custodian comparisons, so a change in which mailboxes hold mail
+cannot pose as behaviour; (2) communities frozen on the baseline and tested with an out-of-sample
+placebo, so group drift cannot pose as boundary crossing; (3) retention checks and volume
+equalisation, so mail kept cannot pose as mail sent. Published analyses of this corpus use none
+of the three and no significance tests. Our null results are therefore not a contradiction: the
+effects they describe are in the record, and we do not find them in behaviour. What our design
+cannot exclude is the record change itself: it falls between our reference and crisis windows.
+
+### Re-identification
+
+Hay et al. (2008) show on a small Enron graph that knowing a node's degree narrows about 15 % of
+nodes to fewer than five candidates, and its neighbours' degrees narrow almost all.
+Narayanan & Shmatikov (2009) re-identify a third of users across two social networks by seeded
+propagation. Our A1 (degree fingerprints) and A2 (seeded propagation) on the node-level release
+R0 are in that range. Published extracts give an attacker more than the corpus does only in
+labels: the ISI employee table maps people to positions, and the SNAP `email-Enron` graph is a
+ready address-level graph (36,692 nodes) that anyone can rebuild from the corpus. They do not
+make person-level re-identification easier than the corpus itself, which is the attacker's full
+auxiliary knowledge in A1. Two consequences, both acted on or named: the corpus names every
+mailbox owner, so the insider should know every custodian (**A3**, added: it matches about as
+large a share of the remaining people as A2, because A2's propagation from three seeds already
+reaches the custodians); and position labels
+make a **group-level** attack meaningful (which published group is the trading desk), which we
+still have not run.
+
+### Sources
+
+- Klimt, B. & Yang, Y. (2004). The Enron Corpus: A New Dataset for Email Classification
+  Research. ECML.
+- Shetty, J. & Adibi, J. (2004). The Enron Email Dataset Database Schema and Brief Statistical
+  Report. ISI/USC (report offline; figures as cited by others).
+- Diesner, J. & Carley, K. M. (2005). Exploration of Communication Networks from the Enron Email
+  Corpus. SIAM Workshop on Link Analysis, Counterterrorism and Security.
+- Diesner, J., Frantz, T. L. & Carley, K. M. (2005). Communication Networks from the Enron Email
+  Corpus. Computational & Mathematical Organization Theory 11(3), 201–228.
+- Priebe, C. E., Conroy, J. M., Marchette, D. J. & Park, Y. (2005). Scan Statistics on Enron
+  Graphs. CMOT 11, 229–247; Wang, H., Tang, M., Park, Y. & Priebe, C. E. (2014). Locality
+  statistics for anomaly detection in time series of graphs. IEEE Trans. Signal Processing.
+- Zhou, Y., Goldberg, M., Magdon-Ismail, M. & Wallace, W. A. (2007). Strategies for Cleaning
+  Organizational Emails with an Application to Enron Email Dataset. NAACSOS.
+- Tsipenyuk, G. & Crowcroft, J. (2017). An email attachment is worth a thousand words.
+  arXiv:1709.00362 (dataset comparison).
+- Hay, M., Miklau, G., Jensen, D., Towsley, D. & Weis, P. (2008). Resisting Structural
+  Re-identification in Anonymized Social Networks. PVLDB 1.
+- Narayanan, A. & Shmatikov, V. (2009). De-anonymizing Social Networks. IEEE S&P.
+- CMU Enron page and `DELETIONS.txt` (https://www.cs.cmu.edu/~enron/); EnronData / CALO notes
+  (https://enrondata.readthedocs.io); SNAP `email-Enron`.
+- Nakamura, K. (2026). Two preprints on the corpus's authenticity, Zenodo 19425640 and 19447717:
+  no extracted data or counts; they question whether `From` can be trusted, which our identity
+  resolution also assumes.
+- ParakweetLabs EmailIntentDataSet (GitHub): sentence-level intent labels from message text;
+  not used, because using them would break the content rule.
 
 ---
 
@@ -442,7 +544,7 @@ half of the targets; on R1 and R2, nobody.
 | **Polars** | every stage table; Parquet in and out | Fast, typed columnar frames with list and struct columns, which recipients need. Lazy group-bys fit 1.3 M events comfortably on a laptop. |
 | **NetworkX** | baseline communities (Louvain); the only graph algorithm the pipeline calls a library for | The network is tens of thousands of nodes, well within reach. Readable, seeded algorithms matter more here than raw speed. Snapshots, metrics and the null model are Polars table operations. |
 | **NumPy** | bootstrap, permutation and attack arithmetic | Vectorised resampling with seeded generators. |
-| **SciPy** | the normal quantile behind the one-sided null-model threshold; the Wilcoxon signed-rank test of H5–H24 | Standard, tested implementations instead of a hand-typed critical value or a home-made rank test. |
+| **SciPy** | the normal quantile behind the one-sided null-model threshold; the Wilcoxon signed-rank test of H5–H25 | Standard, tested implementations instead of a hand-typed critical value or a home-made rank test. |
 | `tarfile`, `email.utils`, `hmac`, `hashlib` (standard library) | streaming the archive, parsing dates, keyed pseudonyms, fingerprints | No dependency needed, and easy to audit: the code that touches raw data stays small and standard. |
 | **uv** | environment and lockfile | Pinned, reproducible installs in seconds (`uv sync --locked`). |
 | **pytest** + **Hypothesis** | unit, contract, privacy and property tests | Property tests check that dedupe ignores input order, that the header reader never reads past the header, and that k-suppression never leaks. |
@@ -485,7 +587,7 @@ flowchart LR
   for every table.
 - **Hypotheses before results.** H1–H4 were committed before any real data was analysed; H5–H14
   were committed after the H1–H4 results and before being computed, H15–H24 after the H5–H14
-  results and before being computed, and Holm's correction runs across those twenty, so adding hypotheses makes each one harder to pass. All
+  results and before being computed, H25 after every result as a replication test of prior work (labelled post hoc), and Holm's correction runs across those twenty-one, so adding hypotheses makes each one harder to pass. All
   outcomes are published. Checks added after seeing a result (the artifact checks, mail-volume
   equalisation, the H16 retention check) are labelled as such.
 - **Identity checked by a person.** A seeded sample of real identity merges was judged in a
@@ -645,8 +747,8 @@ consumption per tenant.
 3. [docs/slides.md](slides.md): the 15-minute presentation (Marp-compatible).
 4. [docs/ai-workflow.md](ai-workflow.md): how AI agents built this and what kept them correct.
 5. [docs/hypotheses.md](hypotheses.md), [docs/hypotheses-exploratory.md](hypotheses-exploratory.md)
-   and [docs/metrics.md](metrics.md): hypotheses H1–H4 and H5–H24 (the second file is the
-   dated record of when each was stated and keeps their original numbers E1–E20 = H5–H24), the
+   and [docs/metrics.md](metrics.md): hypotheses H1–H4 and H5–H25 (the second file is the
+   dated record of when each was stated and keeps their original numbers E1–E21 = H5–H25), the
    metric definitions and the decision rules.
 6. [docs/architecture.md](architecture.md): every architecture diagram.
 7. [specs/001-enron-network-analysis/](../specs/001-enron-network-analysis/): the specification, plan,

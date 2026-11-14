@@ -44,26 +44,26 @@ injected from release tables; none is typed.
   k = 5. On the aggregate release (R1) the shares fall to 0 and
   0. With no finding claimed, there is no effect whose loss to measure.
 
-**Finding.** No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report. Among H5–H24, no hypothesis reached the standard to be held true. H16 (share of sent-to contacts who also wrote to the custodian) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It remains the strongest lead, but it is not established once how much inbox mail was kept is held fixed.
+**Finding.** The change in the crisis year that the headers establish is in the record, not
+in behaviour. The share of weekday sent mail stamped outside working hours is between 0.426 and 0.538 in the reference months and between 0.0399 and 0.0643 in the crisis months; the `Date` convention changed in between from 2001-05-01, within the same people (H5: median change -0.44, interval -0.512 to -0.372). Every within-custodian comparison crosses that change; confidence that it happened: high, its cause not established.
+
+**Behaviour.** No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report. H25, the post-hoc replication test of the denser network that Diesner, Frantz and Carley describe, compares each custodian's share of the other custodians they exchanged mail with: a median change of 0.00826 (interval 0 to 0.0331, Holm-adjusted p = 0.239, 31 custodians); outcome: not supported. Details: the report.
 
 ## What changes with real customer data
 
-- **Metadata-only connectors**: request header fields from the mail system, so content never
-  leaves the source instead of being skipped after download.
-- **Customer-side key custody and an entity registry**: the key and a persisted registry of
-  surrogate IDs stay with the customer, so pseudonyms survive changes in identity resolution.
-- **Retention**: restricted data expires on a schedule; release tables are re-keyed per release
-  so two releases cannot be joined.
-- **Works council review** of the questions asked, the minimum group size and the outputs,
-  before the first run.
-- **Data residency**: processing in the customer's region, with no third-party services.
-- **Formal privacy budget**: replace the noise sketch (R2) with differential privacy accounted
-  across every published output.
+- **Metadata-only connectors**, so content never leaves the source.
+- **Customer-side key custody and an entity registry**, so pseudonyms survive changes in
+  identity resolution.
+- **Retention schedule, data residency, works council review** of the questions, the minimum
+  group size and the outputs before the first run.
+- **Formal privacy budget**: differential privacy across every published output instead of the
+  noise sketch (R2).
 
 ## Not done, and why
 
-- **No finding claimed.** The two apparent crisis-year signals failed checks against known artifacts;
-  those checks were added after the first real run and are labelled post hoc.
+- **No behavioural finding claimed.** The apparent crisis-year signals failed checks against
+  known artifacts (stale groups, mailbox mix, inbox retention); those checks, the record
+  profile and the replication test were added after results were seen and are labelled post hoc.
 - **Dropped for time**: the dedupe-rule sensitivity variant.
 - **A sketch, not a guarantee**: the noise release (R2) has no formal privacy budget.
 - **Identity precision on real data** rests on a manual sample judged by a person, not on ground

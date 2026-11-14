@@ -21,7 +21,7 @@ anything else stops the affected packages until fixtures are regenerated.
 | 1.3 | `exploratory_results` (restricted) and `exploratory` (release): hypotheses H5–H24 with volume-equalised columns; in the release, outcome and placebo and leave-one-out flags are nullable and suppressed with their comparison | The exploratory families (`docs/hypotheses-exploratory.md`) became pipeline output |
 | 1.4 | `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` on both exploratory tables | The data-science review showed H16 could be produced by inbox retention |
 | 1.5 | `data_quality.precision_ci_low` / `precision_ci_high`, funnel detail rows (rejected reasons, dedupe split, message flags, messages without a timestamp, events in the network), per-rule manual-check rows; `exploratory.equalised_p_holm` | Data-science review findings F3, F7, F10 |
-| 1.6 | `exploratory_results` / `exploratory` gain row H25 and family `post hoc`; `profile_results` (restricted) and `record_profile` (release): the custodians' mail by month and the after-hours share of their weekday sent mail | Hiring review: a replication test of prior work (H25), and evidence for the change of the timestamp convention in 2001 |
+| 1.6 | `exploratory_results` / `exploratory` gain row H25 and family `post hoc`; `profile_results` (restricted) and `record_profile` (release): the custodians' mail by month and the after-hours share of their weekday sent mail; attacker `A3` in `risk_results` / `risk` | Hiring review: a replication test of prior work (H25), and evidence for the change of the timestamp convention in 2001 |
 
 Two release changes came from reviews without a version bump, because they narrowed what is
 published rather than changing a schema: `weekly_metrics` publishes only the default variant,
@@ -257,7 +257,7 @@ over the custodians who are internal persons.
 | Column | Type | Notes |
 |--------|------|-------|
 | `release_variant` | enum | R0 (node-level edges), R1 (the published aggregates), R2 (R1 + seeded Laplace noise) |
-| `attacker` | enum | A1 (features from the public raw corpus), A2 (A1 plus a few known custodians as seeds) |
+| `attacker` | enum | A1 (features from the public raw corpus), A2 (A1 plus a few known custodians as seeds), A3 (1.6: the A2 propagation seeded with every custodian, since the corpus names them) |
 | `n_targets` | int | persons in R0 that are scored |
 | `unique_share` | float | share unique on observable features |
 | `median_anonymity_set` | float | |

@@ -57,6 +57,42 @@ Every header field name seen in the corpus, how often, and how it was ruled. Onl
 - **technical**: used for diagnostics inside the ingest zone, then discarded
 - **usable**: kept as metadata; time is truncated to the hour
 
+## What changed in the record during the crisis year
+
+Descriptive, added in the review after every hypothesis result was known. Every within-custodian comparison sets the crisis weeks against the same weeks a year earlier, so it inherits any change in how the record was kept between them. Per month, over the custodians: how many sent and received mail, how much, and the share of their weekday sent mail stamped outside working hours in Houston time (the H5 definition). Months with fewer than k custodians on a side are suppressed.
+
+The share of the custodians' weekday sent mail stamped outside working hours is between 0.426 and 0.538 in the reference months and between 0.0399 and 0.0643 in the crisis months: the ranges do not overlap. From 2001-05-01 on, every month lies beyond every month up to the end of the reference window. Within the same people (H5, 32 custodians) the share changes by a median of -0.44 (interval -0.512 to -0.372), so it is not a change in who is in the data. Working days do not move by hours within a year: the `Date` header was recorded under a different convention after the change, and every comparison of H5–H25 sets a window after it against a window before it. The pre-crisis placebo compares two windows before it, so it cannot detect an artifact of that change. Confidence that the record changed: high. Its cause, most likely a change of mail system, is not established: folder names would show it, and we do not read them. Mail kept: sent messages per month between 2115 and 2968 in the reference months and between 2162 and 5091 in the crisis months; received messages per month between 2778 and 5109 in the reference months and between 4124 and 17903 in the crisis months.
+
+| Month | Custodians sending | Sent | After-hours share (weekdays) | Custodians receiving | Received |
+|---|---|---|---|---|---|
+| 2000-01-01 | 25 | 911 | 0.489 | 53 | 829 |
+| 2000-02-01 | 22 | 862 | 0.485 | 53 | 978 |
+| 2000-03-01 | 30 | 1212 | 0.557 | 70 | 1108 |
+| 2000-04-01 | 28 | 1301 | 0.385 | 69 | 1155 |
+| 2000-05-01 | 31 | 1530 | 0.476 | 65 | 1259 |
+| 2000-06-01 | 44 | 1854 | 0.397 | 84 | 2074 |
+| 2000-07-01 | 46 | 1651 | 0.435 | 82 | 1818 |
+| 2000-08-01 | 59 | 2115 | 0.461 | 94 | 2950 |
+| 2000-09-01 | 56 | 2225 | 0.426 | 100 | 2778 |
+| 2000-10-01 | 65 | 2943 | 0.449 | 105 | 3524 |
+| 2000-11-01 | 74 | 2968 | 0.538 | 106 | 5109 |
+| 2000-12-01 | 79 | 3050 | 0.505 | 104 | 4713 |
+| 2001-01-01 | 69 | 3216 | 0.493 | 104 | 3630 |
+| 2001-02-01 | 67 | 3206 | 0.525 | 106 | 4177 |
+| 2001-03-01 | 66 | 3483 | 0.487 | 107 | 5809 |
+| 2001-04-01 | 80 | 4150 | 0.416 | 110 | 10943 |
+| 2001-05-01 | 90 | 3608 | 0.374 | 114 | 9205 |
+| 2001-06-01 | 79 | 1753 | 0.236 | 113 | 5306 |
+| 2001-07-01 | 61 | 1509 | 0.0994 | 105 | 3969 |
+| 2001-08-01 | 64 | 2282 | 0.0643 | 99 | 4124 |
+| 2001-09-01 | 83 | 2162 | 0.0478 | 100 | 5015 |
+| 2001-10-01 | 92 | 5091 | 0.0467 | 103 | 17903 |
+| 2001-11-01 | 90 | 4415 | 0.0399 | 101 | 11059 |
+| 2001-12-01 | 82 | 1722 | 0.0499 | 95 | 7263 |
+| 2002-01-01 | 70 | 2667 | 0.0322 | 96 | 16531 |
+| 2002-02-01 | 65 | 1264 | 0.0287 | 84 | 6189 |
+| 2002-03-01 | 25 | 844 | 0.0131 | 39 | 1606 |
+
 ## The finding
 
 No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
@@ -76,20 +112,20 @@ Written down before the analysis ran on the real corpus. Every outcome is shown,
 
 | Hypothesis | Claim | Metric | Scope | Change week | Effect | Interval | p | Holm p | Null z | Leave-one-out range | Robust variants | Supported | Confidence | Headline |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| H1 | communication concentrated on fewer people as the crisis approached | `indegree_gini` | core | — | 0.171 | -0.2 to 0.581 | 0.577 | 1 | 5.83 | 0.0775 to 0.329 | 0 of 2 | no | low | no |
-| H2 | communication increasingly crossed established group boundaries | `cross_community_share` | observed | 2001-04-16 | 13.8 | 12.2 to 19.7 | 0.000999 | 0.004 | 157 | 12.7 to 14.7 | 2 of 2 | yes | low | no |
-| H3 | the organization turned inward | `external_share` | observed | 2001-05-21 | -1.46 | -2.65 to -0.944 | 0.000999 | 0.004 | -4.74 | -1.64 to -1.06 | 2 of 2 | yes | low | no |
-| H4 | working relationships were rewired faster | `tie_turnover` | core | — | -0.195 | -0.938 to 0.335 | 0.752 | 1 | -0.47 | -0.649 to 0.285 | 0 of 2 | no | low | no |
+| H1 | communication concentrated on fewer people as the crisis approached | `indegree_gini` | core | — | 0.171 | -0.2 to 0.581 | 0.577 | 1 | 3.56 | 0.0775 to 0.329 | 0 of 2 | no | low | no |
+| H2 | communication increasingly crossed established group boundaries | `cross_community_share` | observed | 2001-04-16 | 13.8 | 12.2 to 19.7 | 0.000999 | 0.004 | 220 | 12.7 to 14.7 | 2 of 2 | yes | low | no |
+| H3 | the organization turned inward | `external_share` | observed | 2001-05-21 | -1.46 | -2.65 to -0.944 | 0.000999 | 0.004 | 2.01 | -1.64 to -1.06 | 2 of 2 | yes | low | no |
+| H4 | working relationships were rewired faster | `tie_turnover` | core | — | -0.195 | -0.938 to 0.335 | 0.752 | 1 | -7.76 | -0.649 to 0.285 | 0 of 2 | no | low | no |
 
-## Hypotheses H5–H24
+## Hypotheses H5–H25
 
-Twenty further hypotheses, stated by the project owner in two groups of ten, each committed before it was computed (recorded under their original numbers E1–E20 in docs/hypotheses-exploratory.md). Every comparison is a custodian against themselves between fixed windows (the crisis weeks against the same weeks a year earlier), with a pre-crisis placebo, leave-one-out and Holm's correction across all twenty. A hypothesis is held true only if all of these pass. Mail-volume equalisation was added after the first such result and is labelled as such.
+Further hypotheses: H5–H24 stated by the project owner in two groups of ten, each committed before it was computed, and H25, stated in the review after every other result as a replication test of Diesner, Frantz and Carley (post hoc; recorded with their original numbers E1–E21 in docs/hypotheses-exploratory.md). Every comparison is a custodian against themselves between fixed windows (the crisis weeks against the same weeks a year earlier), with a pre-crisis placebo, leave-one-out and Holm's correction across all of them. A hypothesis is held true only if all of these pass. Mail-volume equalisation and the retention checks were added after results were seen and are labelled as such.
 
-Among H5–H24, no hypothesis reached the standard to be held true. H16 (share of sent-to contacts who also wrote to the custodian) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It remains the strongest lead, but it is not established once how much inbox mail was kept is held fixed.
+Among the within-custodian hypotheses, none reached the standard to be held true. H16 (share of sent-to contacts who also wrote to the custodian) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It is not established once how much inbox mail was kept is held fixed.
 
 | ID | Measure | Predicted | Custodians | Median change | Interval | Holm p | Placebo custodians | Placebo | Leave-one-out | Outcome | Caveat |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| H5 | after-hours share of sent messages (weekdays) | up | 32 | -0.44 | -0.512 to -0.372 | 0.00000000885 | 15 | passes | unstable | not supported | invalid: timestamps in the reference year of the corpus are shifted by several hours |
+| H5 | after-hours share of sent messages (weekdays) | up | 32 | -0.44 | -0.512 to -0.372 | 0.00000000931 | 15 | passes | unstable | not supported | invalid: timestamps in the reference year of the corpus are shifted by several hours |
 | H6 | weekend share of sent messages | up | 32 | 0 | 0 to 0 | 1 | 15 | passes | unstable | not supported | — |
 | H7 | share of sent messages with a Bcc recipient | up | 32 | 0 | 0 to 0 | 1 | 15 | passes | unstable | not supported | untestable: every Bcc line in the corpus repeats the Cc line |
 | H8 | share of sent messages with a Cc recipient | up | 32 | 0 | -0.0179 to 0.0336 | 1 | 15 | passes | unstable | not supported | — |
@@ -98,17 +134,18 @@ Among H5–H24, no hypothesis reached the standard to be held true. H16 (share o
 | H11 | distinct internal contacts per active week | down | 32 | 1.03 | -0.608 to 2.93 | 1 | 15 | passes | unstable | not supported | — |
 | H12 | sent messages per active week | up | 32 | 1.82 | -1.26 to 5.3 | 1 | 15 | fails | stable | not supported | — |
 | H13 | share of sent messages to the top three recipients | up | 32 | -0.00636 | -0.0466 to 0.0349 | 1 | 15 | passes | unstable | not supported | — |
-| H14 | share of received messages sent to 20 or more | up | 75 | -0.168 | -0.272 to -0.102 | 0.00000169 | 28 | passes | unstable | not supported | — |
+| H14 | share of received messages sent to 20 or more | up | 75 | -0.168 | -0.272 to -0.102 | 0.00000178 | 28 | passes | unstable | not supported | — |
 | H15 | share of sent messages with one recipient (derived from H14) | up | 32 | -0.00136 | -0.0403 to 0.0286 | 1 | 15 | passes | unstable | not supported | — |
-| H16 | share of sent-to contacts who also wrote to the custodian | up | 32 | 0.267 | 0.144 to 0.386 | 0.00000243 | 15 | passes | stable | inconclusive | fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established |
+| H16 | share of sent-to contacts who also wrote to the custodian | up | 32 | 0.267 | 0.144 to 0.386 | 0.00000257 | 15 | passes | stable | inconclusive | fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established |
 | H17 | share of sent messages to another custodian | up | 32 | 0.0216 | -0.0101 to 0.0564 | 0.877 | 15 | fails | stable | not supported | — |
 | H18 | share of received messages from another custodian | up | 75 | 0.0167 | -0.00811 to 0.0401 | 1 | 28 | passes | stable | not supported | — |
 | H19 | share of contacts new against the prior 26 weeks | down | 27 | -0.0261 | -0.0988 to 0.0582 | 1 | 14 | fails | stable | not supported | retention-sensitive: the 26-week look-back depends on how much older mail was kept |
-| H20 | distinct senders per active week | up | 75 | 5.85 | 5.05 to 7.74 | 0.000000000496 | 28 | fails | stable | inconclusive | — |
-| H21 | share of received messages from the top three senders | up | 75 | -0.148 | -0.191 to -0.106 | 0.00000245 | 28 | passes | unstable | not supported | — |
-| H22 | share of received messages from external senders | down | 75 | 0.0578 | 0.0405 to 0.0908 | 0.0000248 | 28 | passes | unstable | not supported | — |
+| H20 | distinct senders per active week | up | 75 | 5.85 | 5.05 to 7.74 | 0.000000000521 | 28 | fails | stable | inconclusive | — |
+| H21 | share of received messages from the top three senders | up | 75 | -0.148 | -0.191 to -0.106 | 0.0000026 | 28 | passes | unstable | not supported | — |
+| H22 | share of received messages from external senders | down | 75 | 0.0578 | 0.0405 to 0.0908 | 0.0000264 | 28 | passes | unstable | not supported | — |
 | H23 | share of weeks with at least one sent message | up | 32 | 0 | -0.1 to 0.0667 | 1 | 15 | passes | unstable | not supported | — |
 | H24 | share of sent messages to a list, role or system address | down | 32 | 0 | -0.0161 to 0.027 | 1 | 15 | passes | unstable | not supported | — |
+| H25 | share of the other custodians exchanged mail with (post hoc) | up | 31 | 0.00826 | 0 to 0.0331 | 0.239 | 13 | passes | stable | not supported | — |
 
 ## Privacy and re-identification risk
 
@@ -124,24 +161,30 @@ Attackers:
 
 - **A1**: outsider who holds the public corpus and matches per-address activity features
 - **A2**: insider who knows a few true identities and propagates from them through the graph
+- **A3**: the same propagation seeded with every custodian: the public corpus names every mailbox owner, so anyone holding it knows them all
 
 | Release | Attacker | Targets | Unique share | Median anonymity set | Re-identified (top-1) | Interval low | Interval high | Effect ratio | Finding survives |
 |---|---|---|---|---|---|---|---|---|---|
 | R0 | A1 | 12641 | 0.639 | 1 | 0.251 | 0.244 | 0.259 | — | — |
 | R0 | A2 | 12638 | 0.639 | 1 | 0.591 | 0.583 | 0.599 | — | — |
+| R0 | A3 | 12519 | 0.639 | 1 | 0.574 | 0.565 | 0.582 | — | — |
 | R1 | A1 | 12641 | 0 | 2444 | 0 | 0 | 0 | — | — |
 | R1 | A2 | 12638 | 0 | 2444 | 0 | 0 | 0 | — | — |
+| R1 | A3 | 12519 | 0 | 2444 | 0 | 0 | 0 | — | — |
 | R2 | A1 | 12641 | 0 | 2443 | 0 | 0 | 0 | — | — |
 | R2 | A2 | 12638 | 0 | 2443 | 0 | 0 | 0 | — | — |
+| R2 | A3 | 12519 | 0 | 2443 | 0 | 0 | 0 | — | — |
 
-The effect ratio and "finding survives" columns are empty because there is no headline finding to recompute on the mitigated releases: they measure how much of the headline effect R1 and R2 keep. H5–H24 are computed in the finding stage on restricted data, not from a release, so the release mitigations do not change them.
+The effect ratio and "finding survives" columns are empty because there is no headline finding to recompute on the mitigated releases: they measure how much of the headline effect R1 and R2 keep. H5–H25 are computed in the finding stage on restricted data, not from a release, so the release mitigations do not change them.
 
 Before and after mitigation:
 
 - R1 against A1: re-identified share 0.251 on R0, 0 on R1 (at least halved); finding survives: —.
 - R1 against A2: re-identified share 0.591 on R0, 0 on R1 (at least halved); finding survives: —.
+- R1 against A3: re-identified share 0.574 on R0, 0 on R1 (at least halved); finding survives: —.
 - R2 against A1: re-identified share 0.251 on R0, 0 on R2 (at least halved); finding survives: —.
 - R2 against A2: re-identified share 0.591 on R0, 0 on R2 (at least halved); finding survives: —.
+- R2 against A3: re-identified share 0.574 on R0, 0 on R2 (at least halved); finding survives: —.
 
 ## Limits
 
@@ -153,6 +196,8 @@ Before and after mitigation:
 - Observational design: a structural change near public events does not show what people knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.
 - No group-level attack on the community graph was run: an attacker who knows some group members could try to infer ties or membership from group-to-group weights, and that risk is bounded only by the minimum of k distinct senders per published tie, not measured.
 - The effect interval is computed at a change week chosen from the same data (the week that maximises the change statistic), so it is optimistic: it ignores the uncertainty of where the change happened.
-- For H5–H24, the pre-crisis placebos run on fewer custodians than the crisis comparison (fewer meet the minimum message count in the January-to-April windows; see the placebo custodians column), so they have less power: a passing placebo does not exclude a pre-existing trend.
+- For H5–H25, the pre-crisis placebos run on fewer custodians than the crisis comparison (fewer meet the minimum message count in the January-to-April windows; see the placebo custodians column), so they have less power: a passing placebo does not exclude a pre-existing trend. Both placebo windows also lie before the change of the timestamp convention (see the record section), so the placebo cannot detect an artifact of it.
+- The permutation p-values of H1–H4 treat weeks as exchangeable; weekly network metrics are autocorrelated, and a calibration test in the suite shows the test rejects far more often than its nominal level on autocorrelated series without a change. A small p alone is weak evidence here.
+- The H2 baseline placebo splits the baseline year at a fixed midpoint instead of searching a change week; a searched split could only make its jump larger, so this can only make H2 fail its check more clearly.
 - The artifact checks were added after the first real-data run, because two hypotheses passed every pre-registered check yet looked implausibly strong. They are documented as a post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.
 - Rule N2 merges addresses with the same local part under one registered domain, so it can merge two different people who share a local part across an ISP's regional subdomains; a manual check of 50 sampled real merges found 0 wrong merges (precision 1, exact binomial interval 0.929 to 1).

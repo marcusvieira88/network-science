@@ -95,8 +95,10 @@ internal persons, so in-weight *from persons* was not preserved. The stratum now
 sender's type and internal flag. (2) Each null replicate's effect was taken at the observed
 change week, while the observed effect is the maximum over candidate weeks; each replicate now
 searches its own change week with the same CUSUM. Both changes can only lower `null_z`. They
-change no published outcome: no hypothesis among H1–H4 is held true either way (see the release
-for the new values).
+change no published outcome: no hypothesis among H1–H4 is held true either way. With the
+corrected null, H3's `null_z` moves from −4.7 to +2.0, so H3 now also fails the null-model check
+(its change is reproduced by rewiring with the same volumes); H2's stays far above the threshold
+and is explained by its artifact check instead.
 
 ## Confidence and headline
 

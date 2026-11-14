@@ -16,13 +16,14 @@ A headers-only, privacy-first analysis of the public Enron email corpus
 
 ---
 
-## The rule, and where the line is
+## The rule, the line, the pseudonyms
 
 - The parser stops at the first blank line: bodies are never decoded, held or stored
 - **Content, never stored**: Subject, X-Folder
-- **Identifiers, ingest zone only**: Bcc, Cc, From, To, X-FileName, X-From, X-Origin, X-To, X-bcc, X-cc
-- **Usable metadata**: Date
+- **Identifiers, ingest zone only**: Bcc, Cc, From, To, X-FileName, X-From, X-Origin, X-To, X-bcc, X-cc; **usable metadata**: Date
 - `Subject` counts as content: it is a summary of the body. Cost: no threads, no reply times
+- Keyed HMAC per resolved person; identifiers purged after every run; downstream code sees
+  pseudonyms only; the release holds aggregates meeting k = 5
 
 ---
 
@@ -46,27 +47,31 @@ A headers-only, privacy-first analysis of the public Enron email corpus
 | messages without a timestamp | 250537 | 250537 | 0 | kept in messages; no events are built from them | — | — | — | — |
 | events in the network | 1328123 | 823488 | 504635 | sender-recipient events of messages without an exclusion flag | — | — | — | — |
 
-Duplicates are found without content (sender, second, recipients); precision and recall are
-measured on a synthetic corpus with known answers.
+Duplicates are found without content (sender, second, recipients) and land close to the
+published content-based dedupes of this corpus (technical overview, related work).
 
 ---
 
-## Pseudonymization
+## The finding: the record changed under the analysis
 
-- Keyed HMAC per resolved entity: stable for one key, not confirmable by hashing guessed addresses
-- Identifiers live only in the ingest zone, which is purged after every run
-- Downstream code sees pseudonyms only; the release holds aggregates meeting k = 5
-- Pseudonymized is not anonymous: the next slides attack our own output
+The share of the custodians' weekday sent mail stamped outside working hours is between 0.426 and 0.538 in the reference months and between 0.0399 and 0.0643 in the crisis months: the ranges do not overlap. From 2001-05-01 on, every month lies beyond every month up to the end of the reference window. Within the same people (H5, 32 custodians) the share changes by a median of -0.44 (interval -0.512 to -0.372), so it is not a change in who is in the data. Working days do not move by hours within a year: the `Date` header was recorded under a different convention after the change, and every comparison of H5–H25 sets a window after it against a window before it. The pre-crisis placebo compares two windows before it, so it cannot detect an artifact of that change. Confidence that the record changed: high. Its cause, most likely a change of mail system, is not established: folder names would show it, and we do not read them. Mail kept: sent messages per month between 2115 and 2968 in the reference months and between 2162 and 5091 in the crisis months; received messages per month between 2778 and 5109 in the reference months and between 4124 and 17903 in the crisis months.
 
 ---
 
-## The finding
+## The record, month by month
 
-No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
+```mermaid
+xychart-beta
+    title "Weekday sent mail stamped outside working hours, share by month"
+    x-axis ["2000-01-01", "2000-02-01", "2000-03-01", "2000-04-01", "2000-05-01", "2000-06-01", "2000-07-01", "2000-08-01", "2000-09-01", "2000-10-01", "2000-11-01", "2000-12-01", "2001-01-01", "2001-02-01", "2001-03-01", "2001-04-01", "2001-05-01", "2001-06-01", "2001-07-01", "2001-08-01", "2001-09-01", "2001-10-01", "2001-11-01", "2001-12-01", "2002-01-01", "2002-02-01", "2002-03-01"]
+    line [0.489, 0.485, 0.557, 0.385, 0.476, 0.397, 0.435, 0.461, 0.426, 0.449, 0.538, 0.505, 0.493, 0.525, 0.487, 0.416, 0.374, 0.236, 0.0994, 0.0643, 0.0478, 0.0467, 0.0399, 0.0499, 0.0322, 0.0287, 0.0131]
+```
+
+The crisis window lies after the change, the reference window and both placebo windows before it.
 
 ---
 
-## Every hypothesis, fixed before the results
+## Behaviour: every hypothesis, fixed before its result
 
 | Hypothesis | Claim | Effect | Interval | Holm p | Supported | Confidence |
 |---|---|---|---|---|---|---|
@@ -75,24 +80,13 @@ No finding about the crisis year is claimed. H2, H3 passed the pre-registered st
 | H3 | the organization turned inward | -1.46 | -2.65 to -0.944 | 0.004 | yes | low |
 | H4 | working relationships were rewired faster | -0.195 | -0.938 to 0.335 | 1 | no | low |
 
-Among H5–H24, no hypothesis reached the standard to be held true. H16 (share of sent-to contacts who also wrote to the custodian) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It remains the strongest lead, but it is not established once how much inbox mail was kept is held fixed.
+No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
+
+Among the within-custodian hypotheses, none reached the standard to be held true. H16 (share of sent-to contacts who also wrote to the custodian) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It is not established once how much inbox mail was kept is held fixed.
 
 ---
 
-## The strongest signal, over time
-
-```mermaid
-xychart-beta
-    title "H2: cross_community_share, observed network, weekly"
-    x-axis ["1999-12-27", "2000-01-03", "2000-01-10", "2000-01-17", "2000-01-24", "2000-01-31", "2000-02-07", "2000-02-14", "2000-02-21", "2000-02-28", "2000-03-06", "2000-03-13", "2000-03-20", "2000-03-27", "2000-04-03", "2000-04-10", "2000-04-17", "2000-04-24", "2000-05-01", "2000-05-08", "2000-05-15", "2000-05-22", "2000-05-29", "2000-06-05", "2000-06-12", "2000-06-19", "2000-06-26", "2000-07-03", "2000-07-10", "2000-07-17", "2000-07-24", "2000-07-31", "2000-08-07", "2000-08-14", "2000-08-21", "2000-08-28", "2000-09-04", "2000-09-11", "2000-09-18", "2000-09-25", "2000-10-02", "2000-10-09", "2000-10-16", "2000-10-23", "2000-10-30", "2000-11-06", "2000-11-13", "2000-11-20", "2000-11-27", "2000-12-04", "2000-12-11", "2000-12-18", "2000-12-25", "2001-01-01", "2001-01-08", "2001-01-15", "2001-01-22", "2001-01-29", "2001-02-05", "2001-02-12", "2001-02-19", "2001-02-26", "2001-03-05", "2001-03-12", "2001-03-19", "2001-03-26", "2001-04-02", "2001-04-09", "2001-04-16", "2001-04-23", "2001-04-30", "2001-05-07", "2001-05-14", "2001-05-21", "2001-05-28", "2001-06-04", "2001-06-11", "2001-06-18", "2001-06-25", "2001-07-02", "2001-07-09", "2001-07-16", "2001-07-23", "2001-07-30", "2001-08-06", "2001-08-13", "2001-08-20", "2001-08-27", "2001-09-03", "2001-09-10", "2001-09-17", "2001-09-24", "2001-10-01", "2001-10-08", "2001-10-15", "2001-10-22", "2001-10-29", "2001-11-05", "2001-11-12", "2001-11-19", "2001-11-26", "2001-12-03", "2001-12-10", "2001-12-17", "2001-12-24", "2001-12-31", "2002-01-07", "2002-01-14", "2002-01-21", "2002-01-28", "2002-02-04", "2002-02-11", "2002-02-18", "2002-02-25", "2002-03-04", "2002-03-11", "2002-03-18", "2002-03-25"]
-    line [0.222, 0.194, 0.213, 0.175, 0.163, 0.137, 0.166, 0.203, 0.182, 0.17, 0.158, 0.152, 0.134, 0.11, 0.152, 0.163, 0.169, 0.172, 0.165, 0.145, 0.143, 0.133, 0.196, 0.21, 0.205, 0.175, 0.178, 0.183, 0.191, 0.158, 0.159, 0.176, 0.166, 0.178, 0.171, 0.171, 0.203, 0.175, 0.172, 0.191, 0.179, 0.157, 0.172, 0.167, 0.181, 0.191, 0.147, 0.18, 0.176, 0.188, 0.215, 0.162, 0.226, 0.214, 0.241, 0.302, 0.282, 0.252, 0.261, 0.249, 0.295, 0.251, 0.254, 0.291, 0.297, 0.34, 0.337, 0.315, 0.359, 0.347, 0.373, 0.526, 0.439, 0.453, 0.379, 0.42, 0.481, 0.49, 0.563, 0.521, 0.536, 0.539, 0.509, 0.516, 0.524, 0.472, 0.468, 0.482, 0.528, 0.479, 0.499, 0.44, 0.465, 0.451, 0.471, 0.479, 0.479, 0.498, 0.495, 0.496, 0.434, 0.583, 0.417, 0.444, 0.429, 0.49, 0.488, 0.519, 0.468, 0.511, 0.601, 0.486, 0.441, 0.526, 0.441, 0.537, 0.542, 0.613]
-```
-
-The jump comes right after the baseline year used to fit the groups ends.
-
----
-
-## Why we do not believe it
+## Why we do not believe the two signals that passed
 
 | Hypothesis | Check | Statistic | Interval | Units | Result | Reading |
 |---|---|---|---|---|---|---|
@@ -105,21 +99,37 @@ The jump comes right after the baseline year used to fit the groups ends.
 
 ---
 
+## Prior work, tested at the scope we can defend
+
+- Diesner, Frantz and Carley: a denser network in the crisis, from single months, untested
+- H25, the post-hoc replication test of the denser network that Diesner, Frantz and Carley describe, compares each custodian's share of the other custodians they exchanged mail with: a median change of 0.00826 (interval 0 to 0.0331, Holm-adjusted p = 0.239, 31 custodians); outcome: not supported.
+- Priebe et al. flag anomalies in late spring and mid-August of the crisis year; our change
+  weeks and the change of the record fall in the same months
+- Our design (custodians against themselves, frozen groups, retention checks) is why we do not
+  report what they report
+
+---
+
 ## The attack, before and after mitigation
 
 | Release | Attacker | Unique share | Re-identified | Interval | Survives |
 |---|---|---|---|---|---|
 | R0 | A1 | 0.639 | 0.251 | 0.244 to 0.259 | — |
 | R0 | A2 | 0.639 | 0.591 | 0.583 to 0.599 | — |
+| R0 | A3 | 0.639 | 0.574 | 0.565 to 0.582 | — |
 | R1 | A1 | 0 | 0 | 0 to 0 | — |
 | R1 | A2 | 0 | 0 | 0 to 0 | — |
+| R1 | A3 | 0 | 0 | 0 to 0 | — |
 | R2 | A1 | 0 | 0 | 0 to 0 | — |
 | R2 | A2 | 0 | 0 | 0 to 0 | — |
+| R2 | A3 | 0 | 0 | 0 to 0 | — |
 
 - R1 against A1: re-identified share 0.251 on R0, 0 on R1 (at least halved); finding survives: —.
 - R1 against A2: re-identified share 0.591 on R0, 0 on R1 (at least halved); finding survives: —.
+- R1 against A3: re-identified share 0.574 on R0, 0 on R1 (at least halved); finding survives: —.
 - R2 against A1: re-identified share 0.251 on R0, 0 on R2 (at least halved); finding survives: —.
 - R2 against A2: re-identified share 0.591 on R0, 0 on R2 (at least halved); finding survives: —.
+- R2 against A3: re-identified share 0.574 on R0, 0 on R2 (at least halved); finding survives: —.
 
 "Survives" needs a headline to recompute; with no finding claimed it does not apply.
 
@@ -135,25 +145,20 @@ The jump comes right after the baseline year used to fit the groups ends.
 - Observational design: a structural change near public events does not show what people knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.
 - No group-level attack on the community graph was run: an attacker who knows some group members could try to infer ties or membership from group-to-group weights, and that risk is bounded only by the minimum of k distinct senders per published tie, not measured.
 - The effect interval is computed at a change week chosen from the same data (the week that maximises the change statistic), so it is optimistic: it ignores the uncertainty of where the change happened.
-- For H5–H24, the pre-crisis placebos run on fewer custodians than the crisis comparison (fewer meet the minimum message count in the January-to-April windows; see the placebo custodians column), so they have less power: a passing placebo does not exclude a pre-existing trend.
+- For H5–H25, the pre-crisis placebos run on fewer custodians than the crisis comparison (fewer meet the minimum message count in the January-to-April windows; see the placebo custodians column), so they have less power: a passing placebo does not exclude a pre-existing trend. Both placebo windows also lie before the change of the timestamp convention (see the record section), so the placebo cannot detect an artifact of it.
+- The permutation p-values of H1–H4 treat weeks as exchangeable; weekly network metrics are autocorrelated, and a calibration test in the suite shows the test rejects far more often than its nominal level on autocorrelated series without a change. A small p alone is weak evidence here.
+- The H2 baseline placebo splits the baseline year at a fixed midpoint instead of searching a change week; a searched split could only make its jump larger, so this can only make H2 fail its check more clearly.
 - The artifact checks were added after the first real-data run, because two hypotheses passed every pre-registered check yet looked implausibly strong. They are documented as a post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.
 - Rule N2 merges addresses with the same local part under one registered domain, so it can merge two different people who share a local part across an ISP's regional subdomains; a manual check of 50 sampled real merges found 0 wrong merges (precision 1, exact binomial interval 0.929 to 1).
 
 ---
 
-## What changes with real customer data
+## Real customer data, and how this was built
 
-- Metadata-only connectors: content never leaves the source
-- Key and entity registry held by the customer; pseudonyms re-keyed per release
-- Retention schedule, works council review, data residency
-- A formal privacy budget across every published output
-
----
-
-## How it was built with agents
-
-- Spec, plan and contracts first; then parallel agents, one work package each
-- Synthetic corpus with ground truth, so tests check answers no agent produced
-- Gates on every package: lint, strict types, tests, privacy canary, import boundary
-- Independent review before each merge; a person decided every judgment call
-- Details: `docs/ai-workflow.md`
+- Metadata-only connectors, so content never leaves the source; key and entity registry held
+  by the customer; retention schedule, works council review, data residency; a formal privacy
+  budget across every published output
+- Built spec-first with parallel agents, one work package each, tested against a synthetic
+  corpus with ground truth; gates on every package (lint, strict types, tests, privacy canary,
+  import boundary); independent review skills before each merge; a person decided every
+  judgment call. Details: `docs/ai-workflow.md`
