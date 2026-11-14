@@ -212,7 +212,7 @@ def check_prerequisites(mode: str, port: int, root: Path) -> Tools:
     """Find uv, Node and npm, and check disk and port; raise PrerequisiteMissing naming the
     first thing missing. Python is the interpreter running this."""
     uv = find_tool(os.environ.get(UV_ENV) or "uv", UV_HINT)
-    node = find_tool("node", f"Node.js >= {MIN_NODE_MAJOR}")
+    node = find_node()
     version = node_version(node)
     if node_major(version) < MIN_NODE_MAJOR:
         raise PrerequisiteMissing(f"Node.js >= {MIN_NODE_MAJOR} (found {version})")
@@ -269,8 +269,8 @@ def python_gate(python: str, root: Path) -> tuple[Command, ...]:
     return tuple(Command((python, "-m", *tool), root) for tool in PYTHON_GATE)
 
 
-def ui_gate(tools: Tools, ui_root: Path) -> tuple[Command, ...]:
-    programs = {"npm": tools.npm, "node": tools.node}
+def ui_gate(node: str, npm: str, ui_root: Path) -> tuple[Command, ...]:
+    programs = {"npm": npm, "node": node}
     return tuple(Command((programs[tool[0]], *tool[1:]), ui_root) for tool in UI_GATE)
 
 
@@ -296,7 +296,11 @@ def pipeline_steps(tools: Tools, root: Path) -> tuple[Step, ...]:
         Step("download and verify the corpus", "fetch", cli("stage", "fetch")),
         Step("run the pipeline on the real corpus", "pipeline", cli("run")),
         Step("Python gate (lint, types, tests, canary)", "gate", python_gate(tools.python, root)),
-        Step("UI gate (lint, types, tests, build check)", "ui-gate", ui_gate(tools, ui_root)),
+        Step(
+            "UI gate (lint, types, tests, build check)",
+            "ui-gate",
+            ui_gate(tools.node, tools.npm, ui_root),
+        ),
         Step("export UI data from release/", "ui-data", cli("stage", "ui-data")),
         Step("build the explorer", "ui-build", (Command((tools.npm, "run", "build"), ui_root),)),
     )
@@ -356,22 +360,18 @@ def run_python_gate(root: Path = REPO_ROOT) -> int:
     return run_streaming(python_gate(sys.executable, root))
 
 
-def ui_tools() -> Tools:
-    return Tools(
-        uv="",
-        node=find_tool("node", f"Node.js >= {MIN_NODE_MAJOR}"),
-        npm=find_tool("npm", "npm"),
-    )
+def find_node() -> str:
+    return find_tool("node", f"Node.js >= {MIN_NODE_MAJOR}")
 
 
 def install_ui_dependencies(root: Path = REPO_ROOT) -> int:
-    return run_streaming(ui_dependency_commands(ui_tools().npm, root / "ui"))
+    return run_streaming(ui_dependency_commands(find_tool("npm", "npm"), root / "ui"))
 
 
 def run_ui_gate(root: Path = REPO_ROOT) -> int:
-    tools = ui_tools()
+    node, npm = find_node(), find_tool("npm", "npm")
     ui_root = root / "ui"
-    return run_streaming((*ui_dependency_commands(tools.npm, ui_root), *ui_gate(tools, ui_root)))
+    return run_streaming((*ui_dependency_commands(npm, ui_root), *ui_gate(node, npm, ui_root)))
 
 
 def create_key() -> None:

@@ -92,8 +92,7 @@ def test_python_gate_runs_each_tool_as_a_module_of_this_interpreter() -> None:
 
 def test_ui_gate_uses_the_resolved_npm_and_node(tmp_path: Path) -> None:
     """On Windows npm is npm.cmd; the gate uses whatever path shutil.which found."""
-    tools = Tools(uv="uv", node=r"C:\node\node.exe", npm=r"C:\node\npm.cmd")
-    commands = onecommand.ui_gate(tools, tmp_path)
+    commands = onecommand.ui_gate(r"C:\node\node.exe", r"C:\node\npm.cmd", tmp_path)
     assert commands[0].argv == (r"C:\node\npm.cmd", "run", "lint")
     assert commands[-1].argv == (r"C:\node\node.exe", "scripts/check-build.mjs")
     assert len(commands) == len(config.UI_GATE)

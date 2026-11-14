@@ -47,8 +47,10 @@ def create_key_file(path: Path, repo_root: Path = REPO_ROOT) -> bool:
     if target.resolve().is_relative_to(repo_root.resolve()):
         raise KeyProblem("refusing to write a key inside the repository")
     target.parent.mkdir(mode=KEY_DIR_MODE, parents=True, exist_ok=True)
-    # O_EXCL: never write through a file or link that appeared since the check above.
-    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, KEY_FILE_MODE)
+    # O_EXCL: never write through a file or link that appeared since the check above. O_BINARY
+    # (Windows only) keeps the C runtime from writing "\r\n" for "\n".
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    descriptor = os.open(target, flags, KEY_FILE_MODE)
     with os.fdopen(descriptor, "wb") as handle:
         handle.write((secrets.token_hex(MIN_KEY_BYTES) + "\n").encode("ascii"))
     if ON_WINDOWS:
