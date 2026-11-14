@@ -7,8 +7,10 @@ parses the table below and compares it with the code.
 
 **Rule**: a field not listed as *usable* or reaching *ingest only* is dropped by the parser. For
 dropped fields the value is never assigned to a variable that outlives the line being read.
-Every field name seen is counted by name (`ingest_counts.header_fields`); values of unknown
-fields are discarded and their ruling defaults to **dropped**.
+Every field name in the table below is counted by name (`ingest_counts.header_fields`); every
+other name is counted under `(other)` without its spelling, because an unknown "field name" can be
+a fragment of message text. Values of unknown fields are discarded and their ruling defaults to
+**dropped**.
 
 ## How the reader enforces it
 
@@ -30,9 +32,8 @@ body text can never be taken for header fields or for recipients. A member outsi
 for members that are parsed.
 
 **Publishing field names**: `release/header_fields.csv` lists only the field names in
-`contracts/vocab.KNOWN_HEADER_FIELDS` (the rows of the table below). Any other name is summed
-into one row `(other)` with ruling `dropped`, because an unknown "field name" can be a fragment
-of message text.
+`contracts/vocab.KNOWN_HEADER_FIELDS` (the rows of the table below) and the row `(other)` with
+ruling `dropped`, which the parser already counts without the unknown names' spelling.
 
 ## Rulings
 
@@ -51,7 +52,7 @@ of message text.
 | `Subject` | **content** | nowhere | A one-line summary of the body |
 | `X-FileName` | direct identifier | nowhere | Owner's mailbox file name; no analytical use |
 | `Mime-Version`, `Content-Type`, `Content-Transfer-Encoding` | dropped (describes content) | nowhere | No analytical use; describes the part we do not read |
-| anything else | unknown → dropped | nowhere (name counted, published only as `(other)`) | Default deny |
+| anything else | unknown → dropped | nowhere (counted as `(other)`, spelling not kept) | Default deny |
 
 The archive path `maildir/<owner>/<folder>/…` is not a header. It is read in the ingest zone
 only: the owner becomes `mailbox_owner` (and later `is_custodian`), and the top-level folder is

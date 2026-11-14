@@ -143,8 +143,9 @@ flowchart LR
 **Honest limit.** "Never enters" means our code never decodes, parses, holds, stores or logs
 content. Body bytes still pass through the gzip decompressor on the way to being skipped, and the
 downloaded archive on disk contains them. With real customer data the equivalent control is a
-connector that requests metadata fields only, so content never leaves the source (see
-[next steps](#next-steps)).
+connector that requests metadata fields only where the provider offers such a scope (Gmail,
+Outlook), so mail content never leaves the source. Teams and Slack offer none: their text reaches
+our connector and is dropped in memory, a weaker guarantee (see [next steps](#next-steps)).
 
 ---
 

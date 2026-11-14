@@ -276,7 +276,7 @@ Written with `ctx.write_counts`, which refuses any text containing `@`. Shapes i
 
 | File | Written by | Content |
 |------|------------|---------|
-| `ingest_counts` | parse | `files_seen`, `files_parsed`, `rejected` by reason, `header_fields` (name → occurrences), `header_rulings` (name → ruling), `parse_flags` |
+| `ingest_counts` | parse | `files_seen`, `files_parsed`, `rejected` by reason, `header_fields` (name → occurrences; names outside `vocab.KNOWN_HEADER_FIELDS` counted as `(other)`), `header_rulings` (name → ruling), `parse_flags` |
 | `clean_counts` | clean | `records_in`, `messages_out`, `removed_exact`, `removed_subset`, `flags`, `message_id_shared_share` (research R3), dedupe precision and recall (sample only) |
 | `identity_counts` | identity | addresses, entities, entities by type, merges by rule, blocked merges by guard, cluster sizes, precision and recall (sample only) |
 | `pseudo_counts` | pseudo | entities, events, messages without time, events in network |

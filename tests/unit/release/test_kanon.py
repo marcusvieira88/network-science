@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import polars as pl
 import pytest
 from hypothesis import given
@@ -162,3 +164,38 @@ def test_property_identifier_anywhere_is_refused(position: int, token: str) -> N
 
 def test_release_fixture_degree_table_passes_check(synth: SynthOutput) -> None:
     kanon.check("degree_distribution", synth.table("degree_distribution"), K)
+
+
+def _scopes(observed: list[int | None], core: list[int | None]) -> pl.DataFrame:
+    """weekly_metrics rows of one metric: week i has the given n_active per scope."""
+    weeks = [date(2001, 1, 1) + timedelta(weeks=i) for i in range(len(observed))]
+    rows = [
+        {
+            "scope": scope,
+            "week": week,
+            "metric": "volume",
+            "value": None if n is None else n * 10.0,
+            "n_active": n,
+            "variant": "default",
+        }
+        for scope, counts in (("observed", observed), ("core", core))
+        for week, n in zip(weeks, counts, strict=True)
+    ]
+    return pl.DataFrame(rows, schema_overrides={"n_active": pl.Int64})
+
+
+def test_core_scope_hiding_fewer_than_k_outside_it_is_suppressed() -> None:
+    # Week 0: observed 12, core 9, so 3 active persons are outside the core: observed minus core
+    # would describe them. Week 1 differs by 0 and week 2 by 5; both stay published.
+    df = _scopes([12, 9, 20], [9, 9, 15])
+    out = kanon.suppress_nested_scopes(df, K)
+    core = out.filter(pl.col("scope") == "core").sort("week")
+    assert core["n_active"].to_list() == [None, 9, 15]
+    assert core["value"].to_list() == [None, 90.0, 150.0]
+    assert out.filter(pl.col("scope") == "observed")["n_active"].to_list() == [12, 9, 20]
+
+
+def test_check_refuses_a_scope_difference_below_k() -> None:
+    with pytest.raises(PrivacyViolation, match="scope"):
+        kanon.check("weekly_metrics", _scopes([12], [9]), K)
+    kanon.check("weekly_metrics", _scopes([12], [None]), K)

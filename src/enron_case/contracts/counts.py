@@ -28,7 +28,7 @@ class IngestCounts(TypedDict):
     files_seen: int
     files_parsed: int
     rejected: dict[str, int]  # reason -> files
-    header_fields: dict[str, int]  # header field name -> occurrences (names only)
+    header_fields: dict[str, int]  # known field name or "(other)" -> occurrences
     header_rulings: dict[
         str, str
     ]  # field name -> usable | identifier | content | technical | dropped

@@ -106,24 +106,49 @@ def test_member_without_header_end_is_rejected() -> None:
 
 
 def test_identity_fields_from_path() -> None:
-    record = _member("\n", "maildir/lay-k/_sent_mail/12.")
-    assert record["mailbox_owner"] == "lay-k"
+    record = _member("\n", "maildir/owner-a/_sent_mail/12.")
+    assert record["mailbox_owner"] == "owner-a"
     assert record["folder_class"] == "sent"
-    assert record["file_id"] == vocab.file_id("maildir/lay-k/_sent_mail/12.")
+    assert record["file_id"] == vocab.file_id("maildir/owner-a/_sent_mail/12.")
 
 
 @pytest.mark.parametrize(
     ("path", "expected"),
     [
-        ("maildir/lay-k/inbox/1.", ("lay-k", "inbox")),
-        ("maildir/lay-k/inbox/sub/folder/1.", ("lay-k", "inbox")),
-        ("maildir/lay-k/1.", None),
-        ("other/lay-k/inbox/1.", None),
+        ("maildir/owner-a/inbox/1.", ("owner-a", "inbox")),
+        ("maildir/owner-a/inbox/sub/folder/1.", ("owner-a", "inbox")),
+        ("maildir/owner-a/1.", None),
+        ("other/owner-a/inbox/1.", None),
         ("maildir//inbox/1.", None),
     ],
 )
 def test_member_location(path: str, expected: tuple[str, str] | None) -> None:
     assert member_location(path) == expected
+
+
+def _archive(path: Path, members: tuple[tuple[str, bytes], ...]) -> Path:
+    with tarfile.open(path, "w:gz") as tar:
+        for name, data in members:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return path
+
+
+def test_unknown_field_names_are_counted_without_their_spelling(tmp_path: Path) -> None:
+    # A line that merely looks like a header can be a fragment of message text, so its "name"
+    # must not reach the counts zone either; only the number of such lines is kept.
+    archive = _archive(
+        tmp_path / "a.tar.gz",
+        (
+            ("maildir/a-ann/inbox/1.", b"From: a@x.com\nCanarynamea: x\nCanarynameb: y\n\n"),
+            ("maildir/a-ann/inbox/2.", b"from: b@x.com\ncanarynamea: z\n\n"),
+        ),
+    )
+    _, counts = parse_archive(archive, Config().batch_rows)
+    assert counts["header_fields"] == {"From": 2, vocab.OTHER_HEADER_FIELD: 3}
+    assert counts["header_rulings"] == {"From": "identifier", vocab.OTHER_HEADER_FIELD: "dropped"}
+    assert "canaryname" not in str(counts).lower()
 
 
 def test_members_outside_maildir_are_rejected(tmp_path: Path) -> None:

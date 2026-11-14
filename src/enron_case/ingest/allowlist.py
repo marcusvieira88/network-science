@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from enron_case.contracts.vocab import OTHER_HEADER_FIELD
+
 USABLE = "usable"
 IDENTIFIER = "identifier"
 CONTENT = "content"
@@ -57,6 +59,14 @@ _CANONICAL: dict[str, str] = {name.lower(): name for name in RULINGS}
 def canonical(name: str) -> str:
     """Contract spelling of a known field name; unknown names are returned as seen."""
     return _CANONICAL.get(name.lower(), name)
+
+
+def counted_name(name: str) -> str:
+    """Name under which a field is counted: its contract spelling if ruled on, else
+    OTHER_HEADER_FIELD. An unknown "name" can be a fragment of message text, so its spelling is
+    never kept, not even in the counts zone."""
+    key = canonical(name)
+    return key if key in RULINGS else OTHER_HEADER_FIELD
 
 
 def ruling(name: str) -> str:

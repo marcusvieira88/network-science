@@ -8,6 +8,7 @@ into data directories themselves.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -20,11 +21,28 @@ from enron_case.config import CORPUS_ARCHIVE, CORPUS_SHA256, SAMPLE_ARCHIVE, Con
 from enron_case.contracts import schemas
 from enron_case.contracts.counts import JsonObject, json_object
 from enron_case.contracts.truth import GroundTruth
+from enron_case.contracts.vocab import LEAK_PATTERN
 from enron_case.errors import ContractViolation, CorpusError, PrivacyViolation
 from enron_case.manifest import file_sha256, fingerprint, fingerprint_json
 from enron_case.zones import Paths, Zone
 
 LogFn = Callable[[str], None]
+
+_LEAK = re.compile(LEAK_PATTERN)
+
+
+def is_named_counts(value: object) -> bool:
+    """True for an integer count, or a mapping of identifier-free names to named counts."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return True
+    if isinstance(value, Mapping):
+        return all(
+            isinstance(key, str) and not _LEAK.search(key) and is_named_counts(item)
+            for key, item in value.items()
+        )
+    return False
 
 
 def stderr_log(message: str) -> None:
@@ -109,10 +127,11 @@ class StageContext:
         return json_object(path.read_text(encoding="utf-8"), f"counts '{name}'")
 
     def write_check(self, name: str, counts: Mapping[str, object]) -> None:
-        """Commit-safe copy of a check a person made (counts only) in the checks zone."""
-        text = json.dumps(counts, indent=2, sort_keys=True, default=str)
-        if "@" in text:
-            raise PrivacyViolation(f"check '{name}' contains an address")
+        """Commit-safe copy of a check a person made in the checks zone. The zone is committed,
+        so only named integer counts (nested mappings allowed) under identifier-free names pass."""
+        if not is_named_counts(counts):
+            raise PrivacyViolation(f"check '{name}' holds something other than named counts")
+        text = json.dumps(counts, indent=2, sort_keys=True)
         path = zones.path_for(self.paths, self.package, Zone.CHECKS, f"{name}.json", "w")
         path.write_text(text + "\n", encoding="utf-8")
 

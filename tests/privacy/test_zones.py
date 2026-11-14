@@ -81,6 +81,32 @@ def test_counts_reject_addresses(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    "check",
+    [
+        {"manual_checked": "someone"},
+        {"manual_checked": 2, "reviewer": "p_abcdefghijklmnop"},
+        {"manual_by_rule": {"o_abcdefghijklmnop": {"checked": 1, "correct": 1}}},
+        {"manual_checked": 1.5},
+        {"manual_checked": True},
+        {"manual_by_rule": [1, 2]},
+    ],
+)
+def test_checks_zone_accepts_counts_only(tmp_path: Path, check: dict[str, object]) -> None:
+    """The checks zone is committed: anything but named integer counts is refused."""
+    ctx = StageContext("identity", Config(), tmp_paths(tmp_path), False, lambda _m: None)
+    with pytest.raises(PrivacyViolation):
+        ctx.write_check("identity_manual", check)
+    assert not (tmp_path / "checks").exists() or not list((tmp_path / "checks").iterdir())
+
+
+def test_checks_zone_keeps_named_counts(tmp_path: Path) -> None:
+    ctx = StageContext("identity", Config(), tmp_paths(tmp_path), False, lambda _m: None)
+    counts = {"manual_checked": 3, "manual_correct": 2, "manual_by_rule": {"N2": {"checked": 3}}}
+    ctx.write_check("identity_manual", counts)
+    assert ctx.read_optional_counts("identity_manual") == counts
+
+
+@pytest.mark.parametrize(
     ("zone_ref", "allowed_modules"),
     [
         (r"Zone\.RAW|\.archive\b", {"aux_public.py"}),
