@@ -106,11 +106,11 @@ flowchart TB
 
 **Purpose**: an installable, gated, empty project
 
-- [ ] T001 (WP0) Create `pyproject.toml` (Python 3.12; runtime deps polars, networkx, numpy, scipy; dev deps pytest, hypothesis, ruff, mypy; console script `enron-case = enron_case.cli:main`; ruff and strict mypy config), `.python-version`, `uv.lock`, and empty packages `src/enron_case/{contracts,synth,ingest,clean,identity,pseudo,network,finding,risk,release,report}/__init__.py`
-- [ ] T002 [P] (WP0) Create `.gitignore` ignoring `data/`, `release-sample/`, `*.key`, `.venv/`, caches; add `data/.gitkeep`-free note in `README.md` stub that `data/` is never committed
-- [ ] T003 [P] (WP0) Create `Makefile` with targets `all`, `sample`, `gate`, `key`, `clean`, `ui`, `ui-sample`, `ui-gate` exactly as specified in `specs/001-enron-network-analysis/contracts/cli.md` (`make all` stops with exit 3 if no key; `make key` writes `~/.config/enron-case/key` with mode 600 and never inside the repository)
-- [ ] T004 [P] (WP0) Create `.github/workflows/gate.yml` running `uv sync --locked` and `make gate` on Ubuntu with the fixed test key, plus a separate job running `make ui-gate` with Node 20
-- [ ] T005 [P] (WP0) Create `docs/architecture.md` containing the five architecture Mermaid diagrams from `specs/001-enron-network-analysis/plan.md`, and `docs/ai-workflow-log.md` with the log table header (time, WP, delegated, result, rejected and why, verified how)
+- [x] T001 (WP0) Create `pyproject.toml` (Python 3.12; runtime deps polars, networkx, numpy, scipy; dev deps pytest, hypothesis, ruff, mypy; console script `enron-case = enron_case.cli:main`; ruff and strict mypy config), `.python-version`, `uv.lock`, and empty packages `src/enron_case/{contracts,synth,ingest,clean,identity,pseudo,network,finding,risk,release,report}/__init__.py`
+- [x] T002 [P] (WP0) Create `.gitignore` ignoring `data/`, `release-sample/`, `*.key`, `.venv/`, caches; add `data/.gitkeep`-free note in `README.md` stub that `data/` is never committed
+- [x] T003 [P] (WP0) Create `Makefile` with targets `all`, `sample`, `gate`, `key`, `clean`, `ui`, `ui-sample`, `ui-gate` exactly as specified in `specs/001-enron-network-analysis/contracts/cli.md` (`make all` stops with exit 3 if no key; `make key` writes `~/.config/enron-case/key` with mode 600 and never inside the repository)
+- [x] T004 [P] (WP0) Create `.github/workflows/gate.yml` running `uv sync --locked` and `make gate` on Ubuntu with the fixed test key, plus a separate job running `make ui-gate` with Node 20
+- [x] T005 [P] (WP0) Create `docs/architecture.md` containing the five architecture Mermaid diagrams from `specs/001-enron-network-analysis/plan.md`, and `docs/ai-workflow-log.md` with the log table header (time, WP, delegated, result, rejected and why, verified how)
 
 ---
 
@@ -120,19 +120,19 @@ flowchart TB
 
 **⚠️ CRITICAL**: no work package starts before T018
 
-- [ ] T006 (WP0) Implement `src/enron_case/config.py`: frozen dataclass with the parameters and defaults from the table in `data-model.md` (`seed=20011202`, `k_min=5`, `window=week`, `recipient_cap=50`, `plausible_dates`, `analysis_period`, `baseline_period`, `name_link_support=3`, `bootstrap_reps=1000`, `permutations=1000`, `ts_resolution=hour`), `--set` overrides, public event dates for annotation only
-- [ ] T007 [P] (WP0) Implement `src/enron_case/zones.py`: zone enum (raw, ingest, restricted, release), per-package allowed zones, `path_for(package, zone, name)` that raises a privacy violation (exit 6) for a disallowed zone, `purge_ingest()`, and the two documented exceptions (`risk.aux_public` may read raw; `risk.score` may read `address_map` in ingest); `report` and `uiexport` may read only the release zone
-- [ ] T008 [P] (WP0) Implement `src/enron_case/manifest.py`: content fingerprint (SHA-256 over canonical sorted row serialization, not Parquet bytes), `run_manifest.json` writer (parameters, seed, code version, key fingerprint, per-table fingerprints; no key, no identifier), stage skipping when inputs and parameters are unchanged
-- [ ] T009 [P] (WP0) Implement `src/enron_case/contracts/schemas.py`: Polars schemas and sort keys for every table in `contracts/data-contracts.md` v1, enum values verbatim, pseudonym patterns `^p_[a-z2-7]{16}$` and `^o_[a-z2-7]{16}$`, and `validate(table, name)` raising a contract violation (exit 5)
-- [ ] T010 (WP0) Implement `src/enron_case/synth/generator.py`: seeded synthetic organization and mail archive in the same tar layout as the corpus, with ground truth for duplicates (cross-folder copies, Bcc-only sender copies), aliases (subdomain, name-pattern, legacy directory forms, homonyms that must not merge), noise (bad dates, malformed addresses, lists, system senders, mass mailings, self-only, no recipients), a planted structural change at a known week and a no-change variant, and unique canary markers in body, `Subject`, `X-Folder`, `X-FileName` and display names
-- [ ] T011 (WP0) Extend `src/enron_case/synth/generator.py` to emit a conforming fixture for every contract table (`header_records` … `risk_results`) derived from ground truth into `tests/fixtures/`, so each stage can be tested without the stages before it
-- [ ] T012 (WP0) Implement `src/enron_case/cli.py`: `run`, `stage`, `verify` and options per `contracts/cli.md`; stage registry that lazily imports `enron_case.<package>.stage:run` (each WP supplies its own `stage.py`); validates each stage's output with `schemas.validate`; purges the ingest zone at the end unless `--keep-ingest`; exit codes 0,2,3,4,5,6,7
-- [ ] T013 [P] (WP0) Write `tests/contract/test_schemas.py`: every fixture validates; a fixture with an extra column, wrong enum value or wrong sort order fails
-- [ ] T014 [P] (WP0) Write `tests/privacy/test_import_boundary.py`: parse imports with `ast` and fail if `network`, `finding`, `risk`, `release`, `report` or `uiexport` import `ingest`, `clean` or `identity`, or if `uiexport` imports anything but `zones`, `config` and `contracts`
-- [ ] T015 [P] (WP0) Write `tests/privacy/test_canary.py`: run the sample pipeline with captured logs; assert body and subject markers appear nowhere (including `data/sample/ingest`), and no marker, `@`, synthetic name or folder name appears in the restricted zone, `release-sample/`, the manifest or logs; skips stages not yet registered
-- [ ] T016 [P] (WP0) Write `tests/privacy/test_zones.py`: disallowed zone access raises; `purge_ingest` removes the zone; exceptions are limited to the two named modules
-- [ ] T017 [P] (WP0) Write `tests/unit/synth/test_generator.py`: same seed gives identical archive and ground truth; planted counts match ground truth
-- [ ] T018 (WP0) Write `docs/agents/README.md` (agent protocol: owned paths only, read your contract and fixtures, tests first, `make gate` green before hand-off, never log header values, report deviations to the Lead) and one brief per work package `docs/agents/WP-A.md` … `WP-I.md` listing its tasks, input and output contracts, fixtures and acceptance checks; run `make gate` green; commit as the frozen foundation
+- [x] T006 (WP0) Implement `src/enron_case/config.py`: frozen dataclass with the parameters and defaults from the table in `data-model.md` (`seed=20011202`, `k_min=5`, `window=week`, `recipient_cap=50`, `plausible_dates`, `analysis_period`, `baseline_period`, `name_link_support=3`, `bootstrap_reps=1000`, `permutations=1000`, `ts_resolution=hour`), `--set` overrides, public event dates for annotation only
+- [x] T007 [P] (WP0) Implement `src/enron_case/zones.py`: zone enum (raw, ingest, restricted, release), per-package allowed zones, `path_for(package, zone, name)` that raises a privacy violation (exit 6) for a disallowed zone, `purge_ingest()`, and the two documented exceptions (`risk.aux_public` may read raw; `risk.score` may read `address_map` in ingest); `report` and `uiexport` may read only the release zone
+- [x] T008 [P] (WP0) Implement `src/enron_case/manifest.py`: content fingerprint (SHA-256 over canonical sorted row serialization, not Parquet bytes), `run_manifest.json` writer (parameters, seed, code version, key fingerprint, per-table fingerprints; no key, no identifier), stage skipping when inputs and parameters are unchanged
+- [x] T009 [P] (WP0) Implement `src/enron_case/contracts/schemas.py`: Polars schemas and sort keys for every table in `contracts/data-contracts.md` v1, enum values verbatim, pseudonym patterns `^p_[a-z2-7]{16}$` and `^o_[a-z2-7]{16}$`, and `validate(table, name)` raising a contract violation (exit 5)
+- [x] T010 (WP0) Implement `src/enron_case/synth/generator.py`: seeded synthetic organization and mail archive in the same tar layout as the corpus, with ground truth for duplicates (cross-folder copies, Bcc-only sender copies), aliases (subdomain, name-pattern, legacy directory forms, homonyms that must not merge), noise (bad dates, malformed addresses, lists, system senders, mass mailings, self-only, no recipients), a planted structural change at a known week and a no-change variant, and unique canary markers in body, `Subject`, `X-Folder`, `X-FileName` and display names
+- [x] T011 (WP0) Extend `src/enron_case/synth/generator.py` to emit a conforming fixture for every contract table (`header_records` … `risk_results`) derived from ground truth into `tests/fixtures/`, so each stage can be tested without the stages before it
+- [x] T012 (WP0) Implement `src/enron_case/cli.py`: `run`, `stage`, `verify` and options per `contracts/cli.md`; stage registry that lazily imports `enron_case.<package>.stage:run` (each WP supplies its own `stage.py`); validates each stage's output with `schemas.validate`; purges the ingest zone at the end unless `--keep-ingest`; exit codes 0,2,3,4,5,6,7
+- [x] T013 [P] (WP0) Write `tests/contract/test_schemas.py`: every fixture validates; a fixture with an extra column, wrong enum value or wrong sort order fails
+- [x] T014 [P] (WP0) Write `tests/privacy/test_import_boundary.py`: parse imports with `ast` and fail if `network`, `finding`, `risk`, `release`, `report` or `uiexport` import `ingest`, `clean` or `identity`, or if `uiexport` imports anything but `zones`, `config` and `contracts`
+- [x] T015 [P] (WP0) Write `tests/privacy/test_canary.py`: run the sample pipeline with captured logs; assert body and subject markers appear nowhere (including `data/sample/ingest`), and no marker, `@`, synthetic name or folder name appears in the restricted zone, `release-sample/`, the manifest or logs; skips stages not yet registered
+- [x] T016 [P] (WP0) Write `tests/privacy/test_zones.py`: disallowed zone access raises; `purge_ingest` removes the zone; exceptions are limited to the two named modules
+- [x] T017 [P] (WP0) Write `tests/unit/synth/test_generator.py`: same seed gives identical archive and ground truth; planted counts match ground truth
+- [x] T018 (WP0) Write `docs/agents/README.md` (agent protocol: owned paths only, read your contract and fixtures, tests first, `make gate` green before hand-off, never log header values, report deviations to the Lead) and one brief per work package `docs/agents/WP-A.md` … `WP-I.md` listing its tasks, input and output contracts, fixtures and acceptance checks; run `make gate` green; commit as the frozen foundation
 
 **Checkpoint**: foundation frozen — agents A–I start in parallel
 
@@ -147,46 +147,46 @@ boundary, plus measured data-quality numbers
 
 ### WP-A Ingest (Agent A)
 
-- [ ] T019 [P] [US1] (WP-A) Write `tests/unit/ingest/test_headers.py`: reader stops at first blank line and consumes no body bytes; unfolds continuation lines; decodes Latin-1; flags a member with no header end; property test over random header/body splits
-- [ ] T020 [P] [US1] (WP-A) Write `tests/unit/ingest/test_allowlist.py`: retained field names equal the *usable* and *identifier, ingest only* rows of `contracts/header-allowlist.md`; `Subject`, `X-FileName`, MIME fields never appear in any returned object; `X-Folder` is reduced to `folder_class` ∈ {sent, inbox, deleted, other}
-- [ ] T021 [P] [US1] (WP-A) Implement `src/enron_case/ingest/fetch.py`: download the archive to `data/raw`, resume on interruption, verify pinned SHA-256, exit 4 on mismatch
-- [ ] T022 [P] [US1] (WP-A) Implement `src/enron_case/ingest/headers.py`: streaming tar reader yielding (member path, unfolded header lines) and skipping the rest of each member unread
-- [ ] T023 [P] [US1] (WP-A) Implement `src/enron_case/ingest/allowlist.py`: the field rulings as data, the fixed folder vocabulary, and a filter that drops other fields while counting their names
-- [ ] T024 [US1] (WP-A) Implement `src/enron_case/ingest/parse.py`: build `header_records` (date to UTC or null with flag `bad_date`, never guessed; raw address lists; display-name fields; `file_id` as first 16 hex of SHA-256 of member path) and `ingest_counts.json`
-- [ ] T025 [US1] (WP-A) Implement `src/enron_case/ingest/stage.py` registering stages `fetch` and `parse`; make T019–T020 and the `header_records` contract test pass
+- [x] T019 [P] [US1] (WP-A) Write `tests/unit/ingest/test_headers.py`: reader stops at first blank line and consumes no body bytes; unfolds continuation lines; decodes Latin-1; flags a member with no header end; property test over random header/body splits
+- [x] T020 [P] [US1] (WP-A) Write `tests/unit/ingest/test_allowlist.py`: retained field names equal the *usable* and *identifier, ingest only* rows of `contracts/header-allowlist.md`; `Subject`, `X-FileName`, MIME fields never appear in any returned object; `X-Folder` is reduced to `folder_class` ∈ {sent, inbox, deleted, other}
+- [x] T021 [P] [US1] (WP-A) Implement `src/enron_case/ingest/fetch.py`: download the archive to `data/raw`, resume on interruption, verify pinned SHA-256, exit 4 on mismatch
+- [x] T022 [P] [US1] (WP-A) Implement `src/enron_case/ingest/headers.py`: streaming tar reader yielding (member path, unfolded header lines) and skipping the rest of each member unread
+- [x] T023 [P] [US1] (WP-A) Implement `src/enron_case/ingest/allowlist.py`: the field rulings as data, the fixed folder vocabulary, and a filter that drops other fields while counting their names
+- [x] T024 [US1] (WP-A) Implement `src/enron_case/ingest/parse.py`: build `header_records` (date to UTC or null with flag `bad_date`, never guessed; raw address lists; display-name fields; `file_id` as first 16 hex of SHA-256 of member path) and `ingest_counts.json`
+- [x] T025 [US1] (WP-A) Implement `src/enron_case/ingest/stage.py` registering stages `fetch` and `parse`; make T019–T020 and the `header_records` contract test pass
 
 ### WP-B Clean (Agent B)
 
-- [ ] T026 [P] [US1] (WP-B) Write `tests/unit/clean/test_addresses.py` and `tests/unit/clean/test_dates.py`: normalization rule N1 cases (case, quotes, stray dots, `mailto:`, empty placeholders), malformed addresses flagged `bad_address`; dates outside `plausible_dates` flagged `date_out_of_range` and kept in counts
-- [ ] T027 [P] [US1] (WP-B) Write `tests/unit/clean/test_dedupe.py`: exact rule and subset rule against ground-truth duplicates (precision ≥ 0.95, recall reported); property test that dedupe is idempotent and order-independent; recipients unique per message with strongest role (to > cc > bcc)
-- [ ] T028 [P] [US1] (WP-B) Implement `src/enron_case/clean/addresses.py` and `src/enron_case/clean/dates.py`
-- [ ] T029 [P] [US1] (WP-B) Implement `src/enron_case/clean/dedupe.py`: `msg_key` as first 20 hex of SHA-256 over (sender, timestamp second, sorted recipients); exact pass then subset pass; `n_copies ≥ 1`; `dedupe_rule` ∈ {none, exact, subset}; `owner_copies`, `sent_copy_owner`
-- [ ] T030 [P] [US1] (WP-B) Implement `src/enron_case/clean/noise.py`: flags `no_recipients`, `self_only`, `mass_mailing` (recipients > `recipient_cap`), and the Message-ID diagnostic of research R3 (share of exact-duplicate groups sharing one Message-ID)
-- [ ] T031 [US1] (WP-B) Implement `src/enron_case/clean/stage.py` writing `messages` and `clean_counts.json`; make T026–T027 and the `messages` contract test pass
+- [x] T026 [P] [US1] (WP-B) Write `tests/unit/clean/test_addresses.py` and `tests/unit/clean/test_dates.py`: normalization rule N1 cases (case, quotes, stray dots, `mailto:`, empty placeholders), malformed addresses flagged `bad_address`; dates outside `plausible_dates` flagged `date_out_of_range` and kept in counts
+- [x] T027 [P] [US1] (WP-B) Write `tests/unit/clean/test_dedupe.py`: exact rule and subset rule against ground-truth duplicates (precision ≥ 0.95, recall reported); property test that dedupe is idempotent and order-independent; recipients unique per message with strongest role (to > cc > bcc)
+- [x] T028 [P] [US1] (WP-B) Implement `src/enron_case/clean/addresses.py` and `src/enron_case/clean/dates.py`
+- [x] T029 [P] [US1] (WP-B) Implement `src/enron_case/clean/dedupe.py`: `msg_key` as first 20 hex of SHA-256 over (sender, timestamp second, sorted recipients); exact pass then subset pass; `n_copies ≥ 1`; `dedupe_rule` ∈ {none, exact, subset}; `owner_copies`, `sent_copy_owner`
+- [x] T030 [P] [US1] (WP-B) Implement `src/enron_case/clean/noise.py`: flags `no_recipients`, `self_only`, `mass_mailing` (recipients > `recipient_cap`), and the Message-ID diagnostic of research R3 (share of exact-duplicate groups sharing one Message-ID)
+- [x] T031 [US1] (WP-B) Implement `src/enron_case/clean/stage.py` writing `messages` and `clean_counts.json`; make T026–T027 and the `messages` contract test pass
 
 ### WP-C Identity (Agent C)
 
-- [ ] T032 [P] [US1] (WP-C) Write `tests/unit/identity/test_rules.py`: each rule N1–N4 merges its ground-truth cases with support ≥ `name_link_support`; guards block name-only merges, cross-organization merges and generic local parts; homonyms stay separate
-- [ ] T033 [P] [US1] (WP-C) Write `tests/unit/identity/test_resolve.py` and `tests/unit/identity/test_classify.py`: every address maps to exactly one entity; result independent of input order; `type` ∈ {person, list, system, role, unknown}; `is_custodian` only via rule N5; precision ≥ 0.95 on ground truth
-- [ ] T034 [P] [US1] (WP-C) Implement `src/enron_case/identity/rules.py`: evidence extraction from `header_records` and `messages` and rules N2–N5 with guards
-- [ ] T035 [P] [US1] (WP-C) Implement `src/enron_case/identity/classify.py`: entity typing by documented address patterns and behaviour
-- [ ] T036 [US1] (WP-C) Implement `src/enron_case/identity/resolve.py` (deterministic union-find, canonical id = smallest normalized address, merge edges tagged with rule and support) and `src/enron_case/identity/evaluate.py` (pairwise precision/recall against ground truth; sampler that draws 50 merges for manual review inside the ingest zone and outputs counts only)
-- [ ] T037 [US1] (WP-C) Implement `src/enron_case/identity/stage.py` writing `entities`, `address_map`, `identity_counts.json`; make T032–T033 and the contract tests pass
+- [x] T032 [P] [US1] (WP-C) Write `tests/unit/identity/test_rules.py`: each rule N1–N4 merges its ground-truth cases with support ≥ `name_link_support`; guards block name-only merges, cross-organization merges and generic local parts; homonyms stay separate
+- [x] T033 [P] [US1] (WP-C) Write `tests/unit/identity/test_resolve.py` and `tests/unit/identity/test_classify.py`: every address maps to exactly one entity; result independent of input order; `type` ∈ {person, list, system, role, unknown}; `is_custodian` only via rule N5; precision ≥ 0.95 on ground truth
+- [x] T034 [P] [US1] (WP-C) Implement `src/enron_case/identity/rules.py`: evidence extraction from `header_records` and `messages` and rules N2–N5 with guards
+- [x] T035 [P] [US1] (WP-C) Implement `src/enron_case/identity/classify.py`: entity typing by documented address patterns and behaviour
+- [x] T036 [US1] (WP-C) Implement `src/enron_case/identity/resolve.py` (deterministic union-find, canonical id = smallest normalized address, merge edges tagged with rule and support) and `src/enron_case/identity/evaluate.py` (pairwise precision/recall against ground truth; sampler that draws 50 merges for manual review inside the ingest zone and outputs counts only)
+- [x] T037 [US1] (WP-C) Implement `src/enron_case/identity/stage.py` writing `entities`, `address_map`, `identity_counts.json`; make T032–T033 and the contract tests pass
 
 ### WP-D Pseudonymize (Agent D)
 
-- [ ] T038 [P] [US1] (WP-D) Write `tests/unit/pseudo/test_keys.py`: resolution order `ENRON_CASE_KEY` → `ENRON_CASE_KEY_FILE` → `~/.config/enron-case/key`; abort with exit 3 when missing, shorter than 32 bytes, or inside the repository; key never appears in logs or manifest; subkeys per label differ
-- [ ] T039 [P] [US1] (WP-D) Write `tests/unit/pseudo/test_pseudonymize.py`: same key and canonical id give the same pid; different key gives disjoint pids; count(distinct pid) = count(entities); forced collision aborts with exit 7; pids match `^p_[a-z2-7]{16}$`, org pids `^o_[a-z2-7]{16}$`; no `@` in any output column; `ts_hour` truncated to the hour; `weight = 1 / n_recipients`
-- [ ] T040 [P] [US1] (WP-D) Implement `src/enron_case/pseudo/keys.py`: key resolution, safety checks, labelled subkeys (`person-v1`, `org-v1`, `event-v1`), per-release salt, 8-hex key fingerprint for the manifest
-- [ ] T041 [US1] (WP-D) Implement `src/enron_case/pseudo/pseudonymize.py`: HMAC-SHA256 → base32 → 16 chars with prefixes `p_`, `o_`, `e_`, `m_`; build `events` (one row per recipient, `in_network` false when any exclusion flag applies) and `entities_p`; no mapping table is written
-- [ ] T042 [US1] (WP-D) Implement `src/enron_case/pseudo/stage.py`; make T038–T039 and the contract tests pass
+- [x] T038 [P] [US1] (WP-D) Write `tests/unit/pseudo/test_keys.py`: resolution order `ENRON_CASE_KEY` → `ENRON_CASE_KEY_FILE` → `~/.config/enron-case/key`; abort with exit 3 when missing, shorter than 32 bytes, or inside the repository; key never appears in logs or manifest; subkeys per label differ
+- [x] T039 [P] [US1] (WP-D) Write `tests/unit/pseudo/test_pseudonymize.py`: same key and canonical id give the same pid; different key gives disjoint pids; count(distinct pid) = count(entities); forced collision aborts with exit 7; pids match `^p_[a-z2-7]{16}$`, org pids `^o_[a-z2-7]{16}$`; no `@` in any output column; `ts_hour` truncated to the hour; `weight = 1 / n_recipients`
+- [x] T040 [P] [US1] (WP-D) Implement `src/enron_case/pseudo/keys.py`: key resolution, safety checks, labelled subkeys (`person-v1`, `org-v1`, `event-v1`), per-release salt, 8-hex key fingerprint for the manifest
+- [x] T041 [US1] (WP-D) Implement `src/enron_case/pseudo/pseudonymize.py`: HMAC-SHA256 → base32 → 16 chars with prefixes `p_`, `o_`, `e_`, `m_`; build `events` (one row per recipient, `in_network` false when any exclusion flag applies) and `entities_p`; no mapping table is written
+- [x] T042 [US1] (WP-D) Implement `src/enron_case/pseudo/stage.py`; make T038–T039 and the contract tests pass
 
 ### US1 integration (Lead)
 
-- [ ] T043 [US1] (WP0) Write `tests/integration/test_us1.py`: sample run to `pseudo` passes canary, reaches the precision thresholds, and gives identical `events` fingerprints across two runs
-- [ ] T044 [US1] (WP0) Run stages `fetch`→`pseudo` on the full corpus; record in `docs/ai-workflow-log.md` the header field names encountered, the R3 Message-ID diagnostic, counts per cleaning step and runtime; rule on any header field not in `contracts/header-allowlist.md` and update that contract and `ingest/allowlist.py` through Agent A
-- [ ] T045 [US1] (WP0) Independent review of WP-A…WP-D by the Reviewer agent using the `/code-review` and `/data-privacy-review` skills on each branch (checklist: content rule, zone boundary, contract conformance, test meaningfulness); log findings and fixes in `docs/ai-workflow-log.md`
-- [ ] T046 [US1] (WP0) Perform the 50-merge manual check (time-boxed to 20 minutes) on the real corpus inside the ingest zone using `identity/evaluate.py`; record only the counts in `data/restricted/quality_manual.json`
+- [x] T043 [US1] (WP0) Write `tests/integration/test_us1.py`: sample run to `pseudo` passes canary, reaches the precision thresholds, and gives identical `events` fingerprints across two runs
+- [x] T044 [US1] (WP0) Run stages `fetch`→`pseudo` on the full corpus; record in `docs/ai-workflow-log.md` the header field names encountered, the R3 Message-ID diagnostic, counts per cleaning step and runtime; rule on any header field not in `contracts/header-allowlist.md` and update that contract and `ingest/allowlist.py` through Agent A
+- [x] T045 [US1] (WP0) Independent review of WP-A…WP-D by the Reviewer agent using the `/code-review` and `/data-privacy-review` skills on each branch (checklist: content rule, zone boundary, contract conformance, test meaningfulness); log findings and fixes in `docs/ai-workflow-log.md`
+- [x] T046 [US1] (WP0) Perform the 50-merge manual check (time-boxed to 20 minutes) on the real corpus inside the ingest zone using `identity/evaluate.py`; record only the counts in `data/restricted/quality_manual.json`
 
 **Checkpoint**: tasks 1 and 2 of the brief are answered and measured
 
@@ -200,28 +200,28 @@ boundary, plus measured data-quality numbers
 
 ### WP-E Network (Agent E)
 
-- [ ] T047 [P] [US2] (WP-E) Write `docs/metrics.md`: formal definition, range and edge behaviour of volume, active_persons, density, reciprocity, indegree_gini, cross_community_share, external_share, tie_turnover; scopes core and observed; null when fewer than k active persons; the rule mapping checks (a)–(f) of research R11 to confidence ∈ {high, moderate, low}
-- [ ] T048 [P] [US2] (WP-E) Write `tests/unit/network/test_snapshots.py`: one snapshot per ISO week and scope; persons only; `in_network` false events excluded; weights sum to message count for persons-only messages
-- [ ] T049 [P] [US2] (WP-E) Write `tests/unit/network/test_metrics.py`: each metric against hand-computed toy graphs and known closed forms (empty, complete, star, two cliques); undefined windows give null not zero
-- [ ] T050 [P] [US2] (WP-E) Implement `src/enron_case/network/snapshots.py` writing `snapshots` for scopes core and observed
-- [ ] T051 [US2] (WP-E) Implement `src/enron_case/network/metrics.py`: the eight metrics, baseline communities frozen on `baseline_period` with a seeded algorithm and written as the restricted table `communities` (`community` is -1 if not assigned), sensitivity variants (`cap`, `dedupe`, `window=month`) labelled in `variant`
-- [ ] T052 [US2] (WP-E) Implement `src/enron_case/network/stage.py` writing `metric_series`; make T048–T049 and the contract tests pass
+- [x] T047 [P] [US2] (WP-E) Write `docs/metrics.md`: formal definition, range and edge behaviour of volume, active_persons, density, reciprocity, indegree_gini, cross_community_share, external_share, tie_turnover; scopes core and observed; null when fewer than k active persons; the rule mapping checks (a)–(f) of research R11 to confidence ∈ {high, moderate, low}
+- [x] T048 [P] [US2] (WP-E) Write `tests/unit/network/test_snapshots.py`: one snapshot per ISO week and scope; persons only; `in_network` false events excluded; weights sum to message count for persons-only messages
+- [x] T049 [P] [US2] (WP-E) Write `tests/unit/network/test_metrics.py`: each metric against hand-computed toy graphs and known closed forms (empty, complete, star, two cliques); undefined windows give null not zero
+- [x] T050 [P] [US2] (WP-E) Implement `src/enron_case/network/snapshots.py` writing `snapshots` for scopes core and observed
+- [x] T051 [US2] (WP-E) Implement `src/enron_case/network/metrics.py`: the eight metrics, baseline communities frozen on `baseline_period` with a seeded algorithm and written as the restricted table `communities` (`community` is -1 if not assigned), sensitivity variants (`cap`, `dedupe`, `window=month`) labelled in `variant`
+- [x] T052 [US2] (WP-E) Implement `src/enron_case/network/stage.py` writing `metric_series`; make T048–T049 and the contract tests pass
 
 ### WP-F Finding (Agent F)
 
-- [ ] T053 [P] [US2] (WP-F) Write `docs/hypotheses.md`: H1–H4 exactly as in research R10 with metric, scope, direction, baseline period, decision rule and what would falsify each; state that it is committed before any real-data analysis
-- [ ] T054 [P] [US2] (WP-F) Write `tests/unit/finding/test_stats.py`: CUSUM change point recovers a planted step within one window; permutation p-value is uniform under no change (false positive rate ≤ 5% over seeds); block bootstrap interval covers a known effect; Holm correction against a worked example
-- [ ] T055 [P] [US2] (WP-F) Write `tests/unit/finding/test_nullmodel.py` and `tests/unit/finding/test_select.py`: rewiring preserves every sender's out-weight and recipient's in-weight per week; exactly four result rows always; at most one `is_headline`; `supported` ∈ {yes, no, inconclusive}; `confidence` derived by the rule in `docs/metrics.md`
-- [ ] T056 [P] [US2] (WP-F) Implement `src/enron_case/finding/stats.py`: CUSUM with permutation p-value, standardized effect versus baseline, moving-block bootstrap interval, Holm correction; all seeded
-- [ ] T057 [P] [US2] (WP-F) Implement `src/enron_case/finding/nullmodel.py`: within-week recipient rewiring and the `null_z` deviation of a metric from it
-- [ ] T058 [US2] (WP-F) Implement `src/enron_case/finding/hypotheses.py` (H1–H4 as data bound to metric and scope; leave-one-mailbox-out and variant robustness loops) and `src/enron_case/finding/select.py` (support and confidence rules, headline choice, "none supported" path)
-- [ ] T059 [US2] (WP-F) Implement `src/enron_case/finding/stage.py` writing `hypothesis_results`; make T054–T055 and the contract tests pass
+- [x] T053 [P] [US2] (WP-F) Write `docs/hypotheses.md`: H1–H4 exactly as in research R10 with metric, scope, direction, baseline period, decision rule and what would falsify each; state that it is committed before any real-data analysis
+- [x] T054 [P] [US2] (WP-F) Write `tests/unit/finding/test_stats.py`: CUSUM change point recovers a planted step within one window; permutation p-value is uniform under no change (false positive rate ≤ 5% over seeds); block bootstrap interval covers a known effect; Holm correction against a worked example
+- [x] T055 [P] [US2] (WP-F) Write `tests/unit/finding/test_nullmodel.py` and `tests/unit/finding/test_select.py`: rewiring preserves every sender's out-weight and recipient's in-weight per week; exactly four result rows always; at most one `is_headline`; `supported` ∈ {yes, no, inconclusive}; `confidence` derived by the rule in `docs/metrics.md`
+- [x] T056 [P] [US2] (WP-F) Implement `src/enron_case/finding/stats.py`: CUSUM with permutation p-value, standardized effect versus baseline, moving-block bootstrap interval, Holm correction; all seeded
+- [x] T057 [P] [US2] (WP-F) Implement `src/enron_case/finding/nullmodel.py`: within-week recipient rewiring and the `null_z` deviation of a metric from it
+- [x] T058 [US2] (WP-F) Implement `src/enron_case/finding/hypotheses.py` (H1–H4 as data bound to metric and scope; leave-one-mailbox-out and variant robustness loops) and `src/enron_case/finding/select.py` (support and confidence rules, headline choice, "none supported" path)
+- [x] T059 [US2] (WP-F) Implement `src/enron_case/finding/stage.py` writing `hypothesis_results`; make T054–T055 and the contract tests pass
 
 ### US2 integration (Lead)
 
-- [ ] T060 [US2] (WP0) Commit `docs/hypotheses.md` and `docs/metrics.md` with their own commit before running `network` and `finding` on the real corpus; then run them and write `tests/integration/test_us2.py` (planted change detected; no-change variant clean)
-- [ ] T061 [US2] (WP0) Independent review of WP-E and WP-F by the Reviewer agent using the `/code-review` and `/data-privacy-review` skills on each branch (metric definitions match code; statistics are valid; no hypothesis edited after results); log in `docs/ai-workflow-log.md`
-- [ ] T062 [US2] (WP0) Judge the real-data result: check each hypothesis against the stated threats (retention growth toward late 2001, senior-staff sample, investigation-shaped collection), decide the headline or "none supported", and record the reasoning and remaining doubts in `docs/ai-workflow-log.md` for the report
+- [x] T060 [US2] (WP0) Commit `docs/hypotheses.md` and `docs/metrics.md` with their own commit before running `network` and `finding` on the real corpus; then run them and write `tests/integration/test_us2.py` (planted change detected; no-change variant clean)
+- [x] T061 [US2] (WP0) Independent review of WP-E and WP-F by the Reviewer agent using the `/code-review` and `/data-privacy-review` skills on each branch (metric definitions match code; statistics are valid; no hypothesis edited after results); log in `docs/ai-workflow-log.md`
+- [x] T062 [US2] (WP0) Judge the real-data result: check each hypothesis against the stated threats (retention growth toward late 2001, senior-staff sample, investigation-shaped collection), decide the headline or "none supported", and record the reasoning and remaining doubts in `docs/ai-workflow-log.md` for the report
 
 **Checkpoint**: task 3 of the brief is answered with evidence and confidence
 
@@ -235,27 +235,27 @@ boundary, plus measured data-quality numbers
 
 ### WP-G Risk (Agent G)
 
-- [ ] T063 [P] [US3] (WP-G) Write `tests/unit/risk/test_uniqueness.py`: unique share and anonymity-set sizes on toy tables with known answers
-- [ ] T064 [P] [US3] (WP-G) Write `tests/unit/risk/test_attack.py`: A1 matching re-identifies planted unique nodes in R0 and none in R1; A2 seed propagation grows from seeds on a toy graph; attack functions accept only a release and auxiliary features (signature test); scorer returns counts only
-- [ ] T065 [P] [US3] (WP-G) Implement `src/enron_case/risk/aux_public.py`: the attacker's own naive parser over the raw archive (headers only, `From`/`To`/`Cc`/`Date`, no identity resolution, no import from `ingest`), producing per-address weekly send/receive counts and degree held in memory
-- [ ] T066 [P] [US3] (WP-G) Implement `src/enron_case/risk/uniqueness.py`: uniqueness and anonymity-set distribution on attacker-observable features (degree, weekly activity vector, first/last active week)
-- [ ] T067 [US3] (WP-G) Implement `src/enron_case/risk/attack.py`: A1 feature matching and A2 seeded propagation against a release variant, returning guesses (pseudonym → address)
-- [ ] T068 [US3] (WP-G) Implement `src/enron_case/risk/score.py`: score guesses against `address_map` in the ingest zone and the key, returning rates with bootstrap intervals and no identities
-- [ ] T069 [US3] (WP-G) Implement `src/enron_case/risk/stage.py`: build variants through `release.variants`, run both attackers on R0/R1/R2, recompute the headline effect on each variant with `finding.stats` for `utility_effect_ratio` and `finding_survives`, write `risk_results`; make T063–T064 and the contract tests pass
+- [x] T063 [P] [US3] (WP-G) Write `tests/unit/risk/test_uniqueness.py`: unique share and anonymity-set sizes on toy tables with known answers
+- [x] T064 [P] [US3] (WP-G) Write `tests/unit/risk/test_attack.py`: A1 matching re-identifies planted unique nodes in R0 and none in R1; A2 seed propagation grows from seeds on a toy graph; attack functions accept only a release and auxiliary features (signature test); scorer returns counts only
+- [x] T065 [P] [US3] (WP-G) Implement `src/enron_case/risk/aux_public.py`: the attacker's own naive parser over the raw archive (headers only, `From`/`To`/`Cc`/`Date`, no identity resolution, no import from `ingest`), producing per-address weekly send/receive counts and degree held in memory
+- [x] T066 [P] [US3] (WP-G) Implement `src/enron_case/risk/uniqueness.py`: uniqueness and anonymity-set distribution on attacker-observable features (degree, weekly activity vector, first/last active week)
+- [x] T067 [US3] (WP-G) Implement `src/enron_case/risk/attack.py`: A1 feature matching and A2 seeded propagation against a release variant, returning guesses (pseudonym → address)
+- [x] T068 [US3] (WP-G) Implement `src/enron_case/risk/score.py`: score guesses against `address_map` in the ingest zone and the key, returning rates with bootstrap intervals and no identities
+- [x] T069 [US3] (WP-G) Implement `src/enron_case/risk/stage.py`: build variants through `release.variants`, run both attackers on R0/R1/R2, recompute the headline effect on each variant with `finding.stats` for `utility_effect_ratio` and `finding_survives`, write `risk_results`; make T063–T064 and the contract tests pass
 
 ### WP-H Release (Agent H)
 
-- [ ] T070 [P] [US3] (WP-H) Write `tests/unit/release/test_kanon.py`: any person count < `k_min` (5) is suppressed; rows derived from a suppressed group are dropped or coarsened; a table with a pid, org pid or `@` is refused; violation exits 6; property test over random tables
-- [ ] T071 [P] [US3] (WP-H) Write `tests/unit/release/test_variants.py`: R0 is written only to the restricted zone; R1 has no per-person rows, bucketed degrees and per-release re-keyed ids; R2 noise is seeded and unbiased in expectation
-- [ ] T072 [P] [US3] (WP-H) Implement `src/enron_case/release/kanon.py`: the single enforcement point for minimum group size and identifier patterns
-- [ ] T073 [US3] (WP-H) Implement `src/enron_case/release/variants.py` (R0, R1, R2 builders; R1 and R2 include the group-level `community_graph`) and `src/enron_case/release/mitigate.py` (coarsening, bucketing, re-keying, noise)
-- [ ] T074 [US3] (WP-H) Implement `src/enron_case/release/tables.py` and `src/enron_case/release/stage.py`: assemble `quality_metrics` from the three counts files and write `data_quality.csv`, `header_fields.csv`, `weekly_metrics.csv`, `hypotheses.csv`, `risk.csv`, `degree_distribution.csv`, `community_graph.csv` and `community_groups.csv` (groups are baseline communities with ≥ k persons labelled `G01…`, smaller ones merged into `other`, ties with fewer than k distinct senders suppressed), each through `kanon.py`; make T070–T071 pass
+- [x] T070 [P] [US3] (WP-H) Write `tests/unit/release/test_kanon.py`: any person count < `k_min` (5) is suppressed; rows derived from a suppressed group are dropped or coarsened; a table with a pid, org pid or `@` is refused; violation exits 6; property test over random tables
+- [x] T071 [P] [US3] (WP-H) Write `tests/unit/release/test_variants.py`: R0 is written only to the restricted zone; R1 has no per-person rows, bucketed degrees and per-release re-keyed ids; R2 noise is seeded and unbiased in expectation
+- [x] T072 [P] [US3] (WP-H) Implement `src/enron_case/release/kanon.py`: the single enforcement point for minimum group size and identifier patterns
+- [x] T073 [US3] (WP-H) Implement `src/enron_case/release/variants.py` (R0, R1, R2 builders; R1 and R2 include the group-level `community_graph`) and `src/enron_case/release/mitigate.py` (coarsening, bucketing, re-keying, noise)
+- [x] T074 [US3] (WP-H) Implement `src/enron_case/release/tables.py` and `src/enron_case/release/stage.py`: assemble `quality_metrics` from the three counts files and write `data_quality.csv`, `header_fields.csv`, `weekly_metrics.csv`, `hypotheses.csv`, `risk.csv`, `degree_distribution.csv`, `community_graph.csv` and `community_groups.csv` (groups are baseline communities with ≥ k persons labelled `G01…`, smaller ones merged into `other`, ties with fewer than k distinct senders suppressed), each through `kanon.py`; make T070–T071 pass
 
 ### US3 integration (Lead)
 
-- [ ] T075 [US3] (WP0) Write `tests/integration/test_us3.py` and run `risk` and `release` on the full corpus; confirm `grep -rE '@|p_[a-z2-7]{16}' release/` finds nothing
-- [ ] T076 [US3] (WP0) Independent review of WP-G and WP-H by the Reviewer agent using the `/code-review` and `/data-privacy-review` skills on each branch (attacker has no path to truth; scorer leaks nothing; k enforced everywhere); log in `docs/ai-workflow-log.md`
-- [ ] T077 [US3] (WP0) Judge the risk result: state plainly the re-identification rate against R0, whether R1/R2 reduce it by at least half (SC-007) and whether the headline survives; if a mitigation fails, record why for the report
+- [x] T075 [US3] (WP0) Write `tests/integration/test_us3.py` and run `risk` and `release` on the full corpus; confirm `grep -rE '@|p_[a-z2-7]{16}' release/` finds nothing
+- [x] T076 [US3] (WP0) Independent review of WP-G and WP-H by the Reviewer agent using the `/code-review` and `/data-privacy-review` skills on each branch (attacker has no path to truth; scorer leaks nothing; k enforced everywhere); log in `docs/ai-workflow-log.md`
+- [x] T077 [US3] (WP0) Judge the risk result: state plainly the re-identification rate against R0, whether R1/R2 reduce it by at least half (SC-007) and whether the headline survives; if a mitigation fails, record why for the report
 
 **Checkpoint**: task 4 of the brief is answered with a measured before/after
 
@@ -269,23 +269,23 @@ boundary, plus measured data-quality numbers
 
 ### WP-I Report & docs (Agent I)
 
-- [ ] T078 [P] [US4] (WP-I) Write `tests/unit/report/test_render.py`: the report renders from fixture release tables; every number in the output is traceable to a release table cell; placeholders left unfilled fail the build; the limits section is present
-- [ ] T079 [P] [US4] (WP-I) Implement `src/enron_case/report/quality.py` and `src/enron_case/report/render.py`: render `release/report.md` (what we found in the data, the header ruling table, the finding with evidence and confidence, all four hypotheses, the risk table, limits) and a `{{name}}` number-injection function for docs, reading only `release/`
-- [ ] T080 [US4] (WP-I) Implement `src/enron_case/report/stage.py`; inject numbers into `docs/decision-record.md` and `docs/slides.md` on each run
-- [ ] T081 [US4] (WP-I) Write `README.md`: what this is, the one command, prerequisites, reading order, link to `docs/architecture.md`, what is and is not committed
+- [x] T078 [P] [US4] (WP-I) Write `tests/unit/report/test_render.py`: the report renders from fixture release tables; every number in the output is traceable to a release table cell; placeholders left unfilled fail the build; the limits section is present
+- [x] T079 [P] [US4] (WP-I) Implement `src/enron_case/report/quality.py` and `src/enron_case/report/render.py`: render `release/report.md` (what we found in the data, the header ruling table, the finding with evidence and confidence, all four hypotheses, the risk table, limits) and a `{{name}}` number-injection function for docs, reading only `release/`
+- [x] T080 [US4] (WP-I) Implement `src/enron_case/report/stage.py`; inject numbers into `docs/decision-record.md` and `docs/slides.md` on each run
+- [x] T081 [US4] (WP-I) Write `README.md`: what this is, the one command, prerequisites, reading order, link to `docs/architecture.md`, what is and is not committed
 
 ### One-command and determinism (Lead)
 
-- [ ] T082 [P] [US4] (WP0) Write `tests/integration/test_determinism.py`: `enron-case verify` gives equal fingerprints for two sample runs; a second key changes every pseudonym and no aggregate
-- [ ] T083 [P] [US4] (WP0) Write `tests/integration/test_one_command.py`: `make sample` from a clean tree exits 0 and produces `release-sample/report.md`; no key gives exit 3 and writes nothing
-- [ ] T084 [US4] (WP0) Run `make all` on the full corpus once and record runtime against SC-002; then re-run `enron-case run --from pseudo` with the same key and compare fingerprints with the manifest (a second full run only if the first took under 15 minutes)
+- [x] T082 [P] [US4] (WP0) Write `tests/integration/test_determinism.py`: `enron-case verify` gives equal fingerprints for two sample runs; a second key changes every pseudonym and no aggregate
+- [x] T083 [P] [US4] (WP0) Write `tests/integration/test_one_command.py`: `make sample` from a clean tree exits 0 and produces `release-sample/report.md`; no key gives exit 3 and writes nothing
+- [x] T084 [US4] (WP0) Run `make all` on the full corpus once and record runtime against SC-002; then re-run `enron-case run --from pseudo` with the same key and compare fingerprints with the manifest (a second full run only if the first took under 15 minutes)
 
 ### Written deliverables (Agent I, with the Lead's judgments from T062 and T077)
 
-- [ ] T085 [P] [US4] (WP-I) Write `docs/decision-record.md`, one page: architecture (zones diagram), the main trade-offs (strict content line, rule-based identity, HMAC and its limits, aggregates-only release), and what changes with real customer data (metadata-only connectors, customer-side key custody and entity registry, retention, works council review, data residency, formal privacy budget)
-- [ ] T086 [P] [US4] (WP-I) Write `docs/ai-workflow.md` distilled from `docs/ai-workflow-log.md`: how work was split, what agents produced, what was rejected, the gates and reviews that kept output correct, where a human decided, what did not work
-- [ ] T087 [P] [US4] (WP-I) Write `docs/slides.md`, at most 12 slides for 15 minutes: the question, the rule and where the line is, data-quality findings, pseudonymization, the finding with one table and one chart, confidence and threats, the attack result before/after, limits, what changes for real customers, how it was built with agents
-- [ ] T088 [US4] (WP-I) Update `docs/architecture.md` so every diagram matches the code as built; add the agent work-breakdown diagram
+- [x] T085 [P] [US4] (WP-I) Write `docs/decision-record.md`, one page: architecture (zones diagram), the main trade-offs (strict content line, rule-based identity, HMAC and its limits, aggregates-only release), and what changes with real customer data (metadata-only connectors, customer-side key custody and entity registry, retention, works council review, data residency, formal privacy budget)
+- [x] T086 [P] [US4] (WP-I) Write `docs/ai-workflow.md` distilled from `docs/ai-workflow-log.md`: how work was split, what agents produced, what was rejected, the gates and reviews that kept output correct, where a human decided, what did not work
+- [x] T087 [P] [US4] (WP-I) Write `docs/slides.md`, at most 12 slides for 15 minutes: the question, the rule and where the line is, data-quality findings, pseudonymization, the finding with one table and one chart, confidence and threats, the attack result before/after, limits, what changes for real customers, how it was built with agents
+- [x] T088 [US4] (WP-I) Update `docs/architecture.md` so every diagram matches the code as built; add the agent work-breakdown diagram
 
 **Checkpoint**: all deliverables of the brief exist
 
@@ -299,16 +299,16 @@ boundary, plus measured data-quality numbers
 
 ### WP-J Explorer UI (Agent J)
 
-- [ ] T089 [P] [US5] (WP-J) Scaffold `ui/` with Vite + React 18 + TypeScript (strict), Tailwind CSS and shadcn/ui (`ui/components.json`); dark theme only, with design tokens in `ui/src/index.css` (near-black background, one accent colour, muted borders, a bundled variable font, no external font or CDN); add shadcn components card, tabs, table, badge, slider, select, tooltip, button and chart under `ui/src/components/ui/`; commit the lockfile; add ESLint, `tsc --noEmit` and Vitest + Testing Library scripts in `ui/package.json`
-- [ ] T090 [P] [US5] (WP-J) Write `tests/unit/uiexport/test_export.py`: the export reads only files under the release zone; output validates against the documented JSON shape; it refuses (exit 6) any value matching `@`, `^p_[a-z2-7]{16}$` or `^o_[a-z2-7]{16}$` and any person count below `k_min`; same input gives byte-identical JSON
-- [ ] T091 [P] [US5] (WP-J) Implement `src/enron_case/uiexport/export.py` and `src/enron_case/uiexport/stage.py` (stage `ui-data`): convert `data_quality.csv`, `header_fields.csv`, `weekly_metrics.csv`, `hypotheses.csv`, `risk.csv`, `degree_distribution.csv`, `community_graph.csv`, `community_groups.csv` and the manifest's parameters and event dates into `ui/public/data/release.json`
-- [ ] T092 [US5] (WP-J) Implement `ui/src/lib/data.ts` (TypeScript types mirroring the release tables, loader, runtime validation with a clear error state when the file is missing or malformed) and `ui/src/lib/data.test.ts`; add a sample `ui/public/data/release.sample.json` generated from the release fixtures
-- [ ] T093 [P] [US5] (WP-J) Implement the shell in `ui/src/App.tsx` and `ui/src/components/AppShell.tsx`: sidebar navigation for the seven views (Overview, Metrics, Network, Hypotheses, Data quality, Privacy and risk, Limits), responsive layout, keyboard-accessible, run details (seed, parameters, code version) in the footer; test in `ui/src/components/AppShell.test.tsx`
-- [ ] T094 [P] [US5] (WP-J) Implement `ui/src/components/MetricChart.tsx` with shadcn chart (Recharts): line per metric with selectors for metric, scope (core, observed) and sensitivity variant; vertical markers for the estimated change point and the public event dates; shaded baseline period; null values shown as gaps, not zero; test in `ui/src/components/MetricChart.test.tsx`
-- [ ] T095 [P] [US5] (WP-J) Implement `ui/src/components/CommunityGraph.tsx` and `ui/src/components/TimeSlider.tsx`: force-directed layout with `d3-force` computed once and kept stable across weeks; nodes are groups sized by `n_persons`, edges sized by weight; week slider with play/pause and event markers; tooltips show group label, size and weights only; a visible note that nodes are groups of at least k people, never individuals; tests in `ui/src/components/CommunityGraph.test.tsx`
-- [ ] T096 [P] [US5] (WP-J) Implement `ui/src/components/FindingCard.tsx` (headline claim, effect, interval, confidence badge, or the "no hypothesis supported" state) and `ui/src/components/HypothesesTable.tsx` (H1–H4 with p, Holm-adjusted p, effect, interval, robustness count, supported and confidence badges); tests alongside
-- [ ] T097 [P] [US5] (WP-J) Implement `ui/src/components/RiskPanel.tsx` (re-identification rate and utility per release variant R0/R1/R2 and attacker, before/after bars), `ui/src/components/QualityPanel.tsx` (cleaning funnel with counts per step, precision and recall, header ruling table) and `ui/src/components/Limits.tsx`; tests alongside
-- [ ] T098 [US5] (WP-J) Wire the views in `ui/src/App.tsx`; write `ui/src/privacy.test.ts` (the loaded data contains no `@`, no pseudonym pattern and no person count below the minimum; no component renders a per-person row) and `ui/scripts/check-build.mjs` run by `make ui-gate` (the production build contains no external URL and makes no network request other than `release.json`); make `make ui-gate` green
+- [x] T089 [P] [US5] (WP-J) Scaffold `ui/` with Vite + React 18 + TypeScript (strict), Tailwind CSS and shadcn/ui (`ui/components.json`); dark theme only, with design tokens in `ui/src/index.css` (near-black background, one accent colour, muted borders, a bundled variable font, no external font or CDN); add shadcn components card, tabs, table, badge, slider, select, tooltip, button and chart under `ui/src/components/ui/`; commit the lockfile; add ESLint, `tsc --noEmit` and Vitest + Testing Library scripts in `ui/package.json`
+- [x] T090 [P] [US5] (WP-J) Write `tests/unit/uiexport/test_export.py`: the export reads only files under the release zone; output validates against the documented JSON shape; it refuses (exit 6) any value matching `@`, `^p_[a-z2-7]{16}$` or `^o_[a-z2-7]{16}$` and any person count below `k_min`; same input gives byte-identical JSON
+- [x] T091 [P] [US5] (WP-J) Implement `src/enron_case/uiexport/export.py` and `src/enron_case/uiexport/stage.py` (stage `ui-data`): convert `data_quality.csv`, `header_fields.csv`, `weekly_metrics.csv`, `hypotheses.csv`, `risk.csv`, `degree_distribution.csv`, `community_graph.csv`, `community_groups.csv` and the manifest's parameters and event dates into `ui/public/data/release.json`
+- [x] T092 [US5] (WP-J) Implement `ui/src/lib/data.ts` (TypeScript types mirroring the release tables, loader, runtime validation with a clear error state when the file is missing or malformed) and `ui/src/lib/data.test.ts`; add a sample `ui/public/data/release.sample.json` generated from the release fixtures
+- [x] T093 [P] [US5] (WP-J) Implement the shell in `ui/src/App.tsx` and `ui/src/components/AppShell.tsx`: sidebar navigation for the seven views (Overview, Metrics, Network, Hypotheses, Data quality, Privacy and risk, Limits), responsive layout, keyboard-accessible, run details (seed, parameters, code version) in the footer; test in `ui/src/components/AppShell.test.tsx`
+- [x] T094 [P] [US5] (WP-J) Implement `ui/src/components/MetricChart.tsx` with shadcn chart (Recharts): line per metric with selectors for metric, scope (core, observed) and sensitivity variant; vertical markers for the estimated change point and the public event dates; shaded baseline period; null values shown as gaps, not zero; test in `ui/src/components/MetricChart.test.tsx`
+- [x] T095 [P] [US5] (WP-J) Implement `ui/src/components/CommunityGraph.tsx` and `ui/src/components/TimeSlider.tsx`: force-directed layout with `d3-force` computed once and kept stable across weeks; nodes are groups sized by `n_persons`, edges sized by weight; week slider with play/pause and event markers; tooltips show group label, size and weights only; a visible note that nodes are groups of at least k people, never individuals; tests in `ui/src/components/CommunityGraph.test.tsx`
+- [x] T096 [P] [US5] (WP-J) Implement `ui/src/components/FindingCard.tsx` (headline claim, effect, interval, confidence badge, or the "no hypothesis supported" state) and `ui/src/components/HypothesesTable.tsx` (H1–H4 with p, Holm-adjusted p, effect, interval, robustness count, supported and confidence badges); tests alongside
+- [x] T097 [P] [US5] (WP-J) Implement `ui/src/components/RiskPanel.tsx` (re-identification rate and utility per release variant R0/R1/R2 and attacker, before/after bars), `ui/src/components/QualityPanel.tsx` (cleaning funnel with counts per step, precision and recall, header ruling table) and `ui/src/components/Limits.tsx`; tests alongside
+- [x] T098 [US5] (WP-J) Wire the views in `ui/src/App.tsx`; write `ui/src/privacy.test.ts` (the loaded data contains no `@`, no pseudonym pattern and no person count below the minimum; no component renders a per-person row) and `ui/scripts/check-build.mjs` run by `make ui-gate` (the production build contains no external URL and makes no network request other than `release.json`); make `make ui-gate` green
 
 ### US5 integration (Lead)
 
