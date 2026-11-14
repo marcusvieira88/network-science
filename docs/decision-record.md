@@ -29,8 +29,8 @@ injected from release tables; none is typed.
 
 - **Strict content line, including `Subject`.** Content fields (Subject, X-Folder) are never
   stored. We lose threads and reply times and dedupe on sender, second and recipients alone:
-  266827 copies removed. Precision and recall are measured in the test suite
-  against the synthetic corpus's ground truth; the real corpus has none.
+  266827 copies removed. Precision and recall are measured only against the
+  synthetic corpus's ground truth.
 - **Rule-based identity resolution.** Deterministic, explainable rules weighted to precision,
   because a false merge invents a central person while a false split only dilutes one:
   85388 addresses to 84759 entities.
@@ -38,11 +38,12 @@ injected from release tables; none is typed.
 - **Keyed HMAC pseudonyms, and their limit.** Stable for one key, not confirmable by hashing
   guessed addresses. It is still pseudonymization: whoever holds the key can test a candidate,
   and structure re-identifies people. Our own attack on the person-level output (R0)
-  re-identified a share of 0.251 of targets for the outsider and
-  0.591 for the insider.
+  re-identified a share of 0.251 of targets for the outsider,
+  0.591 for an insider who knows a few custodians and
+  0.574 for one who knows them all, as anyone holding the corpus does.
 - **Aggregates-only release.** So nothing person-level is published. Every cell meets
-  k = 5. On the aggregate release (R1) the shares fall to 0 and
-  0. With no finding claimed, there is no effect whose loss to measure.
+  k = 5. On the aggregate release (R1) the shares fall to 0,
+  0 and 0. With no finding claimed, there is no effect whose loss to measure.
 
 **Finding.** The change in the crisis year that the headers establish is in the record, not
 in behaviour. The share of weekday sent mail stamped outside working hours is between 0.426 and 0.538 in the reference months and between 0.0399 and 0.0643 in the crisis months; the `Date` convention changed in between from 2001-05-01, within the same people (H5: median change -0.44, interval -0.512 to -0.372). Every within-custodian comparison crosses that change; confidence that it happened: high, its cause not established.
