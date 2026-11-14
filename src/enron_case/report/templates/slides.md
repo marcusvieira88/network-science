@@ -67,7 +67,8 @@ The crisis window lies after the change, the reference window and both placebo w
 - Asked after every behavioural hypothesis had failed; stated and committed before computing
 - A departure: a custodian stops sending while their own mailbox keeps receiving mail only it
   holds; if that mail stops too, the mailbox was no longer collected (a record end)
-- Weeks from the presence of mail, not hours or volumes: the change of the record cannot move it
+- Read in weeks from the presence of mail, so the hour shift of the record cannot move it;
+  the growth of inbox mail kept is tested by a stricter variant
 
 {{departure_table}}
 
