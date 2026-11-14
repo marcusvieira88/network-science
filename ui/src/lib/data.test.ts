@@ -165,6 +165,16 @@ describe("loadRelease", () => {
     expect(result).toEqual({ status: "error", message: "release.json is not valid JSON" });
   });
 
+  it("reports a release.json the server fails to serve instead of falling back", async () => {
+    for (const status of [401, 403, 500]) {
+      const result = await loadRelease(
+        async (url) => (url.endsWith(RELEASE_URL) ? new Response("", { status }) : jsonResponse(rawSample())),
+        "/",
+      );
+      expect(result).toEqual({ status: "error", message: `release.json could not be loaded (HTTP ${status})` });
+    }
+  });
+
   it("reports when neither file exists", async () => {
     const result = await loadRelease(async () => new Response("", { status: 404 }), "/");
     expect(result.status).toBe("error");
