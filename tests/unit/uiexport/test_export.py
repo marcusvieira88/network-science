@@ -344,3 +344,38 @@ def _first_difference(committed: bytes, produced: bytes) -> str:
         f"first difference at byte {index}: committed {committed[start:end]!r} "
         f"produced {produced[start:end]!r}"
     )
+
+
+def test_run_block_names_the_missing_manifest_fields() -> None:
+    with pytest.raises(
+        ContractViolation, match=r"run manifest lacks \['code_version', 'parameters'\]"
+    ):
+        export.run_block({"seed": 1, "sample": True})
+
+
+def test_run_block_keeps_only_the_run_fields_in_contract_order() -> None:
+    manifest: JsonObject = {
+        "parameters": {},
+        "seed": 1,
+        "extra": "x",
+        "sample": True,
+        "code_version": "c",
+    }
+    assert list(export.run_block(manifest).items()) == [
+        ("code_version", "c"),
+        ("sample", True),
+        ("seed", 1),
+        ("parameters", {}),
+    ]
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_render_refuses_a_non_finite_number(value: float) -> None:
+    """Table cells are nulled before this point; a non-finite number anywhere else (a run
+    parameter, say) would make invalid JSON, so it fails instead."""
+    with pytest.raises(ContractViolation, match="non-finite number"):
+        export.render({"run": {"parameters": {"alpha": value}}})
+
+
+def test_render_is_compact_json_with_a_final_newline() -> None:
+    assert export.render({"b": 1, "a": [1.5, None]}) == '{"b":1,"a":[1.5,null]}\n'
