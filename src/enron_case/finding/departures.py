@@ -308,6 +308,16 @@ def one_sided_p(later: Tally, earlier: Tally) -> float:
     return float(fisher_exact(table, alternative="greater").pvalue)
 
 
+def detectable_departures(later_at_risk: int, earlier_at_risk: int, alpha: float) -> int | None:
+    """Power of the test at these sizes: the fewest departures in the later window that reach
+    p below alpha even with none in the earlier window; None if no count does."""
+    earlier = Tally(earlier_at_risk, 0, 0)
+    for departures in range(later_at_risk + 1):
+        if one_sided_p(Tally(later_at_risk, departures, 0), earlier) < alpha:
+            return departures
+    return None
+
+
 def smallest_cell(later: Tally, earlier: Tally) -> int:
     return min(
         later.departures,
@@ -624,6 +634,12 @@ def _tests(
                 "above_rolling": s.above_rolling,
                 "loo_stable": loo_stable if is_primary else None,
                 "outcome": outcome if is_primary else None,
+                "detectable_departures": detectable_departures(
+                    s.crisis.at_risk, s.reference.at_risk, config.alpha
+                ),
+                "placebo_detectable_departures": detectable_departures(
+                    s.placebo_after.at_risk, s.placebo_before.at_risk, config.alpha
+                ),
                 "smallest_at_risk": min(t.at_risk for t in tallies),
                 "smallest_cell": smallest_cell(s.crisis, s.reference),
                 "placebo_smallest_cell": smallest_cell(s.placebo_after, s.placebo_before),

@@ -23,6 +23,7 @@ def test_a_held_finding_states_its_numbers_and_confidence(synth: SynthOutput) ->
     assert "Confidence: moderate." in text
     assert "7 began before 2001-10-16" in text
     assert departures.departure_summary(tests).endswith("confidence: moderate.")
+    assert "would have needed at least 7 departures of 40 at risk" in text
 
 
 def test_nothing_established_names_the_failed_conditions(synth: SynthOutput) -> None:
@@ -43,4 +44,5 @@ def test_nothing_established_names_the_failed_conditions(synth: SynthOutput) -> 
     assert "(p 0.05 or above)" in text
     assert "an earlier window of the same length had at least as high a share" in text
     assert "neither is published" in text
+    assert "leave-one-out does not apply" in text
     assert departures.departure_summary(tests).startswith("No wave")

@@ -232,6 +232,10 @@ _DEPARTURE_TEST_COLS = (
     Col("above_rolling", BOOL, nullable=True),
     Col("loo_stable", BOOL, nullable=True),
     Col("outcome", STR, nullable=True, enum=DEPARTURE_OUTCOMES),
+    # Power at these sizes (added after the data-science review, post hoc): the fewest crisis
+    # (placebo after) departures that would reach p below alpha with none in the earlier window.
+    Col("detectable_departures", INT, nullable=True),
+    Col("placebo_detectable_departures", INT, nullable=True),
 )
 # Restricted only: the person counts the release needs to decide what it may publish.
 _DEPARTURE_TEST_SUPPRESSION_COLS = (

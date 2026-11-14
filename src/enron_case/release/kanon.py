@@ -96,9 +96,21 @@ def check(name: str, df: pl.DataFrame, k: int) -> None:
     if name == "weekly_metrics":
         _check_metric_values(df)
         _check_nested_scopes(df, k)
+    if name == "departures":
+        _check_departure_complements(df, k)
     partition = DIFFERENCING_PARTITIONS.get(name)
     if partition is not None:
         _check_differencing(df, schemas.PERSON_COUNT_COLUMNS[name][0], partition)
+
+
+def _check_departure_complements(df: pl.DataFrame, k: int) -> None:
+    """At risk minus a published count must not describe fewer than k custodians: those who did
+    not depart, did not end, or stayed (neither)."""
+    at_risk, departed, ends = pl.col("at_risk"), pl.col("departures"), pl.col("record_ends")
+    complements = (at_risk - departed, at_risk - ends, at_risk - departed - ends)
+    small = df.filter(pl.any_horizontal([c.is_not_null() & (c < k) for c in complements]))
+    if small.height:
+        raise PrivacyViolation(f"departures: {small.height} rows whose complement is below k")
 
 
 def _check_metric_values(df: pl.DataFrame) -> None:

@@ -201,7 +201,7 @@ H26, a structural question stated post hoc (O1 in `docs/hypotheses-exploratory.m
 whether custodians left during the crisis: a departure is a custodian who stops sending for 16
 weeks while their own mailbox keeps receiving mail that only it can hold, so a mailbox that was
 no longer collected (a record end) does not count. It is **not established**: too few
-departures in the crisis window to publish, no more frequent than a year earlier.
+departures in the crisis window to publish, and not a higher share than a year earlier.
 
 The published finding is about the **record**, not behaviour: the record profile
 (`record_profile`) shows the share of the custodians' weekday sent mail stamped outside working

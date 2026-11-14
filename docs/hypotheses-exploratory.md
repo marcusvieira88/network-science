@@ -384,24 +384,37 @@ Two publication details changed while designing the release table, before any nu
 
 ## O1 (H26) result (written after it was computed)
 
-Computed by the pipeline at commit 9a6c4c0, which was committed before the first real-data run;
-the code was not changed after the result (later commits changed only report wording and
-documents). The numbers live in `release/departures.csv`, `release/departure_tests.csv` and the
+First computed by the pipeline at commit 9a6c4c0, which was committed before the first real-data
+run. The computation of the outcome was not changed after the result; later commits changed
+report wording, documents, the release suppression and added the power columns below (the run
+manifest names the commit of the committed release). The numbers live in `release/departures.csv`, `release/departure_tests.csv` and the
 report's H26 section; they are not repeated here, so they cannot go stale.
 
 **Outcome: not established.** No departure wave in the crisis window can be claimed. The first
 necessary condition already fails: fewer than k = 5 of the custodians at risk in the crisis
 window stopped sending while their mailbox kept receiving mail (so the count is suppressed).
 The other necessary conditions fail too: the crisis share is not above the reference share
-(one-sided p at or above 0.05) and not above every earlier window of the same length, and
-leave-one-out is not stable. The placebo passes. No published variant in the rule reaches p
+(one-sided p at or above 0.05) and not above every earlier window of the same length.
+Leave-one-out does not apply once the test itself fails. The placebo passes, but with 9
+custodians at risk before it, it could hardly fail. No published variant in the rule reaches p
 below 0.05 (one variant, `active 8`, has a window with fewer than k custodians at risk and
 publishes nothing). Record ends in the crisis and reference windows and both parts of the
-split at the third-quarter loss announcement are below k and suppressed.
+split at the third-quarter loss announcement are suppressed.
+
+**Power (added after the data-science review, post hoc).** At these numbers at risk the test
+could only see a large wave: even with no departure a year earlier, the crisis window needed the
+number of departures published as `detectable_departures` (`release/departure_tests.csv`) for p
+below 0.05. A null here rules out a large wave, not a modest rise.
 
 Read plainly: among the custodians whose record covers both what they sent and what they
 received, the headers show no departure wave in the crisis window: departures there are too
-few to publish and no more frequent than a year earlier. This does not say nobody left Enron; it says the collected mailboxes do not record a
+few to publish, and their share is not higher than a year earlier. This does not say nobody left Enron; it says the collected mailboxes do not record a
 departure wave among their owners in those weeks. Departures after the bankruptcy filing
 (December 2001 onwards) fall outside the stated window, and their silences run into the months
 when collection ends, where they cannot be told from record ends.
+
+**Deviations from the statement, found in review (after the result).** The successor rule
+counts only X's recipients who are internal persons, where the statement says "X's distinct
+recipients". Leave-one-out removes each custodian from the units counted, not from the record
+(their mail still marks others' mailbox-only weeks and successor candidates). Neither can
+change the outcome: the primary test fails before either matters.

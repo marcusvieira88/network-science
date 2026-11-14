@@ -60,14 +60,14 @@ The crisis window lies after the change, the reference window and both placebo w
 
 ---
 
-## Structure: did the core of the organization leave? (post hoc)
+## Structure: did the custodians leave? (post hoc)
 
 {{departure_summary}}
 
 - Asked after every behavioural hypothesis had failed; stated and committed before computing
 - A departure: a custodian stops sending while their own mailbox keeps receiving mail only it
   holds; if that mail stops too, the mailbox was no longer collected (a record end)
-- Read in weeks from the presence of mail, so the hour shift of the record cannot move it;
+- Read in weeks from the presence of mail, so the hour shift of the record barely moves it;
   the growth of inbox mail kept is tested by a stricter variant
 
 {{departure_table}}

@@ -5,8 +5,10 @@ from __future__ import annotations
 from datetime import date
 
 import polars as pl
+import pytest
 
 from enron_case.contracts import schemas
+from enron_case.errors import PrivacyViolation
 from enron_case.release import kanon, tables
 
 K = 5
@@ -57,6 +59,22 @@ def test_record_ends_hidden_when_the_custodians_who_stayed_are_fewer_than_k() ->
     out = tables.departures(periods([("crisis", 20, 8, 9)]), K)  # 3 stayed
     assert cell(out, "crisis", "record_ends") is None
     assert cell(out, "crisis", "departures") == 8
+
+
+def test_a_count_whose_complement_is_below_k_is_suppressed() -> None:
+    """At risk 9 with 5 departures would reveal the 4 who did not depart; 9 record ends would
+    reveal that none departed."""
+    out = tables.departures(periods([("crisis", 9, 5, 0), ("reference", 9, 0, 9)]), K)
+    assert cell(out, "crisis", "departures") is None
+    assert cell(out, "crisis", "hazard") is None
+    assert cell(out, "reference", "record_ends") is None
+    kanon.check("departures", out, K)
+
+
+def test_kanon_refuses_a_published_complement_below_k() -> None:
+    leaky = periods([("crisis", 9, 5, None)])
+    with pytest.raises(PrivacyViolation):
+        kanon.check("departures", leaky, K)
 
 
 def test_split_parts_are_published_only_together() -> None:

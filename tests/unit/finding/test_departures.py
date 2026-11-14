@@ -404,3 +404,48 @@ def test_variants_are_the_ones_stated_before_computing() -> None:
 def test_tables_match_their_contracts(planted: dep.Result) -> None:
     schemas.validate(planted.periods, "departure_results")
     schemas.validate(planted.tests, "departure_test_results")
+
+
+@pytest.mark.parametrize(("departed", "stable"), [(8, False), (20, True)])
+def test_leave_one_out_fails_when_one_custodian_carries_the_test(
+    departed: int, stable: bool
+) -> None:
+    """8 of 40 against 2 of 40 is significant (p about 0.04); without one of the 8 it is not."""
+    evaluation = dep.Evaluation(
+        variant=dep.variants(CONFIG)[0],
+        crisis=outcome_of(40, departed),
+        reference=outcome_of(40, 2),
+        placebo_after=outcome_of(40, 2),
+        placebo_before=outcome_of(40, 2),
+        rolling=(outcome_of(40, 1),),
+    )
+    everyone = np.ones(N_CUSTODIANS, dtype=np.bool_)
+    assert dep.summarise(evaluation, everyone, CONFIG).p < CONFIG.alpha
+    assert dep.leave_one_out_stable(evaluation, CONFIG) is stable
+
+
+def test_same_cohort_drops_custodians_not_at_risk_a_year_earlier() -> None:
+    """Five custodians whose mail starts in 2001 are at risk in the crisis window, but only the
+    primary definition counts them."""
+    newcomers = list(CUSTODIANS[10:15]) + list(EXTERNALS[10:15])
+    events = world(stop_sending=background()).filter(
+        ~(
+            (pl.col("sender_pid").is_in(newcomers) | pl.col("recipient_pid").is_in(newcomers))
+            & (pl.col("ts_hour").dt.date() < date(2001, 1, 1))
+        )
+    )
+    record = dep.build_record(events, entities(), CONFIG)
+    variants = {v.name: v for v in dep.variants(CONFIG)}
+    no_successors = np.zeros_like(record.sent)
+    primary = dep.evaluate(record, variants[dep.PRIMARY], no_successors).crisis
+    cohort = dep.evaluate(record, variants["same cohort"], no_successors).crisis
+    assert int(primary.at_risk.sum()) - int(cohort.at_risk.sum()) == len(newcomers) // 2
+    assert not cohort.at_risk[10:15].any()
+
+
+def test_detectable_departures_is_the_first_significant_count() -> None:
+    needed = dep.detectable_departures(66, 26, CONFIG.alpha)
+    assert needed is not None
+    assert dep.one_sided_p(dep.Tally(66, needed, 0), dep.Tally(26, 0, 0)) < CONFIG.alpha
+    assert dep.one_sided_p(dep.Tally(66, needed - 1, 0), dep.Tally(26, 0, 0)) >= CONFIG.alpha
+    assert dep.detectable_departures(3, 3, CONFIG.alpha) is None

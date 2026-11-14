@@ -134,9 +134,49 @@ def _variant_sentence(tests: pl.DataFrame, alpha: float) -> str:
         f"share above the reference share and {significant} keep p below {format_value(alpha)}"
     )
     if hidden:
+        verb = "publishes" if hidden == 1 else "publish"
+        text += f"; {hidden} {verb} no comparison, because a window has too few custodians at risk"
+    return text + "."
+
+
+def _leave_one_out(row: Row) -> str:
+    if row["p_band"] not in (FAMILY_BOUND, BELOW_ALPHA):
+        return "leave-one-out does not apply, since the test itself does not pass."
+    kept = "keeps" if row["loo_stable"] else "does not keep"
+    return f"leaving each custodian out in turn {kept} the test and the rolling comparison."
+
+
+def _any_silence_sentence(tests: pl.DataFrame) -> str:
+    """The variant that counts every silence bounds what treating record ends as departures
+    could hide (the end of collection turns late departures into record ends)."""
+    rows = tests.filter(~pl.col("in_rule")).rows(named=True)
+    if not rows or rows[0]["p_band"] is None:
+        return ""
+    row = rows[0]
+    significant = row["p_band"] in (FAMILY_BOUND, BELOW_ALPHA)
+    return (
+        f" Counting every silence, record ends included (variant {row['variant']}), the crisis "
+        f"share is {'' if significant else 'still not '}significantly above a year earlier."
+    )
+
+
+def _power_sentence(primary: Row, periods: pl.DataFrame) -> str:
+    """How large a wave the test could see at these numbers at risk."""
+    needed = primary["detectable_departures"]
+    if needed is None:
+        return ""
+    crisis = _period(periods, CRISIS)
+    text = (
+        f"Power: even with no departure a year earlier, the crisis window would have needed at "
+        f"least {format_value(needed)} departures of {format_value(crisis['at_risk'])} at risk "
+        "for significance, so the test can see only a large wave"
+    )
+    placebo = primary["placebo_detectable_departures"]
+    after = _period(periods, PLACEBO_AFTER)
+    if placebo is not None and after["at_risk"] is not None:
         text += (
-            f"; {hidden} publish no comparison, because one of their windows has too few "
-            "custodians at risk"
+            f"; the placebo would have needed {format_value(placebo)} of "
+            f"{format_value(after['at_risk'])}, so its passing shows little"
         )
     return text + "."
 
@@ -173,9 +213,8 @@ def departure_statement(periods: pl.DataFrame, tests: pl.DataFrame, config: Conf
         f"of the {format_value(primary['rolling_windows'])} earlier windows of the same length "
         f"with at least {config.departure_rolling_min_at_risk} custodians at risk; the "
         f"pre-crisis placebo has {_p_text(primary, 'placebo_p', 'placebo_p_band', alpha)}; "
-        "leaving each custodian out in turn "
-        f"{'keeps' if primary['loo_stable'] else 'does not keep'} the test and that comparison. "
-        f"{_variant_sentence(tests, alpha)}"
+        f"{_leave_one_out(primary)} {_variant_sentence(tests, alpha)}"
+        f"{_any_silence_sentence(tests)} {_power_sentence(primary, periods)}"
     )
     outcome = str(primary["outcome"])
     if outcome == NOT_ESTABLISHED:
@@ -183,8 +222,9 @@ def departure_statement(periods: pl.DataFrame, tests: pl.DataFrame, config: Conf
         verdict = f" No departure wave can be established: {reasons}."
     else:
         verdict = (
-            " Custodians left at a higher rate during the crisis than in the same weeks a year "
-            f"earlier and than in any comparable earlier window. Confidence: {CONFIDENCE[outcome]}."
+            " Custodians stopped sending while their mailbox kept receiving at a higher rate "
+            "during the crisis than in the same weeks a year earlier and than in any comparable "
+            f"earlier window. Confidence: {CONFIDENCE[outcome]}."
         )
     return evidence + rolling + verdict + " " + _split_sentence(periods, k_min)
 
@@ -194,7 +234,7 @@ def departure_summary(tests: pl.DataFrame) -> str:
     outcome = str(_primary(tests)["outcome"])
     if outcome == NOT_ESTABLISHED:
         return "No wave of custodian departures in the crisis can be established."
-    return f"Custodians left at a higher rate in the crisis than before; confidence: {outcome}."
+    return f"More custodians went quiet with a live mailbox than before; confidence: {outcome}."
 
 
 def periods_table(periods: pl.DataFrame) -> str:

@@ -660,6 +660,8 @@ class FixtureBuilder:
                 "above_rolling": True,
                 "loo_stable": True if order == 1 else None,
                 "outcome": schemas.DEPARTURE_OUTCOMES[1] if order == 1 else None,
+                "detectable_departures": 7,
+                "placebo_detectable_departures": 7,
                 "smallest_at_risk": 40,
                 "smallest_cell": 2,
                 "placebo_smallest_cell": 2,
