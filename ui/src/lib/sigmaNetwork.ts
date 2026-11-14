@@ -16,25 +16,24 @@ import type { EdgeDisplayData, NodeDisplayData } from "sigma/types";
 import { type Point, sortedGroups } from "@/lib/cells";
 import { themeHex, withAlpha } from "@/lib/color";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
-import { type GroupTie, MEMBRANE_OPACITY, groupColor, publishedTies } from "@/lib/network";
+import { type GroupTie, MEMBRANE_OPACITY, TIE_OPACITY, groupColor, publishedTies } from "@/lib/network";
 import { OVERLAP_DISC_COLOR, type Overlap } from "@/lib/overlap";
+import { clamp } from "@/lib/utils";
 
 /** Disc radius = square root of group size times this, so disc area is proportional to size. */
-export const NODE_RADIUS_PER_SQRT_PERSON = 1;
+const NODE_RADIUS_PER_SQRT_PERSON = 1;
 /** An anonymous point's radius, in layout units; a group of 5 has a disc of radius about 2.2. */
 export const POINT_RADIUS = 0.3;
 /** Tie width in layout units, from the lightest to the heaviest weekly tie. */
 export const EDGE_MIN_WIDTH = 0.1;
 export const EDGE_MAX_WIDTH = 1.2;
-/** Ties are drawn translucent so crossings stay readable. */
-export const TIE_OPACITY = 0.55;
 /** ForceAtlas2 runs this many iterations once, over the ties of all weeks; positions then stay. */
-export const LAYOUT_ITERATIONS = 500;
+const LAYOUT_ITERATIONS = 500;
 /**
  * Fixed ForceAtlas2 settings (no randomness in the algorithm, fixed initial ring): the same data
  * always gives the same picture. `adjustSizes` keeps discs from overlapping.
  */
-export const LAYOUT_SETTINGS: ForceAtlas2Settings = {
+const LAYOUT_SETTINGS: ForceAtlas2Settings = {
   adjustSizes: true,
   barnesHutOptimize: false,
   strongGravityMode: true,
@@ -54,7 +53,7 @@ export interface Position {
   y: number;
 }
 
-export type NodeKind = "group" | "point";
+type NodeKind = "group" | "point";
 
 export type NetworkNode = {
   x: number;
@@ -100,7 +99,7 @@ export function pointKey(groupIndex: number, index: number): string {
 
 /** Share of the heaviest weekly tie, clamped to [0, 1]. */
 function tieShare(weight: number, maxTie: number): number {
-  return Math.min(Math.max(weight / Math.max(maxTie, 1), 0), 1);
+  return clamp(weight / Math.max(maxTie, 1), 0, 1);
 }
 
 /** Tie width: `maxTie` is the heaviest tie of any week, so a wider line always means a heavier tie. */
@@ -159,7 +158,7 @@ export function layoutPositions(groups: CommunityGroupRow[], edges: CommunityEdg
   );
 }
 
-export interface NetworkInput {
+interface NetworkInput {
   groups: CommunityGroupRow[];
   positions: ReadonlyMap<string, Position>;
   /** The selected week's ties between published groups. */
@@ -264,7 +263,7 @@ export function findGroup(labels: readonly string[], query: string): string | nu
   return labels.find((_, i) => lower[i]?.includes(needle)) ?? null;
 }
 
-export interface SizeSample {
+interface SizeSample {
   people: number;
   /** Legend circle radius in pixels; area proportional to `people`. */
   radius: number;
@@ -279,7 +278,7 @@ export function legendSizes(groups: CommunityGroupRow[], maxRadius: number): Siz
   return shown.map((people) => ({ people, radius: maxRadius * Math.sqrt(people / largest) }));
 }
 
-export interface WeightSample {
+interface WeightSample {
   weight: number;
   /** Legend line width in pixels, in proportion to the tie width drawn. */
   width: number;
@@ -299,7 +298,7 @@ export interface LabelCanvas {
   fillText(text: string, x: number, y: number): void;
 }
 
-export interface LabelFont {
+interface LabelFont {
   labelSize: number;
   labelFont: string;
   labelWeight: string;

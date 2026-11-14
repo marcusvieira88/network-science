@@ -1,5 +1,5 @@
 {
-  "code_version": "95d00a8",
+  "code_version": "c4a800e",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -86,53 +86,47 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.18,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
     },
     {
       "stage": "parse",
-      "seconds": 36.31,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
     },
     {
       "stage": "clean",
-      "seconds": 26.45,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
     },
     {
       "stage": "identity",
-      "seconds": 4.82,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
     },
     {
       "stage": "pseudo",
-      "seconds": 15.21,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
     },
     {
       "stage": "network",
-      "seconds": 0.71,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
     },
     {
       "stage": "finding",
-      "seconds": 22.72,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
     },
     {
       "stage": "risk",
-      "seconds": 45.34,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
     },
     {
       "stage": "release",
-      "seconds": 0.11,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
     },
     {
       "stage": "report",
-      "seconds": 0.03,
-      "code_version": "95d00a8"
+      "code_version": "c4a800e"
+    },
+    {
+      "stage": "ui-data",
+      "code_version": "c4a800e"
     }
   ]
 }

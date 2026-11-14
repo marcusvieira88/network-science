@@ -27,12 +27,13 @@ from enron_case.config import (
     SAMPLE_ARCHIVE,
     SAMPLE_INTERNAL_DOMAIN,
     SAMPLE_KEY_HEX,
+    STAGE_TIMINGS_FILE,
     Config,
 )
 from enron_case.context import LogFn, StageContext, stderr_log
 from enron_case.contracts.schemas import EXPLORATORY_CONFIDENT
 from enron_case.errors import PipelineError, UsageError
-from enron_case.manifest import RunManifest, code_version, file_sha256
+from enron_case.manifest import RunManifest, code_version, file_sha256, write_stage_timings
 from enron_case.zones import Paths, Zone
 
 
@@ -139,6 +140,7 @@ def run_pipeline(
         ensure_sample_corpus(paths)
         manifest.corpus_sha256 = file_sha256(paths.dir(Zone.RAW) / SAMPLE_ARCHIVE)
     ran: list[str] = []
+    seconds_per_stage: dict[str, float] = {}
     try:
         for stage in stages:
             if sample and stage.name == "fetch":
@@ -153,7 +155,8 @@ def run_pipeline(
             manifest.tables.update(ctx.outputs)
             manifest.counts.update(ctx.count_outputs)
             manifest.corpus_sha256 = ctx.corpus_sha256 or manifest.corpus_sha256
-            manifest.record_stage(stage.name, seconds)
+            manifest.record_stage(stage.name)
+            seconds_per_stage[stage.name] = seconds
             ran.append(stage.name)
             log(f"[{stage.name}] done in {seconds:.1f}s")
     finally:
@@ -162,6 +165,8 @@ def run_pipeline(
     full_run = bool(stages) and stages[0].name in {"fetch", PARSE_STAGE}
     target = zones.path_for(paths, "cli", Zone.RELEASE, MANIFEST_FILE, "w")
     manifest.write(target, merge=not full_run)
+    timings = zones.path_for(paths, "cli", Zone.LOGS, STAGE_TIMINGS_FILE, "w")
+    write_stage_timings(timings, seconds_per_stage, merge=not full_run)
     return RunResult(manifest, ran)
 
 

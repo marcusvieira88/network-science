@@ -7,20 +7,21 @@
  * group. Everything here is a group-level published count; nothing is drawn per person.
  */
 import type { CommunityEdgeRow } from "@/lib/data";
-import { type GroupTie, publishedTies, weekGraph } from "@/lib/network";
+import { type GroupTie, pairId, publishedTies, weekGraph } from "@/lib/network";
 import type { Position } from "@/lib/sigmaNetwork";
+import { clamp } from "@/lib/utils";
 
 /** The week's heaviest pairs by message count drawn as overlaps; the other ties stay lines. */
 export const OVERLAP_PAIRS = 6;
 /** Deepest overlap drawn, as a share of the smaller diameter: the smaller disc is never swallowed. */
 export const OVERLAP_MAX_DEPTH = 0.8;
 /** Fixed number of passes over every pair of groups in the distance-constraint solve. */
-export const OVERLAP_ITERATIONS = 200;
+const OVERLAP_ITERATIONS = 200;
 /**
  * Closing passes that only push apart, so every pair that does not overlap ends at least the
  * global layout's smallest gap apart even where overlaps pull against each other.
  */
-export const SEPARATION_PASSES = 100;
+const SEPARATION_PASSES = 100;
 /**
  * In the Overlap mode the contour layer (lib/overlapContours.ts) draws each group; Sigma's disc is
  * invisible and stays only for hover, search and the label. Transparent *black*: Sigma blends
@@ -50,20 +51,16 @@ export interface WeekOverlaps {
 }
 
 /** A pair whose centres the solver pulls to `targetDistance` of their radii and depth. */
-export interface OverlapPair {
+interface OverlapPair {
   a: string;
   b: string;
   depth: number;
 }
 
-function clampUnit(value: number): number {
-  return Math.min(Math.max(value, 0), 1);
-}
-
 /** Shared messages as a share of one side's own within-group messages plus the shared ones. */
 export function sideShare(shared: number, own: number): number {
   const total = own + shared;
-  return total > 0 ? clampUnit(shared / total) : 0;
+  return total > 0 ? clamp(shared / total, 0, 1) : 0;
 }
 
 /**
@@ -77,11 +74,6 @@ export function overlapDepth(shared: number, ownA: number, ownB: number): number
 /** Centre distance for a pair: depth 0 touches, depth 1 would reach the smaller disc's far side. */
 export function targetDistance(radiusA: number, radiusB: number, depth: number): number {
   return radiusA + radiusB - depth * 2 * Math.min(radiusA, radiusB);
-}
-
-/** One key per unordered pair, in the order weekGraph names a tie (a < b). */
-function pairId(a: string, b: string): string {
-  return a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
 }
 
 function weightOf(weights: ReadonlyMap<string, GroupTie>, tie: GroupTie): number {
@@ -223,7 +215,7 @@ export function relaxPositions(
 }
 
 /** One overlap seen from one of its groups. */
-export interface GroupOverlap {
+interface GroupOverlap {
   group: string;
   partner: string;
   messages: number;

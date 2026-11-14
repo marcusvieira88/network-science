@@ -77,11 +77,11 @@ def test_code_version_ignores_changed_outputs(tmp_path: Path) -> None:
 def test_merged_manifest_keeps_the_code_version_of_each_stage(tmp_path: Path) -> None:
     path = tmp_path / "run_manifest.json"
     full = RunManifest(parameters={}, seed=1, sample=True, code_version="old")
-    full.record_stage("parse", 1.0)
-    full.record_stage("finding", 1.0)
+    full.record_stage("parse")
+    full.record_stage("finding")
     full.write(path)
     partial = RunManifest(parameters={}, seed=1, sample=True, code_version="new")
-    partial.record_stage("finding", 1.0)
+    partial.record_stage("finding")
     partial.write(path, merge=True)
     stages = json.loads(path.read_text(encoding="utf-8"))["stages"]
     versions = [(s["stage"], s["code_version"]) for s in stages]

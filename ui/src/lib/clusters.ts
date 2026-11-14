@@ -15,10 +15,10 @@ export const PERIOD_OPTIONS = [
 
 export type PeriodId = (typeof PERIOD_OPTIONS)[number]["id"];
 
-export const TOP_PARTNERS = 3;
+const TOP_PARTNERS = 3;
 
 /** The H2 artifact check for drift of groups fixed on the baseline (finding/artifacts.py). */
-export const DRIFT_CHECK = { hypothesis: "H2", check: "baseline_placebo" } as const;
+const DRIFT_CHECK = { hypothesis: "H2", check: "baseline_placebo" } as const;
 
 /** Whether the release's drift check passed; null when it could not run or is absent. */
 export function driftCheckPasses(checks: ArtifactCheckRow[]): boolean | null {
@@ -95,7 +95,7 @@ export function clusterMatrix(
   return { groups, sizes: sorted.map((g) => g.n_persons), directed, symmetric };
 }
 
-export interface Partner {
+interface Partner {
   group: string;
   weight: number;
 }

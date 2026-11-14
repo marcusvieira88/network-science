@@ -53,7 +53,8 @@ erDiagram
 | Manual merge check | counts (restricted), checks (committed) | `counts/identity_manual.json`, `checks/identity_manual.json` | counts only (checked, correct, per rule when recorded) from a person's judgement in a terminal; identifiers are shown on screen only. The committed copy is used when a real run has none, so a fresh clone publishes the same rows |
 | Release table | release | CSV + `report.md` | every person count ≥ k or suppressed |
 | UI data | ui | `ui/public/data/release.json` | built from release tables and the manifest's run block only |
-| Run manifest | release | `run_manifest.json` | fingerprints, parameters, seed, key fingerprint, stage durations; no key, no paths with names, no wall-clock time |
+| Run manifest | release | `run_manifest.json` | fingerprints, parameters, seed, key fingerprint, stages run with the code version of each; no key, no paths with names, no wall-clock time, no durations (identical runs write identical bytes) |
+| Stage timings | logs (git-ignored) | `data/logs/stage_timings.json` | seconds per stage, the latest of each; a run log, never data, outside the committed manifest because durations change on every run |
 
 ## Validation rules
 

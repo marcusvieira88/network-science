@@ -79,7 +79,7 @@ export function untestableReason(caveat: string): string | null {
  * True when the whole interval lies on the side opposite to the prediction: the measure moved,
  * but the other way. "Not supported" then must not read as "no change".
  */
-export function wentOpposite(row: ExploratoryRow): boolean {
+function wentOpposite(row: ExploratoryRow): boolean {
   if (row.ci_low === null || row.ci_high === null) return false;
   return row.direction === "up" ? row.ci_high < 0 : row.ci_low > 0;
 }

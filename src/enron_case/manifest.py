@@ -1,8 +1,9 @@
 """Content fingerprints and the run manifest.
 
 Fingerprints hash a canonical row serialisation, not Parquet bytes, so identical content gives
-identical fingerprints across library versions. The manifest holds no key, no identifier and no
-wall-clock time (committed output must not change between identical runs).
+identical fingerprints across library versions. The manifest holds no key, no identifier, no
+wall-clock time and no duration (committed output must not change between identical runs); stage
+durations go to a git-ignored run log instead (`write_stage_timings`).
 """
 
 from __future__ import annotations
@@ -69,10 +70,8 @@ class RunManifest:
     counts: dict[str, str] = field(default_factory=dict)
     stages: list[JsonObject] = field(default_factory=list)
 
-    def record_stage(self, name: str, seconds: float) -> None:
-        self.stages.append(
-            {"stage": name, "seconds": round(seconds, 2), "code_version": self.code_version}
-        )
+    def record_stage(self, name: str) -> None:
+        self.stages.append(_stage_record(name, self.code_version))
 
     def analytical_fingerprints(self) -> dict[str, str]:
         """Fingerprints that must match across runs with the same inputs and key."""
@@ -80,14 +79,18 @@ class RunManifest:
 
     def write(self, path: Path, merge: bool = False) -> None:
         """Write the manifest. With `merge`, a partial run updates an existing manifest:
-        fingerprints of the tables it rewrote and the timings of the stages it ran. Each stage
+        fingerprints of the tables it rewrote and the records of the stages it ran. Each stage
         keeps the code version that ran it; the top-level version is the latest run's."""
         if merge and path.exists():
             previous = read_manifest(path)
             self.tables = {**_string_map(previous, "tables"), **self.tables}
             self.counts = {**_string_map(previous, "counts"), **self.counts}
             ran = {s["stage"] for s in self.stages}
-            kept = [s for s in _objects(previous, "stages") if s["stage"] not in ran]
+            kept = [
+                _stage_record(_text(s, "stage"), _text(s, "code_version"))
+                for s in _objects(previous, "stages")
+                if s["stage"] not in ran
+            ]
             self.stages = kept + self.stages
             self.key_fingerprint = self.key_fingerprint or _optional_string(
                 previous, "key_fingerprint"
@@ -106,6 +109,39 @@ class RunManifest:
         }
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+
+
+def write_stage_timings(path: Path, seconds: dict[str, float], merge: bool = False) -> None:
+    """Write the seconds each stage of this run took to the run log. With `merge`, a partial
+    run keeps the previous timings of the stages it did not run, as the manifest keeps their
+    records: those come first, then this run's stages in run order."""
+    stages: list[JsonObject] = []
+    if merge and path.exists():
+        stages = [s for s in _previous_timings(path) if s["stage"] not in seconds]
+    stages += [{"stage": name, "seconds": round(value, 2)} for name, value in seconds.items()]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"stages": stages}, indent=2) + "\n", encoding="utf-8")
+
+
+def _previous_timings(path: Path) -> list[JsonObject]:
+    """The stage timings an earlier run wrote, each checked to be a stage name and its seconds."""
+    previous = json_object(path.read_text(encoding="utf-8"), "stage timings")
+    entries = previous.get("stages", [])
+    if not isinstance(entries, list):
+        raise ContractViolation("stage timings: 'stages' is not a list")
+    timings: list[JsonObject] = []
+    for entry in entries:
+        stage = entry.get("stage") if isinstance(entry, dict) else None
+        value = entry.get("seconds") if isinstance(entry, dict) else None
+        if not isinstance(stage, str) or not isinstance(value, int | float):
+            raise ContractViolation("stage timings: an entry is not a stage name and its seconds")
+        timings.append({"stage": stage, "seconds": value})
+    return timings
+
+
+def _stage_record(name: str, version: str) -> JsonObject:
+    """A stage in the manifest: its name and the code version that ran it, nothing that varies."""
+    return {"stage": name, "code_version": version}
 
 
 def read_manifest(path: Path) -> JsonObject:
@@ -127,6 +163,13 @@ def _objects(manifest: JsonObject, key: str) -> list[JsonObject]:
     value = manifest.get(key, [])
     if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
         raise ContractViolation(f"run manifest: '{key}' is not a list of objects")
+    return value
+
+
+def _text(record: JsonObject, key: str) -> str:
+    value = record.get(key)
+    if not isinstance(value, str):
+        raise ContractViolation(f"run manifest: a stage's '{key}' is not a string")
     return value
 
 
