@@ -250,7 +250,7 @@ external URL: no CDN, no web fonts, no analytics.
 | **d3-force** | the group network layout | One force layout computed once and kept stable while the week slider moves. |
 | **lucide-react**, **@fontsource-variable/inter** | icons, bundled font | Bundled assets, so no external request. |
 | `class-variance-authority`, `clsx`, `tailwind-merge` | component variants and class composition | The standard shadcn helpers. |
-| **Vitest** + **Testing Library** + **jsdom** | 51 UI tests, including a privacy test | Checks the data contains no `@`, no pseudonym and no group below five, and that no view renders per person. |
+| **Vitest** + **Testing Library** + **jsdom** | 60 UI tests, including a privacy test | Checks the data contains no `@`, no pseudonym and no group below five, and that no view renders per person. |
 | **ESLint** (+ React hooks rules) | lint | Part of `make ui-gate`. |
 
 ---
