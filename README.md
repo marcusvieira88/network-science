@@ -196,7 +196,7 @@ In order; each step is a gate for the next. Details: [technical overview](docs/t
 flowchart LR
     MAIL["Gmail, Outlook"] -->|"headers only,<br/>scope-enforced"| CON
     CHAT["Teams, Slack"] -->|"text dropped<br/>in memory"| CON
-    CI["GitHub Actions<br/>make gate, OIDC"] -->|signed image| SFN
+    CI["GitHub Actions<br/>make gate, OIDC,<br/>pulumi up"] -->|signed image| SFN
     KMS{{"customer KMS<br/>HMAC key"}} -.-> SFN
     subgraph W["tenant account · private VPC, egress to provider APIs only"]
         SM{{"Secrets Manager<br/>OAuth tokens, KMS"}} -.-> CON["connectors"]
@@ -213,6 +213,8 @@ flowchart LR
 
    Zones become buckets and IAM roles mirror `zones.ALLOWED`; the key stays in the customer's KMS;
    images are signed only after `make gate`; one account per tenant, residency by region.
+   Infrastructure is written with Pulumi in Python, the pipeline's language: typed, tested
+   infrastructure, with the IAM policies generated from `zones.ALLOWED` in code.
 6. **Analysis:** a record-profile view in the explorer; differential privacy for releases; a
    group-level attack.
 

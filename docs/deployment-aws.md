@@ -145,9 +145,10 @@ import boundary (`tests/privacy/test_import_boundary.py`). In Design A one role 
 union of these permissions, and the path guard alone separates the stages inside the task. That
 is the price of the simpler design.
 
-`ALLOWED` must stay the single source (AGENTS.md: no duplication). The Terraform policy
-documents should be generated from it, for example by an `enron-case zones --json` command. A CI
-test should fail when the deployed policies and `ALLOWED` disagree.
+`ALLOWED` must stay the single source (AGENTS.md: no duplication). The Pulumi program, written in
+Python, imports `enron_case.zones.ALLOWED` and generates the policy documents from it, so no copy
+or export step exists. A unit test fails when the generated policies and `ALLOWED` disagree (see
+[Infrastructure as code](#infrastructure-as-code)).
 
 ### Network
 
@@ -272,7 +273,9 @@ flowchart LR
     PR --> UG["make ui-gate<br/>lint, types, tests,<br/>check-build.mjs"]
     G & UG --> M["merge to main"]
     M --> B["build image<br/>uv sync --locked"]
+    PR --> PV["pulumi preview<br/>per stack, diff on the PR"]
     B --> O["assume deploy role<br/>OIDC, no stored keys"]
+    O --> PU["pulumi up<br/>infrastructure, per stack"]
     O --> E[("ECR, shared-services account<br/>immutable tags, scan on push")]
     E --> S["sign image digest<br/>AWS Signer or cosign"]
     S --> D["dev: synthetic corpus<br/>make sample, canary"]
@@ -350,7 +353,7 @@ flowchart LR
 
 Consistent with the technical overview's "database (and storage) per tenant":
 
-- **AWS Organizations**, set up with Control Tower or Account Factory for Terraform. Accounts:
+- **AWS Organizations**, set up with Control Tower; the Pulumi program then deploys into the accounts it vends. Accounts:
   management, security tooling, log archive, shared services (ECR, CI roles), and one workload
   plus one serving account per tenant. Small tenants can share a serving account with one bucket
   and one KMS key each, but never share a workload account.
@@ -508,31 +511,59 @@ and Usage Report for cost. Every panel shows counts, rates and durations only.
 
 ## Infrastructure as code
 
-Terraform, one module per concern, applied per environment (`dev`, `stage`, `prod`) and per
-tenant:
+**Pulumi in Python**, the language of the pipeline and its checks. The infrastructure is typed
+(`mypy --strict` and ruff would check it as they check `src/`), tested with pytest, and the IAM policies are
+generated in code from `zones.ALLOWED` rather than copied.
 
-- `org-baseline`: accounts, SCPs, organisation CloudTrail, GuardDuty, Security Hub, Config;
-- `tenant-workload`: VPC, endpoints, Network Firewall, zone buckets and keys, task roles
-  generated from `zones.ALLOWED`, ECS cluster, Step Functions state machine;
-- `tenant-serving`: release and site buckets, CloudFront, WAF, Cognito, Macie;
-- `observability`: AMP workspace, Managed Grafana, log groups, alarms, SNS.
+- **One Pulumi Python project** (`infra/`) with one component resource per concern:
+  - zone buckets and their KMS keys;
+  - stage IAM roles, generated from `enron_case.zones.ALLOWED`;
+  - the network: VPC, endpoints, Network Firewall with the egress allowlist;
+  - Step Functions with the Fargate tasks and the ECS cluster;
+  - connectors and the webhook receiver;
+  - serving: release and site buckets, CloudFront, WAF, Cognito, Macie;
+  - observability: AMP workspace, Managed Grafana, log groups, alarms, SNS.
 
-State lives in an encrypted, versioned S3 bucket in the shared-services account. CI applies a
-Terraform plan only after a reviewed pull request. CDK would serve equally well; Terraform fits
-the multi-account layout and is cloud-neutral.
+  The organisation baseline (SCPs, organisation CloudTrail, GuardDuty, Security Hub, Config) is
+  its own small project in the management account.
+- **Stacks per environment and tenant**: `dev`, `stage`, `prod`, and in `prod` one stack per
+  tenant account. Stack configuration holds the account, region and tenant id; the code is the
+  same for all.
+- **State** lives in a self-managed S3 backend in the shared-services account, encrypted with a
+  KMS key and versioned. Pulumi Cloud would add a state UI, locking and audit history without
+  running anything, but puts the state, which lists every resource of every tenant, with a
+  third party; the self-managed backend keeps it in our accounts.
+- **Secrets** go through Pulumi config secrets with the AWS KMS secrets provider
+  (`awskms://`), so no plaintext secret sits in a stack file. OAuth tokens themselves stay in
+  Secrets Manager; Pulumi creates the secret, not its value.
+- **Policy as code** with Pulumi CrossGuard, run on every preview and update: no public bucket
+  and no public-access-block disabled; a KMS key on every bucket; no versioning and no Object
+  Lock on the ingest bucket; egress only through the firewall allowlist (no NAT gateway, no
+  internet gateway in workload VPCs).
+- **Tests**: unit tests of each component with Pulumi's mocks (`pulumi.runtime.set_mocks`) in
+  pytest, with no cloud access. One test builds the stage roles and asserts that their policies
+  grant exactly the zone access in `ALLOWED`, no more.
+- **IAM from `ALLOWED`**: the program imports `enron_case.zones.ALLOWED` and builds the policy
+  documents from it in Python, so a change to the zone table changes the roles in the same pull
+  request, and the test above catches any drift.
+- **CI**: `pulumi preview` on every pull request, with the diff posted to the PR, and
+  `pulumi up` on merge to `main`, per stack, after `make gate`. Both authenticate through GitHub
+  OIDC to a per-environment role; no access keys are stored. `prod` stacks update only after the
+  manual approval shown in [CI/CD and supply chain](#cicd-and-supply-chain).
 
 ## What would change in the code
 
 | File | Change |
 |---|---|
 | `src/enron_case/context.py` | Design B only: a storage adapter behind `StageContext.read`, `write`, `read_counts`, `write_counts` and `path`, so zones can be S3 prefixes. Stages that use `ctx.path` for raw files (the archive in `parse`) get a local copy. Validation, leak checks and fingerprints stay where they are |
-| `src/enron_case/zones.py` | `Paths.dir` resolves a zone to a location (directory or S3 prefix). `purge_ingest` deletes the run prefix and verifies the listing is empty. `check` stays the in-process guard, and `ALLOWED` is exported as JSON for the IAM policies |
+| `src/enron_case/zones.py` | `Paths.dir` resolves a zone to a location (directory or S3 prefix). `purge_ingest` deletes the run prefix and verifies the listing is empty. `check` stays the in-process guard. `ALLOWED` is unchanged: the Pulumi program imports it to build the IAM policies |
 | `src/enron_case/pseudo/keys.py` | A KMS-backed key source providing `subkey(label)` and the fingerprint through `GenerateMac`. Callers move from the master key to subkeys: `pseudo/stage.py`, `pseudo/pseudonymize.py` (`keyed_digest`), `risk/score.py` (`keyed_pid_of`), `cli.load_key_fingerprint`. The sample-key refusal compares fingerprints |
-| `src/enron_case/cli.py` | A `purge-ingest` command for the purge state (today purging happens only inside `run_pipeline`), a `zones --json` command, and a run-id prefix |
+| `src/enron_case/cli.py` | A `purge-ingest` command for the purge state (today purging happens only inside `run_pipeline`) and a run-id prefix |
 | new telemetry package | Reads the counts zone, `run_manifest.json` and `risk.csv`, applies the label allowlist and pushes OTLP. It needs its own `ALLOWED` entry (counts and release: read) and an import-boundary rule |
 | `src/enron_case/release/kanon.py` | Emit suppressed-cell counts per table as a counts output |
 | `ui/vite.config.ts` | No change. `CONTENT_SECURITY_POLICY` becomes the source of the CloudFront headers policy as well |
-| new `Dockerfile`, new `.github/workflows/deploy.yml` | Image build, OIDC, sign, promote by digest. `gate.yml` unchanged |
+| new `infra/` | The Pulumi Python project: component resources, stacks, CrossGuard policy pack, pytest tests with Pulumi mocks |
+| new `Dockerfile`, new `.github/workflows/deploy.yml` | Image build, OIDC, sign, promote by digest, `pulumi preview` on pull requests and `pulumi up` on merge. `gate.yml` unchanged |
 
 ## Rough cost
 
