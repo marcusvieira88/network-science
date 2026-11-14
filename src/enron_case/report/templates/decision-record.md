@@ -29,8 +29,8 @@ injected from release tables; none is typed.
 
 - **Strict content line, including `Subject`.** Content fields ({{fields_content}}) are never
   stored. We lose threads and reply times and dedupe on sender, second and recipients alone:
-  {{dq_deduplicate_removed}} copies removed. Precision and recall are measured in the test suite
-  against the synthetic corpus's ground truth; the real corpus has none.
+  {{dq_deduplicate_removed}} copies removed. Precision and recall are measured only against the
+  synthetic corpus's ground truth.
 - **Rule-based identity resolution.** Deterministic, explainable rules weighted to precision,
   because a false merge invents a central person while a false split only dilutes one:
   {{dq_resolve_identities_count_in}} addresses to {{dq_resolve_identities_count_out}} entities.
@@ -38,11 +38,12 @@ injected from release tables; none is typed.
 - **Keyed HMAC pseudonyms, and their limit.** Stable for one key, not confirmable by hashing
   guessed addresses. It is still pseudonymization: whoever holds the key can test a candidate,
   and structure re-identifies people. Our own attack on the person-level output (R0)
-  re-identified a share of {{risk_r0_a1_reid_top1}} of targets for the outsider and
-  {{risk_r0_a2_reid_top1}} for the insider.
+  re-identified a share of {{risk_r0_a1_reid_top1}} of targets for the outsider,
+  {{risk_r0_a2_reid_top1}} for an insider who knows a few custodians and
+  {{risk_r0_a3_reid_top1}} for one who knows them all, as anyone holding the corpus does.
 - **Aggregates-only release.** So nothing person-level is published. Every cell meets
-  k = {{k_min}}. On the aggregate release (R1) the shares fall to {{risk_r1_a1_reid_top1}} and
-  {{risk_r1_a2_reid_top1}}. {{utility_phrase}}
+  k = {{k_min}}. On the aggregate release (R1) the shares fall to {{risk_r1_a1_reid_top1}},
+  {{risk_r1_a2_reid_top1}} and {{risk_r1_a3_reid_top1}}. {{utility_phrase}}
 
 **Finding.** The change in the crisis year that the headers establish is in the record, not
 in behaviour. {{record_summary}}

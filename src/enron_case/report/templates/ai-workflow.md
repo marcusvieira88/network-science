@@ -35,8 +35,8 @@ Because every agent tested against fixtures rather than against another agent's 
 waited for another, and the merges had no conflicts.
 
 After the parallel phase, work went one change at a time on short branches: a fix round per
-review, a configuration refactor, the twenty further hypotheses, the retention check, and new
-explorer views. Each change was made by the lead or one implementation agent, reviewed with the
+review, a configuration refactor, the twenty further hypotheses, the retention check, the record
+profile, the replication test, a third attacker, the one command, and new explorer views. Each change was made by the lead or one implementation agent, reviewed with the
 skills below, and merged by the lead.
 
 ## What the agents produced
@@ -91,10 +91,10 @@ definition, a noise draw in a fixture that held a real chance shift.
   each other are kept in the sender's own mailbox whatever the recipient kept, the H16 effect is not established and the same subset rises
   before the crisis. The retention check is now pipeline code and caps H16 at inconclusive.
 
-## A hiring-style review against prior work
+## A final review against prior work
 
-A final agent reviewed the whole repository as the hiring company's senior data scientist
-would, and compared it with published work on the corpus. A research agent read the papers and
+A final agent reviewed the whole repository as an outside data scientist would, and compared it
+with published work on the corpus. A research agent read the papers and
 dataset pages (never their data) while the reviewer worked on the code, and a second agent, in
 its own worktree, removed `Any` from signatures and dead scaffolding. What the review changed:
 
@@ -112,7 +112,11 @@ its own worktree, removed `Any` from signatures and dead scaffolding. What the r
 - **Two null-model defects that made the robustness check optimistic**: recipients could move
   between a person's and a list's message, and null replicates were measured at the observed
   change week instead of searching their own. Both fixed with known-answer tests; neither
-  changes a published outcome.
+  changes whether a hypothesis is held true.
+- **A third attacker.** The public corpus names every mailbox owner, so a realistic insider
+  knows every custodian. Attacker A3, the propagation attack seeded with all of them,
+  re-identifies about as large a share of the remaining people as A2; the aggregates still
+  match nobody.
 - **Documented rather than fixed**, because they cannot change what is claimed: the liberal
   permutation test, the fixed-split H2 placebo, the smaller placebo samples, the utility
   interval.
@@ -146,5 +150,6 @@ its own worktree, removed `Any` from signatures and dead scaffolding. What the r
 - Pre-registered robustness checks were necessary but not sufficient. The threats that mattered,
   baseline drift, a changing mailbox mix and inbox retention, were found by looking at the shape
   of the data and by a methodology review, not by the plan.
-- The planned final steps (validation scenarios, a security review, a clean-clone rehearsal)
-  had not been run when this note was written.
+- The planned validation scenarios and a security review had not been run when this note was
+  written. A fresh clone did run the one command end to end, most of its time spent on the
+  download.

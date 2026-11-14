@@ -194,6 +194,11 @@ filing) are used only to annotate the series, not to choose windows.
 is exactly where hindsight bias enters. Fixing the hypotheses and reporting the failures is the
 defence available in the time.
 
+**As built**: H1–H4 as above, plus H5–H24 (two families stated before each was computed) and
+H25, a post-hoc replication test of a published denser-network result, all as one list H1–H25
+(`docs/hypotheses.md`, `docs/hypotheses-exploratory.md`). None is held true. The published
+finding is descriptive: the record changed between April and May 2001 (`record_profile`).
+
 ## R11. Evidence and confidence
 
 **Decision**: for each metric series: (a) change point by a CUSUM statistic with a permutation
@@ -241,6 +246,13 @@ nothing at person level to match, and the finding should survive.
 **Alternatives considered**: reporting only k-anonymity of degree (measures uniqueness, not an
 attack); differential privacy with a formal budget across all outputs (right direction for the
 product, too much to do correctly in the time; R2 is presented as a sketch with that caveat).
+
+**As built**: three attackers. A3, added in the final review, is the A2 propagation seeded with
+every custodian: the public corpus names every mailbox owner, so anyone holding it knows them
+all. R1 carries no pseudonyms, so per-release re-keying was dropped; R2's noise has a fixed scale
+and is not calibrated to a budget. On R0, A1 re-identified about a quarter of the targets and A2
+and A3 more than half, not nearly everyone; on R1 and R2 nobody, by construction. No group-level
+attack on `community_graph` was run (`release/report.md`, limits).
 
 ## R13. Keeping agent-written code correct
 
@@ -290,3 +302,8 @@ deliverable, mixes code and output).
 
 **Cost**: a second toolchain (Node), one more work package and agent, and UI tests. Kept out of
 `make all` so the brief's one-command requirement does not depend on it.
+
+**As built**: the UI became part of the one command (`make` builds it, runs its gate and serves
+it; Node 20+ is a prerequisite). The network view is drawn with React Sigma + Sigma.js over
+graphology, laid out once with ForceAtlas2, with an SVG `d3-force` fallback without WebGL; a
+Clusters view (chord diagram) was added. The group graph was not attacked (see R12).

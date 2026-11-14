@@ -171,8 +171,10 @@ have no artifact check: neither was supported. The checks are in `src/enron_case
 artifacts.py`, their results in `release/artifact_checks.csv`, and both are tested on synthetic
 data where groups do not drift and the planted change is behavioural (both checks pass there).
 
-## Further hypotheses H5–H24
+## Further hypotheses H5–H25
 
 Twenty further hypotheses, stated by the project owner after the results of H1–H4 and committed
-before each was computed, continue this numbering. Their definitions, windows and decision rule
-are in `docs/hypotheses-exploratory.md` (recorded there as E1–E20; E*n* = H*n*+4).
+before each was computed, continue this numbering, and H25, a post-hoc replication test of prior
+work, stated after every other result was known and before it was computed. Their definitions,
+windows and decision rule are in `docs/hypotheses-exploratory.md` (recorded there as E1–E21;
+E*n* = H*n*+4); Holm's correction runs across all twenty-one.

@@ -1,9 +1,10 @@
 # Exploratory hypotheses E1–E10
 
 > **Numbering (added later).** These hypotheses are now numbered as one list with the
-> pre-registered ones: **E*n* is H*n*+4** (E1 = H5 … E12 = H16 … E20 = H24). This file keeps the
-> original E-numbers because it is the dated record of when each was stated; the code, the release
-> tables, the report and the UI use H5–H24.
+> pre-registered ones: **E*n* is H*n*+4** (E1 = H5 … E12 = H16 … E20 = H24, and the post-hoc
+> E21 = H25 at the end of this file). This file keeps the original E-numbers because it is the
+> dated record of when each was stated; the code, the release tables, the report and the UI use
+> H5–H25.
 
 **Status: stated and committed before any of them was computed.** This is a second, exploratory
 family, added after the pre-registered family H1–H4 (`docs/hypotheses.md`) produced no finding.

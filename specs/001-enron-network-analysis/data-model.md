@@ -1,7 +1,7 @@
 # Data Model: Enron Headers-Only Network Analysis Case
 
 Column-level schemas are in [contracts/data-contracts.md](contracts/data-contracts.md) (contract
-version 1.4, `src/enron_case/contracts/schemas.py`). This file gives the entities, their
+version 1.6, `src/enron_case/contracts/schemas.py`). This file gives the entities, their
 relationships, the zone each lives in, and the rules they must satisfy, as implemented.
 
 ## Entities by zone
@@ -24,8 +24,10 @@ erDiagram
     HYPOTHESIS ||--|| HYPOTHESIS_RESULT : "H1-H4 tested as"
     METRIC_VALUE }o--o{ HYPOTHESIS_RESULT : evidence
     HYPOTHESIS_RESULT ||--o| ARTIFACT_CHECK : "H2, H3 checked by"
-    HYPOTHESIS ||--|| EXPLORATORY_RESULT : "H5-H24 tested as"
+    HYPOTHESIS ||--|| EXPLORATORY_RESULT : "H5-H25 tested as"
     EVENT }o--o{ EXPLORATORY_RESULT : "paired per custodian"
+    EVENT }o--o{ RECORD_PROFILE : "custodians' mail by month"
+    MANUAL_CHECK ||--o{ RELEASE_TABLE : "data_quality rows"
     ATTACKER_MODEL ||--|{ RISK_RESULT : produces
     RELEASE_VARIANT ||--|{ RISK_RESULT : "attacked as"
     RELEASE_VARIANT ||--|{ RELEASE_TABLE : contains
@@ -44,10 +46,11 @@ erDiagram
 | Community | restricted | `communities` | baseline communities, frozen; published only as groups of at least k (`community_groups`, `community_graph`) |
 | Hypothesis result (H1–H4) | restricted → release | `hypothesis_results` → `hypotheses.csv` | pre-registered; aggregate |
 | Artifact check | restricted → release | `artifact_results` → `artifact_checks.csv` | post-hoc checks of H2 and H3; custodian count suppressed below k |
-| Exploratory result (H5–H24) | restricted → release | `exploratory_results` → `exploratory.csv` | within-custodian comparisons; a comparison over fewer than k custodians is suppressed with everything derived from it |
-| Risk result | restricted → release | `risk_results` → `risk.csv` | counts and rates only |
+| Exploratory result (H5–H25) | restricted → release | `exploratory_results` → `exploratory.csv` | within-custodian comparisons; a comparison over fewer than k custodians is suppressed with everything derived from it |
+| Record profile | restricted → release | `profile_results` → `record_profile.csv` | descriptive, per month: custodians sending and receiving, their messages, the after-hours share of weekday sent mail; a side with fewer than k custodians is suppressed |
+| Risk result | restricted → release | `risk_results` → `risk.csv` | counts and rates only; attackers A1, A2, A3 against R0, R1, R2 |
 | Stage counts | counts (restricted) | `counts/*.json` | counts only, no identifier; feed `data_quality` and `header_fields` |
-| Manual merge check | counts (restricted) | `counts/identity_manual.json` | two counts from a person's judgement in a terminal; identifiers are shown on screen only |
+| Manual merge check | counts (restricted), checks (committed) | `counts/identity_manual.json`, `checks/identity_manual.json` | counts only (checked, correct, per rule when recorded) from a person's judgement in a terminal; identifiers are shown on screen only. The committed copy is used when a real run has none, so a fresh clone publishes the same rows |
 | Release table | release | CSV + `report.md` | every person count ≥ k or suppressed |
 | UI data | ui | `ui/public/data/release.json` | built from release tables and the manifest's run block only |
 | Run manifest | release | `run_manifest.json` | fingerprints, parameters, seed, key fingerprint, stage durations; no key, no paths with names, no wall-clock time |
@@ -96,12 +99,13 @@ erDiagram
 - One row per checked hypothesis: H2 `baseline_placebo`, H3 `within_custodian`.
 - `passes` is null when the check could not run; that also caps confidence.
 
-**Exploratory result (H5–H24)**
-- One row per hypothesis, `order` 5–24; `family` first (H5–H14) or second (H15–H24).
+**Exploratory result (H5–H25)**
+- One row per hypothesis, `order` 5–25; `family` first (H5–H14), second (H15–H24) or post hoc
+  (H25). Holm's correction runs across all twenty-one.
 - `outcome` ∈ {confident, inconclusive, not supported}. Confident needs Holm-adjusted p below
   `alpha`, an interval on the hypothesised side, a passing pre-crisis placebo, a stable
   leave-one-custodian-out and no caveat. A caveat (H5 invalid timestamps, H7 untestable, H19
-  retention-sensitive) or a failed retention check (H16) caps the outcome at inconclusive.
+  retention-sensitive) or a failed retention check (H16, H25) caps the outcome at inconclusive.
 - Equalised and retention columns are null where the check does not apply.
 
 **Release table**
@@ -151,8 +155,11 @@ stateDiagram-v2
 
 In the real-corpus run H2 and H3 are supported by the pre-registered rule but fail their
 artifact checks, so they are capped at low confidence; H1 and H4 are not supported. There is no
-headline. Of H5–H24, none is confident; H16 and H20 are inconclusive (H16 after failing its
-retention check), the rest not supported. No hypothesis is held true.
+headline. Of H5–H25, none is confident; H16 and H20 are inconclusive (H16 after failing its
+retention check), the rest not supported, H25 among them. No hypothesis is held true. What the
+headers do establish is a change of the record: the record profile shows the custodians'
+after-hours share of weekday sent mail falling from about half to a few percent between April
+and May 2001, between the reference and crisis windows of every within-custodian comparison.
 
 ## Parameters (single source: `config.py`, echoed in the run manifest)
 
@@ -172,10 +179,10 @@ retention check), the rest not supported. No hypothesis is held true.
 | `alpha` / `ci_level` / `block_weeks` | 0.05 / 0.95 / 4 | H1–H4 decision rule |
 | `null_replicates` | 20 | rewiring null model |
 | `placebo_max_effect` / `min_unit_events` | 2.0 / 30 | artifact checks of H2 / H3 |
-| `exploratory_min_messages` / `exploratory_bootstrap_reps` / `exploratory_equalise_reps` | 20 / 2000 / 40 | H5–H24 |
+| `exploratory_min_messages` / `exploratory_bootstrap_reps` / `exploratory_equalise_reps` | 20 / 2000 / 40 | H5–H25 |
 | `manual_sample_size` | 50 | manual merge check |
 | `degree_bucket_floors` / `r2_noise_scale` | 1, 2, 5, 10 / 1.0 | release buckets, R2 noise |
-| `a2_seeds` / `a2_min_support` | 3 / 2 | attacker A2 |
+| `a2_seeds` / `a2_min_support` | 3 / 2 | attacker A2 (seeds); A2 and A3 (support) |
 
 Fixed windows that are not run parameters (they are stated in `docs/hypotheses-exploratory.md`)
 live as constants in `config.py`: `CRISIS_WINDOW`, `REFERENCE_WINDOW`, `PLACEBO_AFTER_WINDOW`,

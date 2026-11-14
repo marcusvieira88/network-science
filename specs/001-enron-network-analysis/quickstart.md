@@ -37,7 +37,7 @@ Expected:
   precision ≥ 0.95 against the generator's ground truth (SC-004).
 - The planted change is reported within one week of its true date (SC-006).
 
-## 2. Run the case (under 30 minutes)
+## 2. Run the case (under 30 minutes; a fresh clone took about 24, 20 of them the download)
 
 ```bash
 make check     # or `make` to also serve the explorer
@@ -46,7 +46,10 @@ make check     # or `make` to also serve the explorer
 Expected:
 - Exit 0; the summary names `release/report.md` and the hypotheses held true.
 - `data/ingest/` no longer exists after the run.
-- `release/` contains the tables listed in the data contract and `run_manifest.json`.
+- `release/` contains the tables listed in the data contract (among them `record_profile.csv`
+  and `exploratory.csv` with H5–H25) and `run_manifest.json`.
+- `data_quality.csv` carries the manual merge check, read from the committed
+  `checks/identity_manual.json` when the run has none of its own.
 
 ## 3. Validation scenarios
 
@@ -59,7 +62,7 @@ Expected:
 | V5 | No key, no run | `env -u ENRON_CASE_KEY ENRON_CASE_KEY_FILE=/nonexistent scripts/run-all.sh check` | exit 3 at the key step, no key created, no pipeline run |
 | V6 | Minimum group size (SC-008) | `uv run pytest tests/unit/release -k kanon` and inspect `release/*.csv` | no person count below 5 |
 | V7 | One finding (SC-005) | open `release/hypotheses.csv` | four rows; at most one `is_headline`; each with effect, interval, p, robustness, confidence |
-| V8 | Risk measured (SC-007) | open `release/risk.csv` | rows for R0/R1/R2 × attackers with re-identification rates and utility |
+| V8 | Risk measured (SC-007) | open `release/risk.csv` | rows for R0/R1/R2 × attackers A1–A3 with re-identification rates and utility |
 | V9 | No identifiers released | `grep -rE '@|p_[a-z2-7]{16}' release/` | no match |
 | V10 | Reproducible from clean clone | fresh clone on another machine, steps 1–2 | same fingerprints given the same key |
 

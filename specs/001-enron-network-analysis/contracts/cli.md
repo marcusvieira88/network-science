@@ -50,16 +50,19 @@ prints (`make: *** [all] Error 3`) before exiting with its own code 2.
    http://localhost:4173 in the foreground until Ctrl+C; `make check` exits 0 instead.
 
 A second `make` reuses the downloaded archive, the key and installed dependencies; it reruns the
-pipeline and the gates.
+pipeline and the gates. On a fresh clone the whole run took about 24 minutes, 20 of them the
+download on that connection; the pipeline step takes about 2.5 minutes.
 
 ## CLI
 
 ```text
 enron-case run [--sample] [--from STAGE] [--to STAGE] [--keep-ingest] [--set NAME=VALUE ...]
-enron-case stage STAGE [--sample]
+enron-case stage STAGE [--sample] [--keep-ingest] [--set NAME=VALUE ...]
 enron-case verify            # double-run determinism check on the sample
 enron-case check-key         # exit 0 if a usable key is configured, else 3
 enron-case summary [--sample]  # one line: how many hypotheses the release holds true
+enron-case review-merges     # a person judges a seeded sample of identity merges in the terminal;
+                             # only counts are kept (counts zone and checks/identity_manual.json)
 ```
 
 `STAGE` ∈ `fetch, parse, clean, identity, pseudo, network, finding, risk, release, report, ui-data`.

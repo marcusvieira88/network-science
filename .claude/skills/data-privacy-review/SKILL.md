@@ -30,7 +30,7 @@ You are bound by the same promise you are checking.
   `data/ingest`. Do not `cat`, `head`, `less`, `tar -x` or read them with any tool.
 - When you need evidence from data files, use counts, column names, schemas and yes/no pattern
   matches only (`grep -c`, `grep -l`, a schema dump). Never show matched lines from data.
-- In `data/restricted` and `release/`, you may read rows, since they must hold no content or
+- In `data/restricted`, `release/` and `checks/`, you may read rows, since they must hold no content or
   identifier. If you find one, report its location and kind, not its value.
 - Do not copy an email address, a person's name or a key into your report.
 
@@ -81,16 +81,17 @@ Work through every group. For each check record pass, fail or not applicable, wi
 
 ### C. Do identifiers stay behind the boundary? (P4, P5)
 
-1. Imports: packages after the boundary (`network`, `finding`, `risk`, `release`, `report`) must
+1. Imports: packages after the boundary (`network`, `finding`, `risk`, `release`, `report`, `uiexport`) must
    not import the ingest-side packages. Confirm the import-boundary test exists and passes.
 2. File access: every read and write goes through the zone guard; no hard-coded path into
    `data/ingest` or `data/raw` from a downstream package, apart from the documented exceptions.
 3. Schemas: no column in a restricted or release table can hold an address, name, owner or raw
    folder. Compare actual columns with `contracts/data-contracts.md`; flag any extra column.
-4. If data exists: in `data/restricted`, `release/` and the run manifest, count matches of `@`,
-   and of address- or name-shaped strings. Any non-zero count is a finding.
+4. If data exists: in `data/restricted`, `release/`, `checks/` (committed counts of the manual
+   merge check) and the run manifest, count matches of `@`, and of address- or name-shaped
+   strings. Any non-zero count is a finding.
 5. No pseudonym-to-identity mapping is written anywhere; the ingest zone does not exist after a
-   normal run; `--keep-ingest` is not used by `make all` or CI.
+   normal run; `--keep-ingest` is not used by `make` (`scripts/run-all.sh`) or CI.
 
 ### D. Key handling (P6)
 

@@ -3,7 +3,7 @@
 How data flows through the pipeline, where the privacy boundary sits, and how the explorer UI is
 fed, as implemented. The design began in `specs/001-enron-network-analysis/plan.md` and
 `research.md`; table schemas are in `specs/001-enron-network-analysis/contracts/data-contracts.md`
-(contract 1.4) and in code in `src/enron_case/contracts/`.
+(contract 1.6) and in code in `src/enron_case/contracts/`.
 
 ### Data zones and stages
 
@@ -28,13 +28,14 @@ flowchart TB
         T4[(events + entities_p)]
         S5[network<br/>snapshots, metrics, communities]
         T5[(snapshots, metric_series,<br/>communities)]
-        S6[finding<br/>H1–H4, artifact checks, H5–H24]
-        T6[(hypothesis_results,<br/>artifact_results,<br/>exploratory_results)]
-        S7[risk<br/>attack R0 / R1 / R2]
+        S6[finding<br/>H1–H4, artifact checks, H5–H25,<br/>record profile]
+        T6[(hypothesis_results,<br/>artifact_results,<br/>exploratory_results,<br/>profile_results)]
+        S7[risk<br/>attack R0 / R1 / R2<br/>with A1 / A2 / A3]
         T7[(risk_results)]
         CT[(counts/*.json<br/>counts only)]
     end
     TR[(truth<br/>sample only)]
+    CK[(checks/identity_manual.json<br/>committed, counts only)]
     subgraph REL["release · aggregates, k ≥ 5, committed"]
         S8[release<br/>kanon: k-threshold + checks]
         T8[(release/*.csv)]
@@ -55,7 +56,8 @@ flowchart TB
     T3 -. scoring only .-> SC[risk/score.py<br/>counts and rates out] --> S7
     TR -. sample scoring .-> SC
     S1 & S2 & S3 & S4 -. counts .-> CT
-    T5 & T6 & T7 & CT --> S8 --> T8 --> S9 --> RP
+    S3 -. manual review .-> CK
+    T5 & T6 & T7 & CT & CK --> S8 --> T8 --> S9 --> RP
     S9 --> DOCS
     T8 --> S10 --> UI
 ```
@@ -63,8 +65,11 @@ flowchart TB
 `counts` is a sub-zone of restricted (`data/restricted/counts/`) holding only the counts side
 outputs of each stage (`ingest_counts`, `clean_counts`, `identity_counts`, `pseudo_counts`,
 `identity_manual`). `truth` holds the synthetic ground truth and exists only for the sample
-corpus. `ui` and `docs` are write targets of the last two stages and can be built only from
-`release`.
+corpus. `checks` (`checks/` at the repository root, committed) holds the counts of checks a
+person made: `enron-case review-merges` writes `identity_manual.json` there as well as to
+`counts`, and the release stage falls back to the committed copy when a run has none, so a fresh
+clone publishes the same manual-check rows. `ui` and `docs` are write targets of the last two
+stages and can be built only from `release`.
 
 Four mechanisms make the picture enforceable:
 
@@ -96,34 +101,32 @@ nowhere at all.
 ```mermaid
 sequenceDiagram
     actor Rev as Reviewer
-    participant M as make all
-    participant P as enron-case run
-    participant Z1 as Ingest zone
-    participant Z2 as Restricted zone
-    participant Z3 as release/ and docs/
-    Rev->>M: make all
-    M->>M: uv sync --locked
-    M->>P: check-key
-    alt no key
-        P-->>Rev: exit 3: run "make key" (writes outside the repo)
-    end
-    P->>P: fetch archive, verify sha256
-    P->>Z1: parse, clean, identity
-    P->>Z2: pseudo (key fingerprint recorded)
-    P->>Z2: network, finding, risk
-    P->>Z3: release: thresholded tables
-    P->>Z3: report: report.md + documents with injected numbers
-    P->>Z1: purge ingest zone (also on failure)
-    P->>Z3: run_manifest.json (fingerprints, seed, parameters)
-    M->>M: pytest (all tests)
-    P-->>Rev: release/report.md
+    participant M as make (scripts/run-all.sh)
+    participant P as enron-case
+    participant Z as data/, release/, docs/
+    participant U as ui/
+    Rev->>M: make
+    M->>M: prerequisites: uv, Python 3.12, Node ≥ 20, npm, free port 4173
+    M->>M: uv sync --locked, npm ci
+    M->>P: check-key (a key is created outside the repo if none is configured)
+    M->>P: stage fetch: download the archive, verify sha256
+    M->>P: run: parse … report
+    P->>Z: tables, report.md, documents, run_manifest.json; ingest zone purged (also on failure)
+    M->>M: make gate (Python), make ui-gate (UI)
+    M->>P: stage ui-data
+    P->>U: ui/public/data/release.json
+    M->>U: npm run build
+    M-->>Rev: report path, held-true summary; serves http://localhost:4173
 ```
 
-`ui-data` is not part of the default run; `make ui` runs it, then builds and serves the UI.
+Each step prints one line and logs to `data/logs/<step>.log`; the first failing step stops the
+run with its exit code. `make check` does everything except serving. On a fresh clone the whole
+run took about 24 minutes, 20 of them the download on that connection; the pipeline itself takes
+about 2.5 minutes (`stages` in `release/run_manifest.json`).
 `enron-case run --sample` (`make sample`) runs the same stages on the synthetic corpus into
 `release-sample/` with a fixed test key; documents are written only on real-corpus runs.
 `enron-case review-merges` is the manual merge check: it shows a seeded sample of merges in a
-terminal and stores only two counts (`identity_manual`).
+terminal and stores only counts (`identity_manual`: total and per rule).
 
 ### Identity resolution and pseudonymization
 
@@ -159,7 +162,7 @@ flowchart TB
     MS --> RUN[H1–H4]
     RUN --> CP[change point + permutation p]
     RUN --> ES[effect size + block bootstrap CI]
-    RUN --> NM[null model: rewire within week]
+    RUN --> NM[null model: recipients shuffled<br/>within week, weights kept]
     RUN --> RB[robustness: leave-one-mailbox-out,<br/>recipient cap, monthly window]
     CP & ES --> HC[Holm correction → supported?]
     NM & RB --> CF[confidence]
@@ -170,22 +173,32 @@ flowchart TB
     HL -- yes --> F[headline: largest effect]
     HL -- no --> NS[reported, no headline]
     LOW --> NS
-    E --> X[H5–H24: paired within-custodian<br/>crisis vs same weeks a year earlier]
-    X --> XP[Wilcoxon p, Holm across twenty,<br/>median bootstrap CI]
+    E --> X[H5–H25: paired within-custodian<br/>crisis vs same weeks a year earlier]
+    X --> XP[Wilcoxon p, Holm across 21,<br/>median bootstrap CI]
     X --> XPL[pre-crisis placebo,<br/>leave-one-custodian-out]
     X --> XV[volume-equalised check]
-    X --> XR[retention check: H16<br/>custodian-to-custodian only]
+    X --> XR[retention check: H16, H25<br/>custodian-to-custodian only]
     XP & XPL & XV & XR --> XO[confident / inconclusive /<br/>not supported]
     F & NS --> T[(hypotheses, artifact_checks)]
     XO --> T2[(exploratory)]
+    E --> PR[record profile: custodians' mail<br/>and after-hours share by month]
+    PR --> T3[(record_profile)]
 ```
 
 H5–H24 were stated in `docs/hypotheses-exploratory.md` (as E1–E20) before they were computed,
-after H1–H4 had been run; they are reported as one list H1–H24 everywhere. In the real-corpus run
-**no hypothesis is held true**: H2 and H3 pass the pre-registered rule but fail their artifact
-checks (baseline drift; a change in which mailboxes hold mail), H1 and H4 are not supported, and
-of H5–H24 none is confident. H16, the strongest lead, fails its retention check and is capped at
-inconclusive.
+after H1–H4 had been run; H25 (E21), a replication test of a published "denser network in the
+crisis" result, was stated post hoc, after every other result was known, and before it was
+computed. They are reported as one list H1–H25 everywhere. In the real-corpus run **no
+hypothesis is held true**: H2 and H3 pass the pre-registered rule but fail their artifact checks
+(baseline drift; a change in which mailboxes hold mail), H1 and H4 are not supported, and of
+H5–H25 none is confident. H16, the strongest lead, fails its retention check and is capped at
+inconclusive; H25 finds no change within custodians.
+
+The published finding is about the **record**, not behaviour: the record profile
+(`record_profile`) shows the share of the custodians' weekday sent mail stamped outside working
+hours dropping from about half to a few percent between April and May 2001, and the mail kept per
+month growing several-fold. The `Date` convention changed between the windows every comparison
+sets against each other, so the report states that change first.
 
 ### Re-identification test
 
@@ -194,6 +207,7 @@ flowchart LR
     subgraph Attacker["Attacker side — no access to truth"]
         AUX1[A1: features from public raw corpus<br/>naive parse, per address]
         AUX2[A2: A1 + a few known custodians<br/>as seeds, propagated over contacts]
+        AUX3[A3: propagation seeded with<br/>every custodian the corpus names]
         ATT[matching / seed propagation]
     end
     R0[(R0 node-level edges<br/>observed-scope snapshots,<br/>in memory only)] --> ATT
@@ -201,6 +215,7 @@ flowchart LR
     R2[(R2 = R1 + seeded Laplace noise)] --> ATT
     AUX1 --> ATT
     AUX2 --> ATT
+    AUX3 --> ATT
     ATT --> GZ[guesses]
     GZ --> SC[risk/score.py<br/>reads ingest or truth, counts only]
     SC --> RT[(risk_results:<br/>uniqueness, re-id rate + CI,<br/>utility per release)]
@@ -223,11 +238,11 @@ flowchart LR
     subgraph Views
         V1[Overview<br/>finding statement, key numbers]
         V2["Metrics<br/>metric / scope / variant selectors<br/>(only the default variant is published),<br/>change point, public events, baseline band"]
-        V3[Network<br/>brain-style glowing cells per group,<br/>ties with travelling signals, week slider;<br/>anonymous Individuals mode; 2D fallback]
+        V3[Network<br/>Sigma.js WebGL graph of groups, ForceAtlas2,<br/>zoom, fullscreen, search, hover, week slider;<br/>anonymous Individuals mode; SVG fallback]
         V4[Clusters<br/>chord diagram of group-to-group weight,<br/>per-group table]
-        V5[Hypotheses<br/>one list H1–H24, artifact<br/>and retention checks]
+        V5[Hypotheses<br/>one list H1–H25, artifact<br/>and retention checks]
         V6[Data quality<br/>cleaning funnel, header rulings,<br/>manual merge check]
-        V7[Privacy and risk<br/>R0 / R1 / R2 by attacker]
+        V7[Privacy and risk<br/>R0 / R1 / R2 by attacker A1–A3]
         V8[Limits]
     end
     APP --> V1 & V2 & V3 & V4 & V5 & V6 & V7 & V8
@@ -239,11 +254,16 @@ Rules for the UI:
    release tables plus the manifest's run block without fingerprints or timings), so it cannot
    show anything the report could not. `ui/src/lib/data.ts` validates the file at load.
 2. The network and cluster views draw **groups** (baseline communities with at least k members)
-   and the weekly tie weight between them. The Network view's 3D scene (three.js through
-   `react-force-graph-3d`) is loaded on demand; without WebGL it falls back to a 2D `d3-force`
-   layout. The Individuals mode draws, inside each group, as many points as the group has
-   persons, at seeded random positions: decoration with no id, label, tooltip or data. There is
+   and the weekly tie weight between them. The Network view draws them with Sigma.js (WebGL)
+   through React Sigma and graphology, loaded as a separate chunk when the view opens; positions
+   come from one deterministic ForceAtlas2 run over all weeks. It has zoom, fullscreen, search by
+   group label and hover highlighting; without WebGL, or if the WebGL view fails, it shows an SVG
+   network laid out with `d3-force`. The Individuals mode draws, inside each group, as many points as the group has
+   persons, at seeded random positions: decoration with no label, tooltip, hover text, tie or
+   data (Sigma keys are opaque sequence numbers). There is
    no person-level node, tooltip or table anywhere (`ui/src/privacy.test.ts`).
 3. No outside requests: fonts and assets are bundled; no analytics, no CDN.
    `ui/scripts/check-build.mjs` (run by `make ui-gate`) scans the build for external URLs.
-4. `make all` does not need Node. `make ui` exports the data, builds and serves the interface.
+4. `make` builds and serves the UI as its last steps (so it needs Node 20+); `make ui` exports
+   the data, builds and serves the interface on its own. The UI does not show the record profile;
+   it is in the report.

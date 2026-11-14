@@ -313,7 +313,7 @@ boundary, plus measured data-quality numbers
 ### US5 integration (Lead)
 
 - [ ] T099 [US5] (WP0) Run `make ui` on the real release; review WP-J with the `/code-review` and `/data-privacy-review` skills; check every view against `release/report.md` for the same numbers; save screenshots of the Overview, Metrics and Network views to `docs/img/` for `docs/slides.md`; log in `docs/ai-workflow-log.md`
-  - Status: not done as written. The UI was reviewed with `/code-review` and `/data-privacy-review` as part of the second independent review (T076), and the 3D network and Clusters views were later reviewed with `/code-review`; no screenshots are in `docs/img/` and no view-by-view number check against `release/report.md` is logged.
+  - Status: not done as written. The UI was reviewed with `/code-review` and `/data-privacy-review` as part of the second independent review (T076), and the later Network views (first 3D, now React Sigma + Sigma.js) and the Clusters view were reviewed with `/code-review`; no screenshots are in `docs/img/` and no view-by-view number check against `release/report.md` is logged.
 
 **Checkpoint**: the results can be explored and presented visually
 
@@ -332,7 +332,7 @@ boundary, plus measured data-quality numbers
 - [ ] T104 [P] (WP0) Check the git history and working tree for anything from `data/`, any key, any real address or name; confirm `.gitignore` coverage
   - Status: not done.
 - [ ] T105 (WP0) Clean-clone rehearsal on a second machine or fresh container: `make gate`, `make sample`, `make key`, `make all`
-  - Status: not done.
+  - Status: partly done. `make` ran end to end on a fresh clone (about 24 minutes, 20 of them the download; it creates the key and runs `make gate` and `make ui-gate` itself). Not on a second machine or container, and `make sample` was not part of it.
 - [ ] T106 (WP0) Run `/speckit-converge` to compare the code with spec, plan and tasks; resolve or record any gap
   - Status: not done; the documentation was brought in line with the code by hand (this section and the as-built section of `plan.md`).
 - [ ] T107 (WP0) Rehearse the 15-minute presentation against `docs/slides.md` with a timer; cut slides until it fits
@@ -450,12 +450,25 @@ was in the task list above.
   release, report, README and UI, at the owner's request; the dated record keeps the E-numbers.
 - **Data-science review** (new skill `/data-scientist-review`): the retention check for H16
   (contract 1.4); H16 capped at inconclusive; no hypothesis is held true.
-- **Explorer UI beyond WP-J**: 3D group network with a 2D fallback, then brain-style cells with
-  travelling signals and an anonymous Individuals mode; Clusters view (chord diagram); one
-  Hypotheses list H1–H24 with a held-true marker and the artifact and retention checks; release
-  format version 2 adds the crisis and reference windows.
+- **Explorer UI beyond WP-J**: the Network view went through a 3D version and was then rebuilt
+  on React Sigma + Sigma.js (graphology, one deterministic ForceAtlas2 layout, zoom, fullscreen,
+  search, hover, an anonymous Individuals mode, SVG fallback without WebGL); Clusters view (chord
+  diagram); one Hypotheses list H1–H25 with a held-true marker and the artifact and retention
+  checks; release format version 2 adds the crisis and reference windows.
 - **Manual identity check** (T046 as built): `enron-case review-merges`; a person judged a seeded
-  sample of real merges; two counts published in `data_quality`.
+  sample of real merges; counts only, committed as `checks/identity_manual.json` (the `checks`
+  zone) so a fresh clone publishes the same `data_quality` rows.
+- **Data-science review fixes** (contract 1.5): the full cleaning funnel in `data_quality`, an
+  exact interval for the manual check, the corpus SHA-256 in the manifest, a calibration test of
+  the permutation test under autocorrelation.
+- **One command**: bare `make` (`scripts/run-all.sh`) checks prerequisites, installs, creates a
+  key if none is configured, downloads, runs the pipeline and both gates, builds and serves the
+  explorer; `make check` does all but serve; `enron-case summary` prints the held-true count.
+- **Final review against prior work** (contract 1.6): the record profile (`record_profile`), which
+  shows the `Date` convention changing between April and May 2001 and became the published
+  finding; H25, a post-hoc replication test of a published denser-network result, stated before
+  it was computed (not supported); two null-model defects fixed; attacker A3 (every custodian
+  known); a related-work comparison in `docs/technical-overview.md`.
 - **Documentation as built**: architecture, contracts, data model, this section and the
   as-built section of `plan.md` updated to describe the code.
 

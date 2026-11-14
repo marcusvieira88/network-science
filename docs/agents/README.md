@@ -3,7 +3,8 @@
 > **The parallel phase is over.** This protocol and the briefs `WP-A.md`…`WP-J.md` are the
 > record of how the ten work packages were built at the same time against a frozen foundation;
 > all ten were merged. Later work (artifact checks, the review fix rounds, the config refactor,
-> hypotheses H5–H24, the retention check, the extra UI views) was done one change at a time on
+> hypotheses H5–H25, the retention check, the record profile, attacker A3, the one command, the
+> extra UI views) was done one change at a time on
 > short-lived branches (`fix/…`, `refactor/…`, `ui/…`, `docs/…`, `skill/…`): the lead or a single
 > implementation agent made the change, the review skills (`/code-review`,
 > `/data-privacy-review`, `/code-quality-review`, and `/data-scientist-review` for analysis

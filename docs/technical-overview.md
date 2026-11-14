@@ -67,14 +67,16 @@ make
 The one command installs locked dependencies, creates a key outside the repository
 (`~/.config/enron-case/key`) if none exists and says so, downloads and verifies the corpus, runs
 every stage, runs every test (Python and UI), builds the explorer on the real results, serves it
-at http://localhost:4173, and prints where the report and the UI are. It takes a few minutes,
-mostly the download; the pipeline itself runs the full corpus (about 517,000 files) in roughly two
-and a half minutes on a laptop.
+at http://localhost:4173, and prints where the report and the UI are. On a fresh clone it took
+about 24 minutes, 20 of them the download on that connection; the pipeline itself runs the full
+corpus (about 517,000 files) in about two and a half minutes on a laptop (`stages` in
+`release/run_manifest.json`). `make check` does the same without serving the explorer.
 
 Finer-grained targets:
 
 | Command | Does |
 |---------|------|
+| `make check` | everything `make` does except serving the explorer |
 | `make sample` | the whole pipeline on a bundled synthetic corpus, in seconds, into `release-sample/` |
 | `make gate` | lint, strict type checks, all tests, the privacy canary, the import-boundary test |
 | `make ui` | builds and serves the explorer over `release/` |
@@ -82,7 +84,7 @@ Finer-grained targets:
 | `make ui-gate` | UI lint, type check, tests, build, and a check that the build has no external URL |
 | `make clean` | removes local data and regenerated sample output |
 
-Underneath is a CLI (`enron-case run | stage | verify | check-key | review-merges`), documented in
+Underneath is a CLI (`enron-case run | stage | verify | check-key | summary | review-merges`), documented in
 [contracts/cli.md](../specs/001-enron-network-analysis/contracts/cli.md).
 
 ---
@@ -254,7 +256,7 @@ sequenceDiagram
     M->>B: vite build + preview
     B->>J: fetch (the only request it may make)
     B->>B: validate format, tables, columns, privacy (ui/src/lib/data.ts)
-    B-->>U: finding, metrics, 3D group network, clusters, hypotheses, risk, limits
+    B-->>U: finding, metrics, group network, clusters, hypotheses, data quality, risk, limits
 ```
 
 The UI is a static site with no API and no database. Its only input is
@@ -268,9 +270,9 @@ ui-sample` writes. So the UI cannot show anything the report could not. Its view
 
 | View | Shows |
 |------|-------|
-| Overview | the finding, the artifact checks that ruled out H2 and H3, and any hypothesis held true (none in this release) |
+| Overview | why H1–H4 give no finding (the artifact checks that ruled out H2 and H3), any hypothesis held true (none in this release) and key numbers. The record change is in the report only; the UI has no view of `record_profile` |
 | Metrics | each weekly metric by scope, with the change point, public events and baseline marked |
-| Network | a rotatable **3D graph of groups** and their ties, week by week (2D fallback without WebGL) |
+| Network | a **graph of groups** and their ties, week by week, drawn with Sigma.js (WebGL) and laid out once with ForceAtlas2: zoom, fullscreen, search by group label, hover highlighting; an anonymous Individuals mode fills each group with unlabelled points; SVG fallback without WebGL |
 | Clusters | a **chord diagram** of mail between and within groups for the baseline year, the crisis weeks or all weeks; each group's size, within-group share and top partner groups; and the group whose cross-group share changed most, with the stale-baseline caveat |
 | Hypotheses | H1–H4 with their artifact checks, and H5–H25 |
 | Data quality, Privacy and risk, Limits | the cleaning funnel, header rulings, the attacks before and after mitigation, and the limits |
@@ -426,8 +428,6 @@ releases R1 and R2 contain no node to match, so the attacks return nothing on th
   out-neighbours and distinct in-neighbours per week, computed by the same function on both
   sides. Each pseudonym is matched to the Euclidean-nearest address (nearest neighbour, not
   one-to-one).
-- **A3, everyone holding the corpus: A2 with every custodian as a seed.** The mailbox folders
-  of the public corpus are named after their owners, so the custodians are public knowledge.
 - **A2, insider: seeded propagation.** Starting from 3 custodians whose addresses are known,
   every unmatched pseudonym p is scored against every unused address a by the number of
   (week, already-matched neighbour) contacts they share, divided by √(contacts of a) so busy
@@ -435,10 +435,13 @@ releases R1 and R2 contain no node to match, so the attacks return nothing on th
   (one-to-one); each round's matches seed the next until nothing changes. This is
   de-anonymisation in the spirit of seed-based graph matching (Narayanan–Shmatikov style
   propagation), on time-stamped edges.
+- **A3, everyone holding the corpus: A2 with every custodian as a seed.** The mailbox folders
+  of the public corpus are named after their owners, so the custodians are public knowledge.
 
 Scoring is separate, runs in the ingest zone and emits counts only. Results are in
-[release/risk.csv](../release/risk.csv): on R0, A1 re-identifies about a quarter and A2 more than
-half of the targets; on R1 and R2, nobody.
+[release/risk.csv](../release/risk.csv): on R0, A1 re-identifies about a quarter of the targets,
+A2 more than half, and A3 about as large a share of the people other than the custodians; on R1
+and R2, nobody.
 
 ### Method by hypothesis family
 
@@ -446,7 +449,7 @@ half of the targets; on R1 and R2, nobody.
 |--------|----------|--------|---------------|
 | H1–H4 (committed before any data) | weekly network series, after a searched change week vs 2000 | CUSUM + permutation p, standardised effect, block bootstrap, Holm over 4 | supported if p_holm < 0.05 and interval on the hypothesised side; confidence from null-model z, leave-one-mailbox-out, variants |
 | Artifact checks (H2, H3) | placebo half-year in 2000; custodians against themselves | refit Louvain on half the baseline; within-custodian median change with bootstrap | failed or not run caps confidence at low; no headline |
-| H5–H25 (within-custodian; H25 post hoc) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 21 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable, no caveat and (H16) the retention check passes; volume-equalised result reported alongside |
+| H5–H25 (within-custodian; H25 post hoc) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 21 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable, no caveat and (H16, H25) the retention check passes; volume-equalised result reported alongside |
 | A1, A2, A3 (risk) | release R0, R1, R2 against the public corpus | nearest-neighbour fingerprint matching; seeded propagation | share of targets re-identified (top-1), with interval |
 
 ---
@@ -562,9 +565,10 @@ still have not run.
 | **Tailwind CSS** | styling and the dark theme tokens | One set of design tokens, no runtime CSS. |
 | **shadcn/ui** on **Radix UI** | cards, tabs, tables, badges, slider, select, tooltip | Accessible primitives copied into the repo rather than imported from a registry, so there is no external fetch. |
 | **Recharts** (via shadcn charts) | metrics over time, change-point and event markers | Declarative charts that match the shadcn theme. |
-| **d3-force** | the flat (2D) group network layout, the fallback without WebGL | One force layout computed once and kept stable while the week slider moves. |
-| **d3-chord** | the Clusters chord diagram, drawn as plain SVG | About 3 kB with one dependency already in the bundle; plain SVG lets the privacy test check every arc. |
-| **react-force-graph-3d** + **three** | the 3D group network | Loaded as a separate chunk only when the browser has WebGL; bundled, so still no external request. |
+| **Sigma.js** + **@react-sigma/core** | the group network (WebGL), with zoom, fullscreen, search and hover | Draws thousands of points smoothly; React bindings for the controls. Loaded as a separate chunk only when the Network view opens; bundled, so no external request. |
+| **graphology** + **graphology-layout-forceatlas2** | the graph Sigma draws and its layout | ForceAtlas2 runs once over all weeks with fixed settings and no randomness, so groups stay put while the week slider moves. |
+| **d3-force** | the SVG group network, the fallback without WebGL | One force layout computed once and kept stable while the week slider moves. |
+| **d3-chord** + **d3-shape** | the Clusters chord diagram, drawn as plain SVG | About 3 kB with one dependency already in the bundle; plain SVG lets the privacy test check every arc. |
 | **lucide-react**, **@fontsource-variable/inter** | icons, bundled font | Bundled assets, so no external request. |
 | `class-variance-authority`, `clsx`, `tailwind-merge` | component variants and class composition | The standard shadcn helpers. |
 | **Vitest** + **Testing Library** + **jsdom** | UI tests, including a privacy test | Checks the data contains no `@`, no pseudonym and no group below five, and that no view renders per person. |
@@ -594,8 +598,9 @@ flowchart LR
   outcomes are published. Checks added after seeing a result (the artifact checks, mail-volume
   equalisation, the H16 retention check) are labelled as such.
 - **Identity checked by a person.** A seeded sample of real identity merges was judged in a
-  terminal by a person (`enron-case review-merges`); only the two counts are kept and published
-  in `data_quality.csv`, so real identifiers never entered an AI conversation.
+  terminal by a person (`enron-case review-merges`); only counts are kept (merges checked and
+  judged correct), committed in `checks/identity_manual.json` and published in
+  `data_quality.csv`, so real identifiers never entered an AI conversation.
 - **Typed and reviewed.** `mypy --strict` checks `src/` and `tests/`, with no `Any` in a
   signature. Every change is reviewed with three skills: `/code-review` (correctness),
   `/data-privacy-review` (the content and identifier promises) and the project's own
@@ -762,7 +767,7 @@ consumption per tenant.
 | Committed | Never committed |
 |-----------|-----------------|
 | source code, tests, specs, contracts | the raw corpus (`data/raw`) |
-| `release/`: aggregate tables, `report.md`, `run_manifest.json` | the ingest zone (addresses, names; purged after each run) |
+| `release/`: aggregate tables, `report.md`, `run_manifest.json`; `checks/`: counts of the manual merge check | the ingest zone (addresses, names; purged after each run) |
 | `docs/`: decision record, slides, AI-workflow note, all numbers injected | the restricted zone (pseudonymized person-level data) |
 | the synthetic corpus generator and a synthetic UI sample | the key, or anything derived from it except an 8-character fingerprint |
 
@@ -773,7 +778,10 @@ src/enron_case/   one package per stage: ingest, clean, identity, pseudo, networ
                   risk, release, report, uiexport; contracts/ holds the table schemas;
                   synth/ generates the synthetic corpus and fixtures
 tests/            unit, contract, privacy and integration tests, all on synthetic data
-ui/               the explorer (React, TypeScript, Vite, Tailwind, shadcn/ui)
+ui/               the explorer (React, TypeScript, Vite, Tailwind, shadcn/ui, Sigma.js)
+release/          the published aggregate tables, report.md and run_manifest.json
+checks/           committed counts of checks a person made (identity_manual.json)
+scripts/          run-all.sh (the one command), create-key.sh
 docs/             architecture, hypotheses, metrics, decision record, slides, AI-workflow note
 specs/            Spec Kit specification, plan, research, contracts and tasks
 .claude/skills/   Spec Kit skills and the project's data-privacy-review, code-quality-review and

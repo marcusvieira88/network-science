@@ -123,8 +123,8 @@ so is there a sensitivity check?
 3. No hypothesis edited, dropped or re-scoped after its result; checks added after a result are
    labelled post hoc and applied to every hypothesis where the same threat exists, not only to
    the ones that passed.
-4. Family size and correction honest: Holm across the whole family (H1–H4; E1–E20 as one
-   family); the correction grows when hypotheses are added; a derived hypothesis (E11) is marked.
+4. Family size and correction honest: Holm across the whole family (H1–H4; H5–H25, recorded
+   as E1–E21, as one family); the correction grows when hypotheses are added; a derived hypothesis (E11) is marked.
    Check that the data can reach significance at all after correction (units vs the smallest
    attainable Wilcoxon or permutation p).
 5. No p-hacking by accretion: count families, hypotheses and post hoc checks over time in the
