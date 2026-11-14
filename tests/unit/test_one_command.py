@@ -113,6 +113,27 @@ def test_ci_runs_every_os_and_never_the_real_corpus() -> None:
 # ---- the step runner -------------------------------------------------------------------------
 
 
+def test_step_notice_is_printed_before_the_step_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    step = Step("wait", "wait", (python_command("pass", tmp_path),), notice="this takes a while")
+    onecommand.run_step(step, tmp_path, tmp_path / "logs")
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "    this takes a while"
+    assert lines[1].startswith("==> wait")
+
+
+def test_download_notice_only_when_the_corpus_is_not_there_yet(tmp_path: Path) -> None:
+    tools = onecommand.Tools(uv="uv", node="node", npm="npm", python="python")
+    fetch = onecommand.pipeline_steps(tools, tmp_path)[0]
+    assert fetch.log_name == "fetch"
+    assert fetch.notice == onecommand.DOWNLOAD_NOTICE
+    raw = tmp_path / "data" / "raw"
+    raw.mkdir(parents=True)
+    (raw / "enron_mail_20150507.tar.gz").write_bytes(b"")
+    assert onecommand.pipeline_steps(tools, tmp_path)[0].notice is None
+
+
 def test_step_success_prints_one_line_and_logs_the_output(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -261,8 +282,11 @@ def test_uv_from_its_environment_variable_is_used(healthy_machine: pytest.Monkey
     ("missing", "message"),
     [
         ("uv", "uv (https://docs.astral.sh/uv/)"),
-        ("node", "Node.js >= 20"),
-        ("npm", "npm"),
+        (
+            "node",
+            "Node.js >= 20 (install it from https://nodejs.org, or on macOS: brew install node)",
+        ),
+        ("npm", "npm (it comes with Node.js: https://nodejs.org)"),
     ],
 )
 def test_missing_tool_is_named(

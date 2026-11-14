@@ -23,6 +23,7 @@ from typing import BinaryIO
 
 from enron_case.cli import REPO_ROOT, load_key_fingerprint, summary_line
 from enron_case.config import (
+    CORPUS_ARCHIVE,
     DEFAULT_KEY_PATH,
     DEFAULT_UI_PORT,
     EXPLORER_HOST,
@@ -45,11 +46,20 @@ from enron_case.config import (
 from enron_case.context import stderr_log
 from enron_case.errors import PipelineError, PrerequisiteMissing, StepFailed
 from enron_case.pseudo.keys import create_key_file
-from enron_case.zones import Paths
+from enron_case.zones import Paths, Zone
 
 ALL, CHECK = "all", "check"
 MODES = (ALL, CHECK)
 UV_HINT = "uv (https://docs.astral.sh/uv/)"
+NODE_HINT = (
+    f"Node.js >= {MIN_NODE_MAJOR} (install it from https://nodejs.org, "
+    "or on macOS: brew install node)"
+)
+NPM_HINT = "npm (it comes with Node.js: https://nodejs.org)"
+DOWNLOAD_NOTICE = (
+    "Downloading the corpus (about 440 MB) once; this usually takes 10 to 25 minutes, "
+    "depending on the connection. Later runs reuse it."
+)
 PORT_PATTERN = re.compile(r"[0-9]{1,5}")
 BYTES_PER_GB = 1024**3
 SIGNAL_EXIT_BASE = 128  # a shell reports death by signal N as 128 + N
@@ -69,6 +79,8 @@ class Step:
     label: str
     log_name: str
     commands: tuple[Command, ...]
+    # Printed before the step line when the step will take long, so a quiet wait is expected.
+    notice: str | None = None
 
 
 @dataclass(frozen=True)
@@ -134,6 +146,8 @@ def run_step(step: Step, root: Path, log_dir: Path) -> None:
     """Run one step quietly: one line on success; on failure the log's tail and StepFailed."""
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"{step.log_name}.log"
+    if step.notice:
+        print(f"    {step.notice}", flush=True)
     print(f"==> {step.label:<44}", end="", flush=True)
     started = time.monotonic()
     code = run_logged(step.commands, log_path)
@@ -216,7 +230,7 @@ def check_prerequisites(mode: str, port: int, root: Path) -> Tools:
     version = node_version(node)
     if node_major(version) < MIN_NODE_MAJOR:
         raise PrerequisiteMissing(f"Node.js >= {MIN_NODE_MAJOR} (found {version})")
-    npm = find_tool("npm", "npm")
+    npm = find_tool("npm", NPM_HINT)
     free = free_disk_bytes(root)
     if free < MIN_FREE_DISK_BYTES:
         needed = MIN_FREE_DISK_BYTES // BYTES_PER_GB
@@ -292,8 +306,15 @@ def pipeline_steps(tools: Tools, root: Path) -> tuple[Step, ...]:
     def cli(*args: str) -> tuple[Command, ...]:
         return (Command((tools.python, "-m", "enron_case", *args), root),)
 
+    archive = Paths.for_run(root, sample=False).dir(Zone.RAW) / CORPUS_ARCHIVE
+    download_notice = None if archive.exists() else DOWNLOAD_NOTICE
     return (
-        Step("download and verify the corpus", "fetch", cli("stage", "fetch")),
+        Step(
+            "download and verify the corpus",
+            "fetch",
+            cli("stage", "fetch"),
+            notice=download_notice,
+        ),
         Step("run the pipeline on the real corpus", "pipeline", cli("run")),
         Step("Python gate (lint, types, tests, canary)", "gate", python_gate(tools.python, root)),
         Step(
@@ -361,15 +382,15 @@ def run_python_gate(root: Path = REPO_ROOT) -> int:
 
 
 def find_node() -> str:
-    return find_tool("node", f"Node.js >= {MIN_NODE_MAJOR}")
+    return find_tool("node", NODE_HINT)
 
 
 def install_ui_dependencies(root: Path = REPO_ROOT) -> int:
-    return run_streaming(ui_dependency_commands(find_tool("npm", "npm"), root / "ui"))
+    return run_streaming(ui_dependency_commands(find_tool("npm", NPM_HINT), root / "ui"))
 
 
 def run_ui_gate(root: Path = REPO_ROOT) -> int:
-    node, npm = find_node(), find_tool("npm", "npm")
+    node, npm = find_node(), find_tool("npm", NPM_HINT)
     ui_root = root / "ui"
     return run_streaming((*ui_dependency_commands(npm, ui_root), *ui_gate(node, npm, ui_root)))
 
