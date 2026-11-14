@@ -19,6 +19,10 @@ document says how to build those on AWS.
 
 ## Target architecture
 
+**Diagram: today: static release.json.** The browser fetches one pre-computed file from CloudFront; there is no API and no database
+to query, because every viewer of a tenant sees the same aggregates. The query path that adds
+both is drawn under [Release and explorer](#release-and-explorer).
+
 ```mermaid
 flowchart LR
     subgraph CUST["customer account"]
@@ -208,6 +212,8 @@ the same person gets a new `p_…` and nothing links the two. Consequences:
 
 ## CI/CD and supply chain
 
+**Diagram: today: static release.json.** The same pipeline later also builds and promotes the query service image.
+
 ```mermaid
 flowchart LR
     PR["pull request"] --> G["GitHub Actions: make gate<br/>lint, mypy strict, tests,<br/>privacy canary, import boundary"]
@@ -256,12 +262,37 @@ flowchart LR
   Lambda@Edge viewer-request function validates the JWT signature, expiry and `tenant` claim on
   every request, including `release.json`, so one tenant cannot fetch another's release. Roles are
   Cognito groups mapped from IdP groups, using the role model in the technical overview.
-- **Query API, if added later**: API Gateway (a REST API, for per-tenant usage plans and
-  throttling) with a JWT authorizer. Behind it, a Lambda or ECS service runs DuckDB over the
-  release Parquet. The k-threshold and differencing guard run on every answer, and a per-tenant
-  query budget is checked before execution. The budget ledger and audit log live in the
-  PostgreSQL store proposed in the technical overview (Aurora PostgreSQL). The service's role can
-  read only the release bucket. It has no route to the restricted zone.
+
+### Query API, if added later
+
+**Diagram: later: query API.** Needed only once users ask their own questions (own filters,
+other windows, several releases or tenants) instead of viewing pre-computed results. The static
+app and `release.json` stay on the path above; only `/api/*` requests reach the service.
+
+```mermaid
+flowchart LR
+    B["browser"] -->|"HTTPS + JWT"| CF["CloudFront + WAF"]
+    CF -->|"static app, release.json"| SITE[("site bucket")]
+    CF -->|"/api/*"| AG["API Gateway<br/>JWT authorizer,<br/>per-tenant usage plan"]
+    AG --> Q["query service<br/>Lambda or ECS"]
+    Q -->|"read-only"| DUCK[("DuckDB over release Parquet<br/>in the release bucket")]
+    Q --> GUARD["k-threshold, differencing guard,<br/>query budget check"]
+    Q --> PG[("Aurora PostgreSQL<br/>users, roles, budget ledger,<br/>audit log")]
+```
+
+- **API Gateway**: a REST API, for per-tenant usage plans and throttling, with a JWT authorizer
+  on the same Cognito or customer IdP tokens as the explorer.
+- **Analytical data**: the service (Lambda, or ECS for longer queries) runs DuckDB in-process
+  over the release tables in the release bucket, read-only. No database server and no load step;
+  the pipeline writes once per run, many viewers read. The release stage writes CSV today
+  (`release/*.csv`); Parquet output is a small addition.
+- **Every answer is guarded**: the k-threshold and differencing guard run on each result, not
+  only on pre-built tables, and a per-tenant query budget is checked before execution.
+- **Transactional data**: users, roles, the budget ledger and the audit log live in Aurora
+  PostgreSQL, the store proposed in the technical overview. This data is small and not
+  person-level.
+- **Boundary**: the service's role can read only the release bucket. It has no route to the
+  restricted zone.
 
 ## Multi-tenant isolation
 
@@ -309,6 +340,8 @@ canary: on the synthetic corpus, the exported series must contain no canary mark
 no pseudonym pattern.
 
 ### Telemetry flow
+
+**Diagram: today: static release.json.** A query API, once added, is scraped by the same collector.
 
 ```mermaid
 flowchart LR
