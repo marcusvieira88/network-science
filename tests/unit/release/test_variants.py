@@ -154,6 +154,18 @@ def test_ties_with_fewer_than_k_senders_are_dropped() -> None:
     ]
 
 
+def test_tie_weights_are_summed_in_sorted_order() -> None:
+    """Float addition is not associative and polars hands a group's rows over in any order, so
+    the published weight is the sum in sorted order: (-1e16 + 0 + 0 + 1) + 1e16 = 0, where the
+    row order (1e16 - 1e16 + 1) would give 1."""
+    comm = communities({0: 7, 1: 6})  # pids 0-6 in G01, 7-12 in G02
+    rows = edges([(H1_WEEK, s, 7) for s in range(5)]).with_columns(
+        pl.Series("weight", [1e16, -1e16, 1.0, 0.0, 0.0])
+    )
+    graph = variants.build_r1(rows, empty_metrics(), comm, CONFIG)["community_graph"]
+    assert graph.get_column("weight").to_list() == [0.0]
+
+
 def test_small_other_group_is_not_published_nor_its_ties() -> None:
     comm = communities({0: 6, 1: 3})  # pids 0-5 in G01, 6-8 in other (3 persons)
     rows = [(H1_WEEK, s, 6) for s in range(6)]
