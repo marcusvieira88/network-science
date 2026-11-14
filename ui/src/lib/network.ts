@@ -44,13 +44,16 @@ function pairKey(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }
 
-/** Ties between distinct groups, summed per unordered pair; suppressed weights count as 0. */
-export function weekGraph(edges: CommunityEdgeRow[], week: string | null): WeekGraph {
+/** What a tie sums: the message weight (the default everywhere) or the plain message count. */
+export type TieMeasure = "weight" | "n_messages";
+
+/** Ties between distinct groups, summed per unordered pair; suppressed values count as 0. */
+export function weekGraph(edges: CommunityEdgeRow[], week: string | null, measure: TieMeasure = "weight"): WeekGraph {
   const ties = new Map<string, GroupTie>();
   const internal: Record<string, number> = {};
   for (const edge of edges) {
     if (week !== null && edge.week !== week) continue;
-    const weight = edge.weight ?? 0;
+    const weight = edge[measure] ?? 0;
     if (edge.src_group === edge.dst_group) {
       internal[edge.src_group] = (internal[edge.src_group] ?? 0) + weight;
       continue;
@@ -82,16 +85,22 @@ interface LayoutNode extends SimulationNodeDatum {
 
 type LayoutLink = SimulationLinkDatum<LayoutNode> & { strength: number };
 
+/** Ties in one week (or all weeks when `week` is null) between published groups only. */
+export function publishedTies(
+  edges: CommunityEdgeRow[],
+  week: string | null,
+  groupIds: Iterable<string>,
+  measure: TieMeasure = "weight",
+): WeekGraph["ties"] {
+  const known = new Set(groupIds);
+  return weekGraph(edges, week, measure).ties.filter((tie) => known.has(tie.a) && known.has(tie.b));
+}
+
 /**
  * One force layout over the ties of all weeks, computed once so that groups stay in place while
  * the week changes. d3-force's initial placement and jitter are deterministic, so the same data
  * gives the same picture.
  */
-/** Ties in one week (or all weeks when `week` is null) between published groups only. */
-export function publishedTies(edges: CommunityEdgeRow[], week: string | null, groupIds: Iterable<string>): WeekGraph["ties"] {
-  const known = new Set(groupIds);
-  return weekGraph(edges, week).ties.filter((tie) => known.has(tie.a) && known.has(tie.b));
-}
 
 export function layoutGroups(
   groups: CommunityGroupRow[],

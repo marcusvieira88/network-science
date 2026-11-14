@@ -84,4 +84,15 @@ describe("CommunityGraph with WebGL (Sigma.js)", () => {
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "People" })).toBeInTheDocument();
   });
+
+  it("offers the Overlap mode and says an overlap is mail, not shared members", async () => {
+    const user = userEvent.setup();
+    const { container } = renderGraph();
+    const view = await screen.findByTestId("sigma-view");
+    await user.click(screen.getByRole("tab", { name: "Overlap" }));
+    expect(view).toHaveAttribute("data-mode", "overlap");
+    expect(container).toHaveTextContent(
+      "Overlap = mail between two groups, not shared members — each person is in exactly one group.",
+    );
+  });
 });

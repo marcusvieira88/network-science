@@ -209,4 +209,35 @@ describe("privacy of what the views render", () => {
     expect(container.textContent ?? "").not.toMatch(LEAK_PATTERN);
     unmount();
   });
+
+  it("network view, Overlap mode (WebGL): group discs only, group-level counts only", async () => {
+    resetSigmaStub();
+    applyThemeVariables();
+    const user = userEvent.setup();
+    const groups = data.tables.community_groups;
+    const edges = data.tables.community_graph;
+    const weeks = [...new Set(edges.map((row) => row.week))].sort();
+    const { container, unmount } = render(
+      createElement(CommunityGraph, {
+        groups,
+        edges,
+        weeks,
+        events: [],
+        minGroupSize: minimumGroupSize(data),
+        seed: data.run.seed,
+        webgl: true,
+      }),
+    );
+    await user.click(screen.getByRole("tab", { name: "Overlap" }));
+    await waitFor(() => expect(sigmaStub.graph?.order).toBe(groups.length));
+    const graph = sigmaStub.graph;
+    if (!graph) throw new Error("no graph loaded");
+    const labels = new Set(groups.map((g) => g.group));
+    // Nothing per person: one disc per published group and no other node.
+    for (const key of graph.nodes()) expect(labels.has(graph.getNodeAttribute(key, "label") ?? "")).toBe(true);
+    const [first = ""] = graph.nodes();
+    act(() => sigmaStub.handlers.enterNode?.({ node: first }));
+    expect(container.textContent ?? "").not.toMatch(LEAK_PATTERN);
+    unmount();
+  });
 });

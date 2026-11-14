@@ -30,4 +30,12 @@ describe("CommunityGraph when the WebGL view fails", () => {
     expect(container).toHaveTextContent("circle area follows group size");
     expect(screen.getByRole("img")).toHaveAccessibleName("Group network for the week of 2000-01-03");
   });
+
+  it("does not offer the Overlap mode in the SVG network, and says so", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    render(<CommunityGraph groups={groups} edges={edges} weeks={["2000-01-03"]} events={[]} minGroupSize={5} seed={1} webgl />);
+    await screen.findAllByTestId("group-node");
+    expect(screen.getByRole("tab", { name: "Overlap" })).toBeDisabled();
+    expect(screen.getByText(/The Overlap mode needs WebGL/)).toBeInTheDocument();
+  });
 });

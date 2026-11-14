@@ -29,7 +29,16 @@ and hover highlighting of a group and its ties; a legend shows the size and widt
 are read from the CSS variables in `src/index.css` and converted to hex (`src/lib/color.ts`).
 The "Individuals (anonymous)" mode fills each published group with `n_persons` points at seeded
 random positions (seed: the run seed): they have no label, tooltip, hover text or ties, and their
-Sigma keys are opaque sequence numbers (`point:<group index>-<index>`). The data mapping is in
+Sigma keys are opaque sequence numbers (`point:<group index>-<index>`).
+The "Overlap" mode (WebGL only; the SVG fallback disables it and says so) draws the week's
+`OVERLAP_PAIRS` (6) heaviest ties by message count between published groups as intersecting,
+translucent discs; the other ties stay lines. Depth = shared messages ÷ (own within-group messages
+of the less internally active side + shared), capped at `OVERLAP_MAX_DEPTH`; centres are then
+r_a + r_b − depth · 2 · min(r_a, r_b) apart. Positions start from the ForceAtlas2 layout and are
+relaxed per week by a fixed-iteration distance-constraint solve that keeps every other pair at
+least the layout's smallest gap apart (no randomness); Sigma animates groups between weeks. An
+overlap is mail between two groups, never shared members: each person is in exactly one group.
+Hovering a group lists each overlap's message count and both sides' shares (`src/lib/overlap.ts`). The data mapping is in
 `src/lib/sigmaNetwork.ts` and `src/lib/cells.ts`; tests replace React Sigma with
 `src/test/reactSigma.tsx`, since jsdom has no WebGL.
 

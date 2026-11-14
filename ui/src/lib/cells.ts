@@ -10,7 +10,7 @@ import type { CommunityGroupRow } from "@/lib/data";
 /** Points stay this share of the radius away from the membrane, so none sits on the edge. */
 export const POINT_MARGIN = 0.15;
 
-export const NETWORK_MODES = ["groups", "individuals"] as const;
+export const NETWORK_MODES = ["groups", "individuals", "overlap"] as const;
 export type NetworkMode = (typeof NETWORK_MODES)[number];
 
 export type Point = readonly [number, number];

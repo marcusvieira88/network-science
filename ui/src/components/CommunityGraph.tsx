@@ -30,7 +30,11 @@ const MAX_EDGE_WIDTH = 14;
 const TOP_TIES = 8;
 const POINT_RADIUS = 1.6;
 
-const MODE_LABELS: Record<NetworkMode, string> = { groups: "Groups", individuals: "Individuals (anonymous)" };
+const MODE_LABELS: Record<NetworkMode, string> = {
+  groups: "Groups",
+  individuals: "Individuals (anonymous)",
+  overlap: "Overlap",
+};
 
 function isNetworkMode(value: string): value is NetworkMode {
   return (NETWORK_MODES as readonly string[]).includes(value);
@@ -194,7 +198,7 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
           <Tabs value={mode} onValueChange={(value) => isNetworkMode(value) && setMode(value)}>
             <TabsList aria-label="Draw">
               {NETWORK_MODES.map((value) => (
-                <TabsTrigger key={value} value={value}>
+                <TabsTrigger key={value} value={value} disabled={value === "overlap" && !useWebGL}>
                   {MODE_LABELS[value]}
                 </TabsTrigger>
               ))}
@@ -204,6 +208,17 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
             <p className="text-sm text-muted-foreground">
               Each point stands for one person in a group of at least {minGroupSize}; points are anonymous and their
               positions and links are illustrative, not individual data. Ties are measured between groups only.
+            </p>
+          )}
+          {useWebGL && mode === "overlap" && (
+            <p className="text-sm text-muted-foreground">
+              Overlap = mail between two groups, not shared members — each person is in exactly one group. The
+              week&apos;s heaviest ties by message count are drawn as overlapping circles; the others stay lines.
+            </p>
+          )}
+          {!useWebGL && (
+            <p className="text-sm text-muted-foreground">
+              The Overlap mode needs WebGL; this browser shows the plain group network instead.
             </p>
           )}
         </div>
