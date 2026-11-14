@@ -35,7 +35,9 @@ cannot reach the body is easier to trust and to test than one that parses it and
 **Honest limit**: body bytes still pass through the decompressor on their way to being skipped,
 and the downloaded archive on disk contains them. "Never enters the system" means never decoded,
 parsed, held, stored or logged by our code. With real customer data the equivalent control is a
-connector that requests metadata fields only, so content never leaves the source.
+connector that requests metadata fields only where the provider offers such a scope, so mail
+content never leaves the source; chat APIs without one (Teams, Slack) return text, which the
+connector must drop in memory.
 
 **Alternatives considered**: extract then parse (content on disk in the clear; rejected);
 `email.parser.HeaderParser` (reads the body as payload; rejected).

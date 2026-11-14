@@ -118,7 +118,8 @@ flowchart TB
 | Keyed HMAC pseudonyms | stable, not confirmable by hashing guesses | key holders can test candidates; structure still re-identifies |
 | Aggregates-only release | nothing person-level published | no person-level analysis for readers |
 
-**With real customer data:** metadata-only connectors so content never leaves the source,
+**With real customer data:** metadata-only scopes where the provider has one (Gmail, Outlook), so
+mail content never leaves the source; Teams and Slack have none, so their text is dropped in memory,
 retention schedules, and works council review of questions and thresholds before the first run.
 
 ## AI workflow

@@ -143,8 +143,9 @@ flowchart LR
 **Honest limit.** "Never enters" means our code never decodes, parses, holds, stores or logs
 content. Body bytes still pass through the gzip decompressor on the way to being skipped, and the
 downloaded archive on disk contains them. With real customer data the equivalent control is a
-connector that requests metadata fields only, so content never leaves the source (see
-[next steps](#next-steps)).
+connector that requests metadata fields only where the provider offers such a scope (Gmail,
+Outlook), so mail content never leaves the source. Teams and Slack offer none: their text reaches
+our connector and is dropped in memory, a weaker guarantee (see [next steps](#next-steps)).
 
 ---
 
@@ -670,7 +671,7 @@ out of reach of the service entirely.
 
 | Step | What changes |
 |------|--------------|
-| Metadata-only connectors | Microsoft Graph and Slack APIs request header fields only, so content never leaves the source instead of being skipped after download. |
+| Metadata-only connectors | Gmail and Outlook scopes return header fields only, so mail content never leaves the source instead of being skipped after download. Teams and Slack have no such scope: the connector drops their text in memory. |
 | Key custody and an entity registry | The key lives in the customer's KMS. A persisted registry of surrogate IDs keeps pseudonyms stable when identity rules change. |
 | Formal privacy budget | Replace the noise sketch (release R2) with differential privacy accounted across every published output. |
 | Group-level attack | Attack the published group graph itself (communities matched to the public corpus), not only person-level releases. |

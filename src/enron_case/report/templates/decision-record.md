@@ -52,7 +52,8 @@ in behaviour. {{record_summary}}
 
 ## What changes with real customer data
 
-- **Metadata-only connectors**, so content never leaves the source.
+- **Metadata-only connectors**: mail scopes that return headers only, so mail content never
+  leaves the source; Teams and Slack have no such scope, so their text is dropped in memory.
 - **Customer-side key custody and an entity registry**, so pseudonyms survive changes in
   identity resolution.
 - **Retention schedule, data residency, works council review** of the questions, the minimum
