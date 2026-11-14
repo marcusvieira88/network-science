@@ -1,0 +1,404 @@
+"""Exploratory hypotheses E1–E10 (docs/hypotheses-exploratory.md).
+
+Every hypothesis is a paired, within-custodian difference of a ratio between fixed windows, so
+neither a change in which mailboxes hold mail nor a change in how much mail was kept can
+produce it. Windows are fixed by public dates, not searched for in the data.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import date, timedelta
+
+import numpy as np
+import polars as pl
+from scipy.stats import wilcoxon
+
+from enron_case.finding import stats
+
+UP, DOWN = 1, -1
+MIN_MESSAGES = 20
+BOOTSTRAP_REPS = 2000
+ALPHA = 0.05
+PLACEBO_FRACTION = 0.5
+WORK_START, WORK_END = 7, 19
+BROADCAST_SENT = 5
+BROADCAST_RECEIVED = 20
+TOP_RECIPIENTS = 3
+TOP_SENDERS = 3
+SUMMER_MONTHS = range(4, 11)  # Houston UTC-5 from April to October, else UTC-6
+
+Window = tuple[date, date]
+CRISIS: Window = (date(2001, 8, 14), date(2001, 12, 2))
+REFERENCE: Window = (date(2000, 8, 14), date(2000, 12, 2))
+PLACEBO_AFTER: Window = (date(2001, 1, 1), date(2001, 4, 30))
+PLACEBO_BEFORE: Window = (date(2000, 1, 1), date(2000, 4, 30))
+
+CONFIDENT, INCONCLUSIVE, NOT_SUPPORTED = "confident", "inconclusive", "not supported"
+
+WindowMeasure = Callable[[pl.DataFrame], pl.DataFrame]  # rows of one window -> pid, value, n
+# A measure sees the full message tables and the window, because some measures (E12, E15) need
+# rows outside the window: the reverse direction, or the weeks before it.
+Measure = Callable[["Tables", Window], pl.DataFrame]
+LOOKBACK_DAYS = 182  # E15: 26 weeks before each window
+
+
+@dataclass(frozen=True)
+class Exploratory:
+    id: str
+    side: str  # "sent" or "received"
+    direction: int
+    description: str
+
+
+FAMILY: tuple[Exploratory, ...] = (
+    Exploratory("E1", "sent", UP, "after-hours share of sent messages (weekdays)"),
+    Exploratory("E2", "sent", UP, "weekend share of sent messages"),
+    Exploratory("E3", "sent", UP, "share of sent messages with a Bcc recipient"),
+    Exploratory("E4", "sent", UP, "share of sent messages with a Cc recipient"),
+    Exploratory("E5", "sent", UP, "mean recipients per sent message"),
+    Exploratory("E6", "sent", UP, "share of sent messages with five or more recipients"),
+    Exploratory("E7", "sent", DOWN, "distinct internal contacts per active week"),
+    Exploratory("E8", "sent", UP, "sent messages per active week"),
+    Exploratory("E9", "sent", UP, "share of sent messages to the top three recipients"),
+    Exploratory("E10", "received", UP, "share of received messages sent to 20 or more"),
+    Exploratory("E11", "sent", UP, "share of sent messages with one recipient (derived from E10)"),
+    Exploratory("E12", "sent", UP, "share of sent-to contacts who also wrote back"),
+    Exploratory("E13", "sent", UP, "share of sent messages to another custodian"),
+    Exploratory("E14", "received", UP, "share of received messages from another custodian"),
+    Exploratory("E15", "sent", DOWN, "share of contacts new against the prior 26 weeks"),
+    Exploratory("E16", "received", UP, "distinct senders per active week"),
+    Exploratory("E17", "received", UP, "share of received messages from the top three senders"),
+    Exploratory("E18", "received", DOWN, "share of received messages from external senders"),
+    Exploratory("E19", "sent", UP, "share of weeks with at least one sent message"),
+    Exploratory("E20", "sent", DOWN, "share of sent messages to a list, role or system address"),
+)
+
+
+# ---- message tables --------------------------------------------------------------------------
+def _with_local_time(df: pl.DataFrame) -> pl.DataFrame:
+    month = pl.col("ts_hour").dt.month()
+    offset = pl.when(month.is_in(list(SUMMER_MONTHS))).then(-5).otherwise(-6)
+    local = pl.col("ts_hour") + pl.duration(hours=offset)
+    return df.with_columns(
+        local.dt.date().alias("day"),
+        local.dt.hour().alias("hour"),
+        local.dt.weekday().alias("weekday"),  # 1 = Monday … 7 = Sunday
+        local.dt.date().dt.truncate("1w").alias("week"),
+    )
+
+
+def sent_messages(events: pl.DataFrame, custodians: pl.Series) -> pl.DataFrame:
+    """One row per message sent by a custodian, with every recipient (not only the network)."""
+    sent = events.filter(pl.col("sender_pid").is_in(custodians.implode()))
+    internal_person = (pl.col("recipient_type") == "person") & pl.col("recipient_internal")
+    messages = sent.group_by("msg_pid").agg(
+        pl.col("sender_pid").first().alias("pid"),
+        pl.col("ts_hour").first(),
+        pl.col("n_recipients").first(),
+        (pl.col("role") == "bcc").any().alias("has_bcc"),
+        (pl.col("role") == "cc").any().alias("has_cc"),
+        pl.col("recipient_pid").sort().alias("recipients"),
+        pl.col("recipient_pid").filter(internal_person).sort().alias("internal_recipients"),
+        pl.col("recipient_pid")
+        .filter(pl.col("recipient_type") == "person")
+        .sort()
+        .alias("person_recipients"),
+        (pl.col("recipient_type") != "person").any().alias("has_nonperson"),
+        (
+            pl.col("recipient_pid").is_in(custodians.implode())
+            & (pl.col("recipient_pid") != pl.col("sender_pid"))
+        )
+        .any()
+        .alias("to_custodian"),
+    )
+    return _with_local_time(messages.sort("msg_pid"))
+
+
+def received_messages(events: pl.DataFrame, custodians: pl.Series) -> pl.DataFrame:
+    received = events.filter(pl.col("recipient_pid").is_in(custodians.implode()))
+    rows = received.select(
+        pl.col("recipient_pid").alias("pid"),
+        "msg_pid",
+        "ts_hour",
+        "n_recipients",
+        "sender_pid",
+        "sender_internal",
+        (
+            pl.col("sender_pid").is_in(custodians.implode())
+            & (pl.col("sender_pid") != pl.col("recipient_pid"))
+        ).alias("from_custodian"),
+    ).unique(subset=["pid", "msg_pid"], keep="first")
+    return _with_local_time(rows.sort("pid", "msg_pid"))
+
+
+# ---- measures --------------------------------------------------------------------------------
+def _share(condition: pl.Expr) -> WindowMeasure:
+    def measure(df: pl.DataFrame) -> pl.DataFrame:
+        return df.group_by("pid").agg(
+            condition.cast(pl.Float64).mean().alias("value"), pl.len().alias("n")
+        )
+
+    return measure
+
+
+def _mean_recipients(df: pl.DataFrame) -> pl.DataFrame:
+    return df.group_by("pid").agg(
+        pl.col("n_recipients").cast(pl.Float64).mean().alias("value"), pl.len().alias("n")
+    )
+
+
+def _contacts_per_week(df: pl.DataFrame) -> pl.DataFrame:
+    weekly = (
+        df.explode("internal_recipients")
+        .group_by("pid", "week")
+        .agg(pl.col("internal_recipients").drop_nulls().n_unique().alias("contacts"))
+    )
+    counts = df.group_by("pid").agg(pl.len().alias("n"))
+    return (
+        weekly.group_by("pid")
+        .agg(pl.col("contacts").cast(pl.Float64).mean().alias("value"))
+        .join(counts, on="pid")
+    )
+
+
+def _messages_per_week(df: pl.DataFrame) -> pl.DataFrame:
+    return df.group_by("pid").agg(
+        (pl.len() / pl.col("week").n_unique()).cast(pl.Float64).alias("value"),
+        pl.len().alias("n"),
+    )
+
+
+def _top_recipient_share(df: pl.DataFrame) -> pl.DataFrame:
+    per_recipient = (
+        df.explode("recipients")
+        .group_by("pid", "recipients")
+        .len()
+        .sort(["pid", "len", "recipients"], descending=[False, True, False])
+    )
+    top = per_recipient.group_by("pid", maintain_order=True).head(TOP_RECIPIENTS)
+    tops = top.group_by("pid").agg(pl.col("recipients").alias("top"))
+    joined = df.join(tops, on="pid")
+    hit = pl.col("recipients").list.set_intersection(pl.col("top")).list.len() > 0
+    return joined.group_by("pid").agg(
+        hit.cast(pl.Float64).mean().alias("value"), pl.len().alias("n")
+    )
+
+
+@dataclass(frozen=True)
+class Tables:
+    sent: pl.DataFrame
+    received: pl.DataFrame
+
+
+def _in(df: pl.DataFrame, window: Window) -> pl.DataFrame:
+    return df.filter((pl.col("day") >= window[0]) & (pl.col("day") <= window[1]))
+
+
+def _windowed(side: str, measure: WindowMeasure) -> Measure:
+    def run(tables: Tables, window: Window) -> pl.DataFrame:
+        return measure(_in(getattr(tables, side), window))
+
+    return run
+
+
+def _top_sender_share(df: pl.DataFrame) -> pl.DataFrame:
+    per_sender = (
+        df.group_by("pid", "sender_pid")
+        .len()
+        .sort(["pid", "len", "sender_pid"], descending=[False, True, False])
+    )
+    top = per_sender.group_by("pid", maintain_order=True).head(TOP_SENDERS)
+    joined = df.join(
+        top.select("pid", "sender_pid", pl.lit(True).alias("top")),
+        on=["pid", "sender_pid"],
+        how="left",
+    )
+    return joined.group_by("pid").agg(
+        pl.col("top").fill_null(False).cast(pl.Float64).mean().alias("value"),
+        pl.len().alias("n"),
+    )
+
+
+def _senders_per_week(df: pl.DataFrame) -> pl.DataFrame:
+    weekly = df.group_by("pid", "week").agg(pl.col("sender_pid").n_unique().alias("senders"))
+    counts = df.group_by("pid").agg(pl.len().alias("n"))
+    return (
+        weekly.group_by("pid")
+        .agg(pl.col("senders").cast(pl.Float64).mean().alias("value"))
+        .join(counts, on="pid")
+    )
+
+
+def _sent_contacts(df: pl.DataFrame) -> pl.DataFrame:
+    return (
+        df.explode("person_recipients")
+        .drop_nulls("person_recipients")
+        .select("pid", pl.col("person_recipients").alias("contact"))
+        .unique()
+    )
+
+
+def _reciprocity(tables: Tables, window: Window) -> pl.DataFrame:
+    sent = _in(tables.sent, window)
+    contacts = _sent_contacts(sent)
+    wrote_back = (
+        _in(tables.received, window)
+        .select("pid", pl.col("sender_pid").alias("contact"))
+        .unique()
+        .with_columns(pl.lit(True).alias("back"))
+    )
+    joined = contacts.join(wrote_back, on=["pid", "contact"], how="left")
+    shares = joined.group_by("pid").agg(
+        pl.col("back").fill_null(False).cast(pl.Float64).mean().alias("value")
+    )
+    return shares.join(sent.group_by("pid").agg(pl.len().alias("n")), on="pid")
+
+
+def _new_contact_share(tables: Tables, window: Window) -> pl.DataFrame:
+    sent = _in(tables.sent, window)
+    start = window[0] - timedelta(days=LOOKBACK_DAYS)
+    prior = _sent_contacts(_in(tables.sent, (start, window[0] - timedelta(days=1))))
+    active_before = prior.select("pid").unique()
+    current = _sent_contacts(sent).join(active_before, on="pid")  # needs a history to compare
+    known = prior.with_columns(pl.lit(True).alias("known"))
+    joined = current.join(known, on=["pid", "contact"], how="left")
+    shares = joined.group_by("pid").agg(
+        pl.col("known").is_null().cast(pl.Float64).mean().alias("value")
+    )
+    return shares.join(sent.group_by("pid").agg(pl.len().alias("n")), on="pid")
+
+
+def _active_week_share(tables: Tables, window: Window) -> pl.DataFrame:
+    sent = _in(tables.sent, window)
+    first = window[0] - timedelta(days=window[0].weekday())
+    weeks = (window[1] - first).days // 7 + 1
+    return sent.group_by("pid").agg(
+        (pl.col("week").n_unique() / weeks).cast(pl.Float64).alias("value"),
+        pl.len().alias("n"),
+    )
+
+
+after_hours = (pl.col("weekday") <= 5) & (
+    (pl.col("hour") < WORK_START) | (pl.col("hour") >= WORK_END)
+)
+MEASURES: dict[str, Measure] = {
+    "E1": _windowed("sent", _share(after_hours)),
+    "E2": _windowed("sent", _share(pl.col("weekday") >= 6)),
+    "E3": _windowed("sent", _share(pl.col("has_bcc"))),
+    "E4": _windowed("sent", _share(pl.col("has_cc"))),
+    "E5": _windowed("sent", _mean_recipients),
+    "E6": _windowed("sent", _share(pl.col("n_recipients") >= BROADCAST_SENT)),
+    "E7": _windowed("sent", _contacts_per_week),
+    "E8": _windowed("sent", _messages_per_week),
+    "E9": _windowed("sent", _top_recipient_share),
+    "E10": _windowed("received", _share(pl.col("n_recipients") >= BROADCAST_RECEIVED)),
+    "E11": _windowed("sent", _share(pl.col("n_recipients") == 1)),
+    "E12": _reciprocity,
+    "E13": _windowed("sent", _share(pl.col("to_custodian"))),
+    "E14": _windowed("received", _share(pl.col("from_custodian"))),
+    "E15": _new_contact_share,
+    "E16": _windowed("received", _senders_per_week),
+    "E17": _windowed("received", _top_sender_share),
+    "E18": _windowed("received", _share(~pl.col("sender_internal"))),
+    "E19": _active_week_share,
+    "E20": _windowed("sent", _share(pl.col("has_nonperson"))),
+}
+
+
+# ---- paired comparison ---------------------------------------------------------------------
+def paired_differences(
+    tables: Tables, measure: Measure, after: Window, before: Window
+) -> np.ndarray:
+    """Per custodian with at least MIN_MESSAGES in both windows: measure(after) − measure(before),
+    ordered by pseudonym so the seeded bootstrap is reproducible."""
+    a = measure(tables, after).filter(pl.col("n") >= MIN_MESSAGES)
+    b = measure(tables, before).filter(pl.col("n") >= MIN_MESSAGES)
+    paired = a.join(b, on="pid", suffix="_before").sort("pid")
+    diff = paired.get_column("value") - paired.get_column("value_before")
+    out: np.ndarray = diff.to_numpy().astype(float)
+    return out
+
+
+@dataclass(frozen=True)
+class Comparison:
+    n: int
+    median: float
+    ci_low: float
+    ci_high: float
+    p: float
+
+
+def compare(d: np.ndarray, seed: int, stream: int) -> Comparison:
+    if len(d) < 2 or np.all(d == 0):
+        return Comparison(len(d), float("nan"), float("nan"), float("nan"), 1.0)
+    rng = stats.rng_for(seed, 100 + stream)
+    medians = np.median(rng.choice(d, size=(BOOTSTRAP_REPS, len(d))), axis=1)
+    low, high = np.quantile(medians, [0.025, 0.975])
+    p = float(wilcoxon(d, alternative="two-sided").pvalue)
+    return Comparison(len(d), float(np.median(d)), float(low), float(high), p)
+
+
+def _placebo_passes(direction: int, crisis: Comparison, placebo: Comparison) -> bool:
+    if placebo.n < 2 or np.isnan(placebo.median):
+        return False
+    if placebo.ci_low <= 0 <= placebo.ci_high:
+        return True
+    return direction * placebo.median < PLACEBO_FRACTION * direction * crisis.median
+
+
+def _loo_stable(direction: int, d: np.ndarray) -> bool:
+    if len(d) < 3:
+        return False
+    return all(direction * float(np.median(np.delete(d, i))) > 0 for i in range(len(d)))
+
+
+def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, seed: int) -> pl.DataFrame:
+    custodians = entities_p.filter(
+        pl.col("is_custodian") & (pl.col("type") == "person") & pl.col("is_internal")
+    ).get_column("pid")
+    tables = Tables(sent_messages(events, custodians), received_messages(events, custodians))
+    rows = []
+    for index, hyp in enumerate(FAMILY):
+        measure = MEASURES[hyp.id]
+        d = paired_differences(tables, measure, CRISIS, REFERENCE)
+        crisis = compare(d, seed, index)
+        placebo = compare(
+            paired_differences(tables, measure, PLACEBO_AFTER, PLACEBO_BEFORE), seed, 50 + index
+        )
+        rows.append((hyp, d, crisis, placebo))
+    p_holm = stats.holm([crisis.p for _h, _d, crisis, _pl in rows])
+    out = []
+    for (hyp, d, crisis, placebo), ph in zip(rows, p_holm, strict=True):
+        on_side = stats.on_side(hyp.direction, crisis.ci_low, crisis.ci_high)
+        placebo_ok = _placebo_passes(hyp.direction, crisis, placebo)
+        loo_ok = _loo_stable(hyp.direction, d)
+        significant = ph < ALPHA
+        if significant and on_side and placebo_ok and loo_ok:
+            outcome = CONFIDENT
+        elif significant and on_side:
+            outcome = INCONCLUSIVE
+        else:
+            outcome = NOT_SUPPORTED
+        out.append(
+            {
+                "hypothesis": hyp.id,
+                "measure": hyp.description,
+                "direction": "up" if hyp.direction == UP else "down",
+                "custodians": crisis.n,
+                "median_change": crisis.median,
+                "ci_low": crisis.ci_low,
+                "ci_high": crisis.ci_high,
+                "p": crisis.p,
+                "p_holm": ph,
+                "placebo_custodians": placebo.n,
+                "placebo_median": placebo.median,
+                "placebo_ci_low": placebo.ci_low,
+                "placebo_ci_high": placebo.ci_high,
+                "placebo_passes": placebo_ok,
+                "loo_stable": loo_ok,
+                "outcome": outcome,
+            }
+        )
+    return pl.DataFrame(out)
