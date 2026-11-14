@@ -11,6 +11,10 @@ REPO = Path(__file__).resolve().parents[2]
 DOCUMENTS = sorted(
     [
         REPO / "README.md",
+        REPO / "AGENTS.md",
+        REPO / "ui" / "README.md",
+        REPO / ".specify" / "memory" / "constitution.md",
+        *(REPO / ".claude" / "skills").glob("*-review/SKILL.md"),
         *(REPO / "docs").rglob("*.md"),
         *(REPO / "specs").rglob("*.md"),
         *(REPO / "src" / "enron_case" / "report" / "templates").glob("*.md"),
@@ -27,6 +31,10 @@ OVERCLAIMS = {
         r"Slack\s+APIs?\s+request\s+header\s+fields\s+only", re.IGNORECASE
     ),
 }
+
+
+def test_every_listed_document_exists() -> None:
+    assert [str(path.relative_to(REPO)) for path in DOCUMENTS if not path.is_file()] == []
 
 
 @pytest.mark.parametrize("claim", sorted(OVERCLAIMS))
