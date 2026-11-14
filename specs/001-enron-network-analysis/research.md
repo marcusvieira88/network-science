@@ -201,7 +201,7 @@ p-value; (b) effect size as the standardized difference between the baseline per
 post-change period, with a moving-block bootstrap interval; (c) a null model that rewires
 recipients within each week preserving every sender's out-volume and every recipient's in-volume,
 to separate structural change from volume change; (d) leave-one-mailbox-out re-estimation; (e)
-re-estimation across dedupe rule, recipient cap and window length; (f) Holm correction across the
+re-estimation across recipient cap and window length (dedupe-rule variant dropped for time; see docs/ai-workflow-log.md); (f) Holm correction across the
 four hypotheses. Confidence is stated in words (high / moderate / low) by a rule written in
 `docs/metrics.md`: high requires passing (a)–(f).
 

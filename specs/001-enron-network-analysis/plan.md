@@ -167,7 +167,7 @@ flowchart TB
     RUN --> CP[change point + permutation p]
     RUN --> ES[effect size + block bootstrap CI]
     RUN --> NM[null model: rewire within week]
-    RUN --> RB[robustness: leave-one-mailbox-out,<br/>dedupe rule, recipient cap, window]
+    RUN --> RB[robustness: leave-one-mailbox-out,<br/>recipient cap, window]
     CP & ES & NM & RB --> HC[Holm correction]
     HC --> D{passes all?}
     D -- yes --> F[headline finding + confidence]

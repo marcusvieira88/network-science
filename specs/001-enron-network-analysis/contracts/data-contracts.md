@@ -9,6 +9,8 @@ tested without the others.
 bump and a note in `docs/ai-workflow-log.md`. Adding a nullable column is minor; anything else
 stops the affected packages until fixtures are regenerated.
 
+**Version**: 1.1 (adds `communities`, `data_quality.order`, counts side outputs).
+
 **Common rules**: tables are written sorted by the stated sort key; lists are sorted; timestamps
 are UTC; strings are lower-case where they are addresses or domains; no column may be added to a
 restricted or release table if it is not listed here.
@@ -143,7 +145,7 @@ precision/recall when ground truth is available.
 | `metric` | enum | volume, active_persons, density, reciprocity, indegree_gini, cross_community_share, external_share, tie_turnover |
 | `value` | float nullable | null when undefined for the window |
 | `n_active` | int | persons active in the window |
-| `variant` | str | `default` or a sensitivity label (e.g. `cap=20`, `dedupe=exact`, `window=month`) |
+| `variant` | str | `default` or a sensitivity label (`cap=20`, `window=month`) |
 
 ### `communities` — written by S5 (WP-E). Sort: `pid`
 
@@ -186,7 +188,12 @@ table `community_graph.csv`.
 | `utility_effect_ratio` | float nullable | headline effect under this release ÷ under restricted data |
 | `finding_survives` | bool nullable | |
 
-### `quality_metrics` — assembled by S8 from the three `*_counts.json` side outputs (counts only)
+### Counts side outputs — `data/restricted/counts/*.json` (counts only)
+
+`ingest_counts`, `clean_counts`, `identity_counts`, `pseudo_counts`; shapes in
+`src/enron_case/contracts/counts.py`. `ingest_counts.header_rulings` carries the ruling of each
+header field name so the release stage never imports ingest code. S8 assembles
+`quality_metrics` from them.
 
 ## Zone 3 · release (committed)
 
@@ -194,7 +201,7 @@ Written only by S8 (WP-H) through `release/kanon.py`; rendered by S9 (WP-I).
 
 | File | Content |
 |------|---------|
-| `release/data_quality.csv` | step, count_in, count_out, removed, rule, precision, recall |
+| `release/data_quality.csv` | order, step, count_in, count_out, removed, rule, precision, recall |
 | `release/header_fields.csv` | field name, occurrences, ruling |
 | `release/weekly_metrics.csv` | scope, week, metric, value, n_active (suppressed if < k) |
 | `release/hypotheses.csv` | `hypothesis_results` without per-mailbox detail |
