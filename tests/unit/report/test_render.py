@@ -260,3 +260,49 @@ def test_risk_section_says_aggregate_releases_were_not_attacked_at_person_level(
     assert "return no guesses by construction" in risk
     limits = text.split("## Limits", 1)[1]
     assert "No group-level attack on the community graph was run" in limits
+
+
+def _no_headline(synth: SynthOutput, supported: dict[str, str]) -> pl.DataFrame:
+    return synth.table("hypotheses").with_columns(
+        pl.lit(False).alias("is_headline"),
+        pl.col("hypothesis").replace_strict(supported, default="no").alias("supported"),
+        pl.lit("low").alias("confidence"),
+    )
+
+
+def _checks(synth: SynthOutput, passes: dict[str, bool | None]) -> pl.DataFrame:
+    return synth.table("artifact_checks").with_columns(
+        pl.col("hypothesis")
+        .replace_strict(passes, return_dtype=pl.Boolean, default=None)
+        .alias("passes")
+    )
+
+
+def test_headline_statement_never_says_an_unsupported_hypothesis_passed(
+    synth: SynthOutput,
+) -> None:
+    hypotheses = _no_headline(synth, {})
+    text = render.headline_statement(hypotheses, _checks(synth, {"H2": False, "H3": False}))
+    assert "passed" not in text
+    assert "H2" not in text and "H3" not in text
+    assert "No hypothesis is supported" in text
+
+
+def test_headline_statement_names_supported_hypotheses_with_failed_or_unrun_checks(
+    synth: SynthOutput,
+) -> None:
+    hypotheses = _no_headline(synth, {"H2": "yes", "H3": "yes"})
+    text = render.headline_statement(hypotheses, _checks(synth, {"H2": False, "H3": None}))
+    assert "H2 passed the pre-registered statistical tests but failed its check" in text
+    assert "H3 passed the pre-registered statistical tests but its check" in text
+    assert "could not run" in text
+    assert "H1" not in text and "H4" not in text
+
+
+def test_headline_statement_ignores_unsupported_hypothesis_with_failed_check(
+    synth: SynthOutput,
+) -> None:
+    hypotheses = _no_headline(synth, {"H3": "yes"})
+    text = render.headline_statement(hypotheses, _checks(synth, {"H2": False, "H3": False}))
+    assert "H3 passed" in text
+    assert "H2" not in text

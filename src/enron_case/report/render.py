@@ -23,6 +23,7 @@ from enron_case.report.markdown import bullets, format_value, table
 
 PLACEHOLDER = re.compile(r"\{\{([a-z0-9_]+)\}\}")
 IDENTIFIER = re.compile("|".join(f"(?:{p})" for p in vocab.LEAK_PATTERNS))
+NO_CHECK = "no check"  # a hypothesis without an artifact check (docs/hypotheses.md)
 MITIGATION_TARGET = 0.5  # SC-007: a mitigated release should at least halve the rate
 
 HYPOTHESIS_CLAIMS = {
@@ -180,32 +181,57 @@ def change_phrase(row: Mapping[str, Any]) -> str:
     return f"the change point is the week of {_f(row, 'change_week')}"
 
 
-def headline_statement(
-    row: Mapping[str, Any] | None, artifact_checks: pl.DataFrame | None = None
-) -> str:
-    if row is None:
-        failed = (
-            []
-            if artifact_checks is None
-            else artifact_checks.filter(pl.col("passes").eq(False))
-            .get_column("hypothesis")
-            .to_list()
-        )
-        if failed:
-            names = ", ".join(sorted(failed))
-            return (
-                f"No finding about the crisis year is claimed. {names} passed every pre-registered "
-                "test, "
-                "but each failed its check against a known artifact of the data "
-                "(release/artifact_checks.csv): "
-                "the apparent change is explained by how the data was collected and analysed, "
-                "not by a detectable change in how people communicated. Every outcome is "
-                "listed in the report."
-            )
+def _artifact_result(checks: pl.DataFrame, hypothesis: str) -> bool | str | None:
+    """The hypothesis's artifact check result: True, False, None (could not run), or
+    NO_CHECK when it has no artifact check."""
+    rows = checks.filter(pl.col("hypothesis") == hypothesis).get_column("passes").to_list()
+    return rows[0] if rows else NO_CHECK
+
+
+def _names(hypotheses: list[str]) -> str:
+    return ", ".join(sorted(hypotheses))
+
+
+def no_headline_statement(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
+    """Why no finding is claimed. Only hypotheses with `supported = yes` are named; a hypothesis
+    that is not supported is never said to have passed anything."""
+    supported = hypotheses.filter(pl.col("supported") == "yes").rows(named=True)
+    if not supported:
         return (
             "No hypothesis is supported. Every outcome is listed below; a null result is a "
             "valid answer to the question."
         )
+    result = {row["hypothesis"]: _artifact_result(checks, row["hypothesis"]) for row in supported}
+    failed = [h for h, r in result.items() if r is False]
+    not_run = [h for h, r in result.items() if r is None]
+    sentences = ["No finding about the crisis year is claimed."]
+    if failed:
+        sentences.append(
+            f"{_names(failed)} passed the pre-registered statistical tests but failed its check "
+            "against a known artifact of the data (release/artifact_checks.csv): the apparent "
+            "change is explained by how the data was collected and analysed, not by a "
+            "detectable change in how people communicated."
+        )
+    if not_run:
+        sentences.append(
+            f"{_names(not_run)} passed the pre-registered statistical tests but its check "
+            "against a known artifact of the data could not run, so that artifact is not ruled "
+            "out."
+        )
+    for row in supported:
+        if result[row["hypothesis"]] in (True, NO_CHECK):
+            sentences.append(
+                f"{row['hypothesis']} is supported but does not pass every robustness check "
+                f"(confidence {row['confidence']}), so it is not the headline."
+            )
+    sentences.append("Every outcome is listed in the report.")
+    return " ".join(sentences)
+
+
+def headline_statement(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
+    row = headline(hypotheses)
+    if row is None:
+        return no_headline_statement(hypotheses, checks)
     return (
         f"{row['hypothesis']} is supported: {claim(row['hypothesis'])}. "
         f"Metric `{row['metric']}` in the {row['scope']} network; {change_phrase(row)}; "
@@ -264,7 +290,7 @@ def artifact_section(checks: pl.DataFrame) -> str:
 
 def finding_section(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
     row = headline(hypotheses)
-    parts = ["## The finding", headline_statement(row, checks), artifact_section(checks)]
+    parts = ["## The finding", headline_statement(hypotheses, checks), artifact_section(checks)]
     if row is not None:
         parts += [
             "### Evidence",
@@ -510,7 +536,7 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
         values["headline_claim"] = claim(top["hypothesis"])
     values.update(
         {
-            "headline_statement": headline_statement(top, tables.artifact_checks),
+            "headline_statement": headline_statement(tables.hypotheses, tables.artifact_checks),
             "utility_phrase": utility_phrase(tables.risk, top),
             "headline_chart": headline_chart(tables),
             "artifact_table": artifact_section(tables.artifact_checks).split("\n\n", 2)[2],
