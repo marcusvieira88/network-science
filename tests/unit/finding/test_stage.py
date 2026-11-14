@@ -11,7 +11,7 @@ import pytest
 
 from enron_case.config import Config
 from enron_case.contracts import schemas
-from enron_case.finding import hypotheses, stage
+from enron_case.finding import stage
 from enron_case.synth import SynthOutput
 from helpers import ctx_with_fixtures
 
@@ -106,7 +106,7 @@ def test_recompute_called_per_custodian_and_null_replicate(
     assert sorted(loo, key=sorted) == sorted(({p} for p in custodians), key=sorted)
     null = [call for call in fake.calls if not call[1]]
     # The null replicates, plus one recompute for the H2 baseline placebo (artifacts.py).
-    assert len(null) == hypotheses.NULL_REPLICATES + 1
+    assert len(null) == Config().null_replicates + 1
     assert {variant for variant, _e, _n in fake.calls} == {"default"}
 
 

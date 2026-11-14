@@ -10,10 +10,12 @@ from datetime import date, timedelta
 import polars as pl
 import pytest
 
+from enron_case.config import Config
 from enron_case.risk import attack, score
 from enron_case.risk.score import Score, score_guesses
 
 WEEKS = [date(2001, 1, 1) + timedelta(days=7 * i) for i in range(6)]
+CONFIG = Config()
 FORBIDDEN = {"truth", "address_map", "key", "pid_of", "pid_of_address", "ctx"}
 
 
@@ -58,7 +60,9 @@ ADDR = {p: f"{p}@example.org" for p in PERSONS}
 
 
 def test_a1_reidentifies_planted_unique_nodes() -> None:
-    guesses = attack.attack_a1(r0_from(PLANTED, PID), aux_from(PLANTED, ADDR))
+    guesses = attack.attack_a1(
+        r0_from(PLANTED, PID), aux_from(PLANTED, ADDR), CONFIG.distance_chunk_rows
+    )
     assert guesses == {PID[p]: ADDR[p] for p in PERSONS}
 
 
@@ -66,7 +70,9 @@ def test_a1_tolerates_extra_attacker_noise() -> None:
     # The attacker's archive also holds a mailing to everyone and an extra address.
     noisy = [*PLANTED, *((1, "news", p) for p in PERSONS)]
     guesses = attack.attack_a1(
-        r0_from(PLANTED, PID), aux_from(noisy, {**ADDR, "news": "news@example.org"})
+        r0_from(PLANTED, PID),
+        aux_from(noisy, {**ADDR, "news": "news@example.org"}),
+        CONFIG.distance_chunk_rows,
     )
     assert guesses == {PID[p]: ADDR[p] for p in PERSONS}
 
@@ -74,8 +80,8 @@ def test_a1_tolerates_extra_attacker_noise() -> None:
 def test_attacks_find_nothing_in_aggregate_release() -> None:
     aggregate = {"degree_distribution": pl.DataFrame({"persons": [5, 7]})}
     aux = aux_from(PLANTED, ADDR)
-    assert attack.attack_a1(aggregate, aux) == {}
-    assert attack.attack_a2(aggregate, aux, {PID["ann"]: ADDR["ann"]}) == {}
+    assert attack.attack_a1(aggregate, aux, CONFIG.distance_chunk_rows) == {}
+    assert attack.attack_a2(aggregate, aux, {PID["ann"]: ADDR["ann"]}, CONFIG.a2_min_support) == {}
 
 
 def ring_with_chords(n: int) -> list[tuple[int, str, str]]:
@@ -90,7 +96,9 @@ def test_a2_propagates_from_seeds() -> None:
     pid = {n: f"p_{n}" for n in names}
     addr = {n: f"{n}@example.org" for n in names}
     seeds = {pid[n]: addr[n] for n in names[:3]}
-    guesses = attack.attack_a2(r0_from(edges, pid), aux_from(edges, addr), seeds)
+    guesses = attack.attack_a2(
+        r0_from(edges, pid), aux_from(edges, addr), seeds, CONFIG.a2_min_support
+    )
     assert not set(guesses) & set(seeds)  # seeds are prior knowledge, not guesses
     assert guesses == {pid[n]: addr[n] for n in names[3:]}
 
@@ -99,14 +107,17 @@ def test_a2_without_seeds_guesses_nothing() -> None:
     edges = ring_with_chords(12)
     names = sorted({s for _, s, _ in edges})
     release = r0_from(edges, {n: f"p_{n}" for n in names})
-    assert attack.attack_a2(release, aux_from(edges, {n: n for n in names}), {}) == {}
+    assert (
+        attack.attack_a2(release, aux_from(edges, {n: n for n in names}), {}, CONFIG.a2_min_support)
+        == {}
+    )
 
 
 @pytest.mark.parametrize("function", [attack.attack_a1, attack.attack_a2])
 def test_attack_signature_has_no_path_to_truth(function: object) -> None:
     assert callable(function)
     params = set(inspect.signature(function).parameters)
-    assert params <= {"release", "aux_edges", "seeds"}
+    assert params <= {"release", "aux_edges", "seeds", "chunk_rows", "min_support"}
     assert not params & FORBIDDEN
 
 

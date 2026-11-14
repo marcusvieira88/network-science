@@ -8,25 +8,28 @@ from collections.abc import Sequence
 import polars as pl
 from scipy.stats import norm
 
+from enron_case.config import Config
 from enron_case.contracts import schemas
 from enron_case.finding import stats
 from enron_case.finding.hypotheses import Evidence
 
 YES, NO, INCONCLUSIVE = "yes", "no", "inconclusive"
 HIGH, MODERATE, LOW = "high", "moderate", "low"
-# One-sided, because every hypothesis states its direction in advance.
-NULL_Z_CRITICAL = float(norm.ppf(1.0 - stats.ALPHA))
-
 Checks = tuple[bool, bool, bool]  # null model, leave-one-mailbox-out, variants
 
 
-def support(direction: int, p_holm: float, ci_low: float, ci_high: float) -> str:
+def null_z_critical(alpha: float) -> float:
+    """One-sided, because every hypothesis states its direction in advance."""
+    return float(norm.ppf(1.0 - alpha))
+
+
+def support(direction: int, p_holm: float, ci_low: float, ci_high: float, alpha: float) -> str:
     """yes / no / inconclusive from the corrected p-value and the effect interval."""
     if math.isnan(ci_low) or math.isnan(ci_high):
         return INCONCLUSIVE
     if stats.on_side(-direction, ci_low, ci_high):
         return NO
-    significant = p_holm < stats.ALPHA
+    significant = p_holm < alpha
     on_side = stats.on_side(direction, ci_low, ci_high)
     if significant and on_side:
         return YES
@@ -35,9 +38,9 @@ def support(direction: int, p_holm: float, ci_low: float, ci_high: float) -> str
     return INCONCLUSIVE
 
 
-def robustness_checks(evidence: Evidence) -> Checks:
+def robustness_checks(evidence: Evidence, alpha: float) -> Checks:
     d = evidence.hypothesis.direction
-    null_pass = d * evidence.null_z > NULL_Z_CRITICAL
+    null_pass = d * evidence.null_z > null_z_critical(alpha)
     loo_pass = bool(evidence.loo_effects) and all(d * e > 0 for e in evidence.loo_effects)
     variants_pass = 0 < evidence.variants_total == evidence.variants_passed
     return null_pass, loo_pass, variants_pass
@@ -73,7 +76,7 @@ def _loo_range(effects: tuple[float, ...]) -> tuple[float, float]:
 
 
 def results_table(
-    evidence: Sequence[Evidence], failed_artifacts: frozenset[str] = frozenset()
+    evidence: Sequence[Evidence], config: Config, failed_artifacts: frozenset[str] = frozenset()
 ) -> pl.DataFrame:
     """The `hypothesis_results` table: one row per hypothesis, at most one headline.
 
@@ -81,11 +84,13 @@ def results_table(
     artifact (artifacts.py) and is capped at low confidence, so it cannot be the headline."""
     p_holm = stats.holm([e.p_perm for e in evidence])
     supported = [
-        support(e.hypothesis.direction, p, e.ci_low, e.ci_high)
+        support(e.hypothesis.direction, p, e.ci_low, e.ci_high, config.alpha)
         for e, p in zip(evidence, p_holm, strict=True)
     ]
     confidences = [
-        LOW if e.hypothesis.id in failed_artifacts else confidence(s, robustness_checks(e))
+        LOW
+        if e.hypothesis.id in failed_artifacts
+        else confidence(s, robustness_checks(e, config.alpha))
         for e, s in zip(evidence, supported, strict=True)
     ]
     headline = _headline(evidence, supported, confidences)
@@ -97,7 +102,7 @@ def results_table(
                 "hypothesis": e.hypothesis.id,
                 "metric": e.hypothesis.metric,
                 "scope": e.hypothesis.scope,
-                "change_week": e.change_week if p < stats.ALPHA else None,
+                "change_week": e.change_week if p < config.alpha else None,
                 "p_perm": e.p_perm,
                 "p_holm": p,
                 "effect": e.effect,

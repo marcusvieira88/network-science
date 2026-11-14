@@ -94,7 +94,7 @@ def test_family_wise_false_support_rate_on_no_change_worlds() -> None:
     worlds = 100
     with_support = 0
     for seed in range(worlds):
-        table = select.results_table(_gather(_series(seed)))
+        table = select.results_table(_gather(_series(seed)), FAST)
         with_support += "yes" in table.get_column("supported").to_list()
     tolerance = 2 * np.sqrt(0.05 * 0.95 / worlds)
     assert with_support / worlds <= 0.05 + tolerance
@@ -102,7 +102,7 @@ def test_family_wise_false_support_rate_on_no_change_worlds() -> None:
 
 def test_planted_step_in_every_hypothesis_is_supported_and_robust() -> None:
     evidence = _gather(_series(1, step=2.0))
-    table = select.results_table(evidence)
+    table = select.results_table(evidence, FAST)
     assert table.get_column("supported").to_list() == ["yes"] * 4
     weeks = table.get_column("change_week").to_list()
     assert all(abs((w - date(2001, 8, 13)).days) <= 7 for w in weeks)
@@ -129,7 +129,7 @@ def test_series_without_any_defined_week_is_inconclusive() -> None:
         .otherwise(pl.col("value"))
         .alias("value")
     )
-    table = select.results_table(_gather(series))
+    table = select.results_table(_gather(series), FAST)
     h4 = table.row(3, named=True)
     assert (h4["supported"], h4["confidence"], h4["p_perm"]) == ("inconclusive", "low", 1.0)
     assert np.isnan(h4["effect"])

@@ -29,7 +29,7 @@ def test_placebo_passes_when_groups_do_not_drift(synth: SynthOutput) -> None:
     """The generator's communities never change, so a calm out-of-sample half-year is flat."""
     check = artifacts.baseline_placebo(_network(synth), compute_series, CONFIG)
     assert check.passes is True
-    assert abs(check.statistic) <= artifacts.PLACEBO_MAX_EFFECT
+    assert abs(check.statistic) <= CONFIG.placebo_max_effect
 
 
 def test_placebo_fails_on_a_jump_right_after_the_fitting_period(synth: SynthOutput) -> None:
@@ -86,9 +86,9 @@ def _evidence() -> list[Evidence]:
 
 
 def test_failed_artifact_check_caps_confidence_and_blocks_headline() -> None:
-    clean = select.results_table(_evidence())
+    clean = select.results_table(_evidence(), CONFIG)
     assert clean.filter(pl.col("is_headline")).get_column("hypothesis").to_list() == ["H2"]
-    capped = select.results_table(_evidence(), frozenset({"H2"}))
+    capped = select.results_table(_evidence(), CONFIG, frozenset({"H2"}))
     h2 = capped.filter(pl.col("hypothesis") == "H2").row(0, named=True)
     assert h2["supported"] == "yes"
     assert h2["confidence"] == "low"

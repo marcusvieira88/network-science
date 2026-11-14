@@ -18,9 +18,7 @@ def published_tables(ctx: StageContext) -> dict[str, pl.DataFrame]:
     """Release R1: the aggregate tables plus quality, header, finding and risk tables."""
     ingest = ctx.read_counts("ingest_counts")
     edges = variants.build_r0(ctx.read("snapshots"))
-    r1 = variants.build_r1(
-        edges, ctx.read("metric_series"), ctx.read("communities"), ctx.config.k_min
-    )
+    r1 = variants.build_r1(edges, ctx.read("metric_series"), ctx.read("communities"), ctx.config)
     return {
         "data_quality": tables.data_quality(
             ingest,

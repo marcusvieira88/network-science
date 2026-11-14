@@ -11,6 +11,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
+from enron_case.config import Config
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.release import kanon, mitigate
 
@@ -25,13 +26,14 @@ def build_r0(snapshots: pl.DataFrame) -> pl.DataFrame:
 
 
 def build_r1(
-    edges: pl.DataFrame, metric_series: pl.DataFrame, communities: pl.DataFrame, k_min: int
+    edges: pl.DataFrame, metric_series: pl.DataFrame, communities: pl.DataFrame, config: Config
 ) -> dict[str, pl.DataFrame]:
     """The network-derived release tables. `edges` has the R0 columns."""
+    k_min = config.k_min
     groups = group_sizes(communities, k_min)
     tables = {
         "weekly_metrics": weekly_metrics(metric_series, k_min),
-        "degree_distribution": degree_distribution(edges, k_min),
+        "degree_distribution": degree_distribution(edges, k_min, config.degree_bucket_floors),
         "community_graph": community_graph(edges, communities, groups, k_min),
         "community_groups": groups,
     }
@@ -42,14 +44,14 @@ def build_r2(
     edges: pl.DataFrame,
     metric_series: pl.DataFrame,
     communities: pl.DataFrame,
-    k_min: int,
-    seed: int,
+    config: Config,
 ) -> dict[str, pl.DataFrame]:
     """R1 with seeded Laplace noise on degree counts and on group tie weights and messages.
     Cells whose noisy count falls below k are suppressed again."""
-    rng = np.random.default_rng(seed)
-    r1 = build_r1(edges, metric_series, communities, k_min)
-    scale = mitigate.R2_NOISE_SCALE
+    k_min = config.k_min
+    rng = np.random.default_rng(config.seed)
+    r1 = build_r1(edges, metric_series, communities, config)
+    scale = config.r2_noise_scale
     degree = r1["degree_distribution"]
     degree = degree.with_columns(mitigate.add_laplace(degree.get_column("persons"), scale, rng))
     degree = kanon.suppress_partition(degree, "persons", "period", k_min)
@@ -70,7 +72,7 @@ def weekly_metrics(metric_series: pl.DataFrame, k: int) -> pl.DataFrame:
     return kanon.suppress_below(default, "n_active", k, dependents=("value",))
 
 
-def degree_distribution(edges: pl.DataFrame, k: int) -> pl.DataFrame:
+def degree_distribution(edges: pl.DataFrame, k: int, floors: tuple[int, ...]) -> pl.DataFrame:
     """Persons per (half-year, degree bucket); degree = distinct contacts, either direction."""
     undirected = pl.concat(
         [
@@ -81,13 +83,13 @@ def degree_distribution(edges: pl.DataFrame, k: int) -> pl.DataFrame:
     persons = (
         undirected.group_by(mitigate.half_year(pl.col("week")).alias("period"), "a")
         .agg(pl.col("b").n_unique().alias("degree"))
-        .group_by("period", mitigate.degree_bucket(pl.col("degree")).alias("degree_bucket"))
+        .group_by("period", mitigate.degree_bucket(pl.col("degree"), floors).alias("degree_bucket"))
         .agg(pl.len().cast(pl.Int64).alias("persons"))
     )
     grid = (
         persons.select("period")
         .unique()
-        .join(pl.DataFrame({"degree_bucket": mitigate.bucket_labels()}), how="cross")
+        .join(pl.DataFrame({"degree_bucket": mitigate.bucket_labels(floors)}), how="cross")
     )
     full = grid.join(persons, on=["period", "degree_bucket"], how="left").with_columns(
         pl.col("persons").fill_null(0)

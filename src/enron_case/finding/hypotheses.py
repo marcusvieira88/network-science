@@ -21,8 +21,6 @@ from enron_case.errors import ContractViolation
 from enron_case.finding import nullmodel, stats
 from enron_case.finding.stats import FloatArray, InsufficientData
 
-# Recomputing the whole series per replicate is costly on the real corpus; see the WP-F report.
-NULL_REPLICATES = 20
 UP, DOWN = 1, -1
 # Stream labels: every random use draws from its own generator derived from config.seed.
 _ESTIMATE_STREAM = 1
@@ -127,17 +125,41 @@ def _periods(series: Series, change_week: date, config: Config) -> tuple[FloatAr
 
 def effect_at(series: Series, change_week: date, config: Config) -> float:
     """Standardised effect of the weeks from `change_week` on, against the baseline."""
-    return stats.effect_size(*_periods(series, change_week, config))
+    before, after = _periods(series, change_week, config)
+    return stats.effect_size(before, after, min_baseline_weeks=config.min_baseline_weeks)
+
+
+def bootstrap_ci(
+    before: FloatArray, after: FloatArray, config: Config, rng: np.random.Generator
+) -> tuple[float, float]:
+    """`stats.block_bootstrap_ci` with the configured repetitions, block and level."""
+    return stats.block_bootstrap_ci(
+        before,
+        after,
+        config.bootstrap_reps,
+        rng,
+        block_weeks=config.block_weeks,
+        ci_level=config.ci_level,
+        min_baseline_weeks=config.min_baseline_weeks,
+    )
 
 
 def estimate(series: Series, direction: int, config: Config, rng: np.random.Generator) -> Estimate:
     """Change point, its permutation p-value, the effect there and its bootstrap interval."""
     first = sum(week <= config.baseline_end for week in series.weeks)
-    found = stats.change_point(series.values, first, direction, config.permutations, rng)
+    found = stats.change_point(
+        series.values,
+        first,
+        direction,
+        config.permutations,
+        rng,
+        min_after_weeks=config.min_after_weeks,
+    )
     change_week = series.weeks[found.index]
     before, after = _periods(series, change_week, config)
-    low, high = stats.block_bootstrap_ci(before, after, config.bootstrap_reps, rng)
-    return Estimate(change_week, found.p_value, stats.effect_size(before, after), low, high)
+    low, high = bootstrap_ci(before, after, config, rng)
+    effect = stats.effect_size(before, after, min_baseline_weeks=config.min_baseline_weeks)
+    return Estimate(change_week, found.p_value, effect, low, high)
 
 
 def _estimate_or_none(
@@ -152,10 +174,10 @@ def _estimate_or_none(
         return None
 
 
-def _variant_passes(found: Estimate | None, direction: int) -> bool:
+def _variant_passes(found: Estimate | None, direction: int, alpha: float) -> bool:
     if found is None:
         return False
-    return found.p_perm < stats.ALPHA and stats.on_side(direction, found.ci_low, found.ci_high)
+    return found.p_perm < alpha and stats.on_side(direction, found.ci_low, found.ci_high)
 
 
 def _effects_or_nan(
@@ -214,7 +236,7 @@ def null_effects(
     estimates: dict[str, Estimate | None],
     config: Config,
 ) -> dict[str, list[float]]:
-    """Effect at each hypothesis' change week on `NULL_REPLICATES` rewired networks."""
+    """Effect at each hypothesis' change week on `config.null_replicates` rewired networks."""
     runs = (
         recompute(
             nullmodel.rewire(network.events, stats.rng_for(config.seed, _NULL_STREAM, replicate)),
@@ -222,7 +244,7 @@ def null_effects(
             network.communities,
             config,
         )
-        for replicate in range(NULL_REPLICATES)
+        for replicate in range(config.null_replicates)
     )
     return _collect(runs, estimates, config)
 
@@ -243,6 +265,7 @@ def _variants_passed(
                 series_of(metric_series, hyp, variant, config), hyp_index, number, config
             ),
             hyp.direction,
+            config.alpha,
         )
         for number, variant in enumerate(variants, start=1)
     )

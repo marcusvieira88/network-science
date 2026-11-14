@@ -18,7 +18,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from enron_case import zones
-from enron_case.config import SAMPLE_INTERNAL_DOMAIN, SAMPLE_KEY_HEX, Config
+from enron_case.config import (
+    KEY_ENV,
+    KEY_FILE_ENV,
+    SAMPLE_INTERNAL_DOMAIN,
+    SAMPLE_KEY_HEX,
+    Config,
+)
 from enron_case.context import LogFn, StageContext, stderr_log
 from enron_case.errors import KeyProblem, PipelineError, UsageError
 from enron_case.manifest import RunManifest, code_version
@@ -219,8 +225,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if getattr(args, "sample", False) or args.command == "verify":
-        os.environ["ENRON_CASE_KEY"] = SAMPLE_KEY_HEX
-        os.environ.pop("ENRON_CASE_KEY_FILE", None)
+        os.environ[KEY_ENV] = SAMPLE_KEY_HEX
+        os.environ.pop(KEY_FILE_ENV, None)
     try:
         if args.command == "check-key":
             load_key_fingerprint()

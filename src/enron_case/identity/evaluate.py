@@ -16,10 +16,6 @@ from math import comb
 
 import polars as pl
 
-# Size of the manual review sample (research R4). Not in config.py because the foundation is
-# frozen for this work package; see the WP-C report.
-MANUAL_SAMPLE_SIZE = 50
-
 
 def pairwise_scores(
     entity_of: Mapping[str, str], truth_of: Mapping[str, str]

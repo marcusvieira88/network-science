@@ -15,12 +15,11 @@ from typing import Any
 
 import numpy as np
 
+from enron_case.config import CI_PERCENTILES
 from enron_case.context import StageContext
 from enron_case.errors import PipelineError
 
 # Interval bounds of the percentile bootstrap.
-CI_LOW_PERCENTILE = 2.5
-CI_HIGH_PERCENTILE = 97.5
 
 PidOf = Callable[[str], str]
 
@@ -72,8 +71,8 @@ def score_guesses(
         n_targets=int(hits.size),
         n_correct=int(hits.sum()),
         rate=float(hits.mean()),
-        ci_low=float(np.percentile(resampled, CI_LOW_PERCENTILE)),
-        ci_high=float(np.percentile(resampled, CI_HIGH_PERCENTILE)),
+        ci_low=float(np.percentile(resampled, CI_PERCENTILES[0])),
+        ci_high=float(np.percentile(resampled, CI_PERCENTILES[1])),
     )
 
 

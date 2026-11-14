@@ -20,6 +20,11 @@ def effect_size(before: np.ndarray, after: np.ndarray) -> float:
     return float((np.mean(after) - np.mean(before)) / np.std(before, ddof=1))
 
 
+def baseline_effect(before: np.ndarray, after: np.ndarray) -> float:
+    """The finding's effect size with the configured minimum baseline."""
+    return stats.effect_size(before, after, min_baseline_weeks=CONFIG.min_baseline_weeks)
+
+
 def series(values: dict[date, float | None]) -> pl.DataFrame:
     return pl.DataFrame(
         {
@@ -82,7 +87,7 @@ def test_draws_with_a_constant_baseline_are_skipped_not_fatal() -> None:
     # effect_size raises InsufficientData on them; the interval comes from the other draws.
     before = np.array([1.0, 1.0, 2.0])
     after = np.array([5.0, 6.0, 7.0])
-    effect = utility.effect_with_interval(before, after, stats.effect_size, reps=200, seed=3)
+    effect = utility.effect_with_interval(before, after, baseline_effect, reps=200, seed=3)
     assert effect is not None
     assert effect.value == pytest.approx((6.0 - 4.0 / 3.0) / np.std(before, ddof=1))
     assert effect.ci_low > 0
@@ -91,7 +96,7 @@ def test_draws_with_a_constant_baseline_are_skipped_not_fatal() -> None:
 def test_constant_baseline_gives_no_effect() -> None:
     before = np.array([2.0, 2.0, 2.0])
     after = np.array([5.0, 6.0])
-    assert utility.effect_with_interval(before, after, stats.effect_size, reps=20, seed=1) is None
+    assert utility.effect_with_interval(before, after, baseline_effect, reps=20, seed=1) is None
 
 
 def test_compare() -> None:

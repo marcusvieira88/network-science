@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from enron_case import config
 from enron_case.cli import load_key_fingerprint
 from enron_case.errors import KeyProblem
 from enron_case.pseudo import keys
@@ -22,8 +23,8 @@ def no_key(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """No key in the environment and an empty home directory. Returns the home directory."""
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.delenv(keys.KEY_ENV, raising=False)
-    monkeypatch.delenv(keys.KEY_FILE_ENV, raising=False)
+    monkeypatch.delenv(config.KEY_ENV, raising=False)
+    monkeypatch.delenv(config.KEY_FILE_ENV, raising=False)
     monkeypatch.setenv("HOME", str(home))
     return home
 
@@ -42,23 +43,23 @@ def write_key(path: Path, hex_text: str) -> Path:
 
 
 def test_environment_key_is_used(no_key: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(keys.KEY_ENV, TEST_KEY_HEX)
+    monkeypatch.setenv(config.KEY_ENV, TEST_KEY_HEX)
     assert keys.load_key() == bytes.fromhex(TEST_KEY_HEX)
 
 
 def test_environment_beats_key_file(
     no_key: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repo: Path
 ) -> None:
-    monkeypatch.setenv(keys.KEY_ENV, TEST_KEY_HEX)
-    monkeypatch.setenv(keys.KEY_FILE_ENV, str(write_key(tmp_path / "k", OTHER_KEY_HEX)))
+    monkeypatch.setenv(config.KEY_ENV, TEST_KEY_HEX)
+    monkeypatch.setenv(config.KEY_FILE_ENV, str(write_key(tmp_path / "k", OTHER_KEY_HEX)))
     assert keys.load_key(repo) == bytes.fromhex(TEST_KEY_HEX)
 
 
 def test_key_file_variable_beats_default_file(
     no_key: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repo: Path
 ) -> None:
-    write_key(no_key / keys.DEFAULT_KEY_PATH, TEST_KEY_HEX)
-    monkeypatch.setenv(keys.KEY_FILE_ENV, str(write_key(tmp_path / "k", OTHER_KEY_HEX)))
+    write_key(no_key / config.DEFAULT_KEY_PATH, TEST_KEY_HEX)
+    monkeypatch.setenv(config.KEY_FILE_ENV, str(write_key(tmp_path / "k", OTHER_KEY_HEX)))
     assert keys.load_key(repo) == bytes.fromhex(OTHER_KEY_HEX)
 
 
@@ -76,8 +77,8 @@ def test_missing_key_exits_3(no_key: Path, repo: Path) -> None:
 def test_missing_named_key_file_does_not_fall_through(
     no_key: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repo: Path
 ) -> None:
-    write_key(no_key / keys.DEFAULT_KEY_PATH, TEST_KEY_HEX)
-    monkeypatch.setenv(keys.KEY_FILE_ENV, str(tmp_path / "absent"))
+    write_key(no_key / config.DEFAULT_KEY_PATH, TEST_KEY_HEX)
+    monkeypatch.setenv(config.KEY_FILE_ENV, str(tmp_path / "absent"))
     with pytest.raises(KeyProblem):
         keys.load_key(repo)
 
@@ -86,7 +87,7 @@ def test_missing_named_key_file_does_not_fall_through(
 def test_short_or_malformed_environment_key_exits_3(
     no_key: Path, monkeypatch: pytest.MonkeyPatch, bad_hex: str
 ) -> None:
-    monkeypatch.setenv(keys.KEY_ENV, bad_hex)
+    monkeypatch.setenv(config.KEY_ENV, bad_hex)
     with pytest.raises(KeyProblem):
         keys.load_key()
 
@@ -94,7 +95,7 @@ def test_short_or_malformed_environment_key_exits_3(
 def test_short_key_file_exits_3(
     no_key: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repo: Path
 ) -> None:
-    monkeypatch.setenv(keys.KEY_FILE_ENV, str(write_key(tmp_path / "k", "ab" * 31)))
+    monkeypatch.setenv(config.KEY_FILE_ENV, str(write_key(tmp_path / "k", "ab" * 31)))
     with pytest.raises(KeyProblem):
         keys.load_key(repo)
 
@@ -102,7 +103,7 @@ def test_short_key_file_exits_3(
 def test_key_file_inside_repository_exits_3(
     no_key: Path, monkeypatch: pytest.MonkeyPatch, repo: Path
 ) -> None:
-    monkeypatch.setenv(keys.KEY_FILE_ENV, str(write_key(repo / "secrets" / "key", TEST_KEY_HEX)))
+    monkeypatch.setenv(config.KEY_FILE_ENV, str(write_key(repo / "secrets" / "key", TEST_KEY_HEX)))
     with pytest.raises(KeyProblem):
         keys.load_key(repo)
 
@@ -113,13 +114,13 @@ def test_symlink_resolving_inside_repository_exits_3(
     target = write_key(repo / "key", TEST_KEY_HEX)
     link = tmp_path / "outside-link"
     link.symlink_to(target)
-    monkeypatch.setenv(keys.KEY_FILE_ENV, str(link))
+    monkeypatch.setenv(config.KEY_FILE_ENV, str(link))
     with pytest.raises(KeyProblem):
         keys.load_key(repo)
 
 
 def test_default_home_inside_repository_exits_3(no_key: Path) -> None:
-    write_key(no_key / keys.DEFAULT_KEY_PATH, TEST_KEY_HEX)
+    write_key(no_key / config.DEFAULT_KEY_PATH, TEST_KEY_HEX)
     with pytest.raises(KeyProblem):
         keys.load_key(no_key)
 
@@ -128,11 +129,11 @@ def test_error_messages_never_contain_the_key(
     no_key: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repo: Path
 ) -> None:
     short_hex = "c0ffee" * 10  # 30 bytes: too short
-    monkeypatch.setenv(keys.KEY_ENV, short_hex)
+    monkeypatch.setenv(config.KEY_ENV, short_hex)
     with pytest.raises(KeyProblem) as from_env:
         keys.load_key(repo)
-    monkeypatch.delenv(keys.KEY_ENV)
-    monkeypatch.setenv(keys.KEY_FILE_ENV, str(write_key(repo / "k", TEST_KEY_HEX)))
+    monkeypatch.delenv(config.KEY_ENV)
+    monkeypatch.setenv(config.KEY_FILE_ENV, str(write_key(repo / "k", TEST_KEY_HEX)))
     with pytest.raises(KeyProblem) as from_file:
         keys.load_key(repo)
     for message in (str(from_env.value), str(from_file.value)):
@@ -168,7 +169,7 @@ def test_unknown_subkey_label_is_refused() -> None:
 def test_orchestrator_records_only_the_fingerprint(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv(keys.KEY_ENV, TEST_KEY_HEX)
+    monkeypatch.setenv(config.KEY_ENV, TEST_KEY_HEX)
     recorded = load_key_fingerprint()
     assert recorded == TEST_KEY_FINGERPRINT
     out = capsys.readouterr()

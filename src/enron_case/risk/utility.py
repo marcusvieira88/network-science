@@ -15,14 +15,11 @@ from datetime import date
 import numpy as np
 import polars as pl
 
-from enron_case.config import Config
+from enron_case.config import CI_PERCENTILES, Config
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.finding.stats import InsufficientData
 
 EffectFn = Callable[[np.ndarray, np.ndarray], float]
-
-CI_LOW_PERCENTILE = 2.5
-CI_HIGH_PERCENTILE = 97.5
 
 
 @dataclass(frozen=True)
@@ -103,8 +100,8 @@ def effect_with_interval(
         return None
     return Effect(
         value=value,
-        ci_low=float(np.percentile(finite, CI_LOW_PERCENTILE)),
-        ci_high=float(np.percentile(finite, CI_HIGH_PERCENTILE)),
+        ci_low=float(np.percentile(finite, CI_PERCENTILES[0])),
+        ci_high=float(np.percentile(finite, CI_PERCENTILES[1])),
     )
 
 

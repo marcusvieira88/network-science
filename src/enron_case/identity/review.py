@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from enron_case.context import StageContext
-from enron_case.identity.evaluate import MANUAL_SAMPLE_SIZE, manual_counts, sample_merges
+from enron_case.identity.evaluate import manual_counts, sample_merges
 
 COUNTS_NAME = "identity_manual"
 YES, NO, SKIP = "y", "n", "s"
@@ -21,7 +21,7 @@ Show = Callable[[str], None]
 
 
 def review(ctx: StageContext, ask: Ask = input, show: Show = print) -> tuple[int, int]:
-    sample = sample_merges(ctx.read("address_map"), MANUAL_SAMPLE_SIZE, ctx.config.seed)
+    sample = sample_merges(ctx.read("address_map"), ctx.config.manual_sample_size, ctx.config.seed)
     show(
         f"{sample.height} merges to check. For each: is the address the same person as the "
         f"canonical address? [{YES}]es / [{NO}]o / [{SKIP}]kip (unsure)."

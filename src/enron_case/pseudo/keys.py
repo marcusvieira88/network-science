@@ -11,12 +11,8 @@ import os
 from pathlib import Path
 
 from enron_case.cli import REPO_ROOT
+from enron_case.config import DEFAULT_KEY_PATH, KEY_ENV, KEY_FILE_ENV, MIN_KEY_BYTES
 from enron_case.errors import KeyProblem
-
-KEY_ENV = "ENRON_CASE_KEY"
-KEY_FILE_ENV = "ENRON_CASE_KEY_FILE"
-DEFAULT_KEY_PATH = Path(".config") / "enron-case" / "key"  # relative to the home directory
-MIN_KEY_BYTES = 32
 
 PERSON_LABEL = "person-v1"
 ORG_LABEL = "org-v1"

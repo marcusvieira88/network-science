@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
+from enron_case.config import Config
 from enron_case.release import variants
 from enron_case.risk.stage import Dependencies
 from enron_case.synth.fixtures import fixture_pid
@@ -23,11 +24,9 @@ def build_r1(edges: pl.DataFrame, metric_series: pl.DataFrame) -> dict[str, pl.D
     return {"weekly_metrics": metric_series, "degree_distribution": degree}
 
 
-def build_r2(
-    edges: pl.DataFrame, metric_series: pl.DataFrame, seed: int
-) -> dict[str, pl.DataFrame]:
+def build_r2(edges: pl.DataFrame, metric_series: pl.DataFrame) -> dict[str, pl.DataFrame]:
     tables = build_r1(edges, metric_series)
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(Config().seed)
     noise = rng.laplace(0.0, 0.01, metric_series.height)
     tables["weekly_metrics"] = metric_series.with_columns(pl.col("value") + noise)
     return tables

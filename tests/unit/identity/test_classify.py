@@ -15,6 +15,7 @@ from helpers import ctx_with_fixtures
 from .builders import messages
 
 CAP = Config().recipient_cap
+ROLE_MIN_MASS_SENDS = Config().role_min_mass_sends
 
 
 def test_patterns() -> None:
@@ -40,21 +41,34 @@ def test_never_sending_is_not_enough_to_be_a_list() -> None:
     Behaviour alone must not turn them into lists; only list-like address patterns do."""
     senders = [f"s{i}@org.com" for i in range(25)]
     beh = behaviour_of([(s, ["jane.doe@org.com"]) for s in senders])
-    assert classify.entity_type(["jane.doe@org.com"], beh["jane.doe@org.com"]) == "person"
+    assert (
+        classify.entity_type(["jane.doe@org.com"], beh["jane.doe@org.com"], ROLE_MIN_MASS_SENDS)
+        == "person"
+    )
 
 
 def test_mass_sender_more_than_once_is_a_role() -> None:
     many = [f"r{i}@org.com" for i in range(CAP + 1)]
     beh = behaviour_of([("blast@org.com", many)] * 2)
-    assert classify.entity_type(["blast@org.com"], beh["blast@org.com"]) == "role"
+    assert (
+        classify.entity_type(["blast@org.com"], beh["blast@org.com"], ROLE_MIN_MASS_SENDS) == "role"
+    )
     once = behaviour_of([("blast@org.com", many)])
-    assert classify.entity_type(["blast@org.com"], once["blast@org.com"]) == "person"
+    assert (
+        classify.entity_type(["blast@org.com"], once["blast@org.com"], ROLE_MIN_MASS_SENDS)
+        == "person"
+    )
 
 
 def test_patterns_take_precedence_over_behaviour() -> None:
     many = [f"r{i}@org.com" for i in range(CAP + 1)]
     beh = behaviour_of([("mailer-daemon@org.com", many)] * 2)
-    assert classify.entity_type(["mailer-daemon@org.com"], beh["mailer-daemon@org.com"]) == "system"
+    assert (
+        classify.entity_type(
+            ["mailer-daemon@org.com"], beh["mailer-daemon@org.com"], ROLE_MIN_MASS_SENDS
+        )
+        == "system"
+    )
 
 
 def test_behaviour_counts_distinct_sender_entities() -> None:
