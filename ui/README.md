@@ -18,5 +18,12 @@ view, and `scripts/check-build.mjs` fails if the build references another origin
 build carries a Content-Security-Policy that blocks requests to any other origin. Fonts are
 bundled; nothing is fetched from a CDN.
 
+The network view draws the groups as a 3D force graph (`react-force-graph-3d`, three.js), loaded
+as a separate chunk only when the view opens; without WebGL it shows the 2D network. The data
+mapping is in `src/lib/network3d.ts`. `three/webgpu` is aliased to a throwing stub
+(`src/vendor/three-webgpu-stub.ts`) because the WebGPU renderer is imported but never used.
+`scripts/check-build.mjs` accepts two exact URL literals in that chunk (a shader comment and a
+library error message), each only in its own context; see `NON_REQUEST_LITERALS` there.
+
 Regenerate the sample after a contract or fixture change:
 `UPDATE_UI_SAMPLE=1 uv run pytest tests/unit/uiexport -k committed_ui_sample`.

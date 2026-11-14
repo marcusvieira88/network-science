@@ -43,6 +43,9 @@ export const SUPPORT = ["yes", "no", "inconclusive"] as const;
 export const CONFIDENCE = ["high", "moderate", "low"] as const;
 export const RELEASE_VARIANTS = ["R0", "R1", "R2"] as const;
 export const ATTACKERS = ["A1", "A2"] as const;
+export const EXPLORATORY_FAMILIES = ["first", "second"] as const;
+export const DIRECTIONS = ["up", "down"] as const;
+export const EXPLORATORY_OUTCOMES = ["confident", "inconclusive", "not supported"] as const;
 
 export type Metric = (typeof METRICS)[number];
 export type Scope = (typeof SCOPES)[number];
@@ -99,6 +102,31 @@ export const TABLE_COLUMNS = {
     passes: nullable(isBoolean),
     note: isString,
   },
+  exploratory: {
+    order: isInt,
+    hypothesis: isString,
+    family: oneOf(EXPLORATORY_FAMILIES),
+    measure: isString,
+    direction: oneOf(DIRECTIONS),
+    custodians: nullable(isInt),
+    median_change: isFloat,
+    ci_low: isFloat,
+    ci_high: isFloat,
+    p: isFloat,
+    p_holm: isFloat,
+    placebo_custodians: nullable(isInt),
+    placebo_median: isFloat,
+    placebo_ci_low: isFloat,
+    placebo_ci_high: isFloat,
+    placebo_passes: isBoolean,
+    loo_stable: isBoolean,
+    outcome: oneOf(EXPLORATORY_OUTCOMES),
+    caveat: isString,
+    equalised_median: isFloat,
+    equalised_ci_low: isFloat,
+    equalised_ci_high: isFloat,
+    equalised_p: isFloat,
+  },
   risk: {
     release_variant: oneOf(RELEASE_VARIANTS),
     attacker: oneOf(ATTACKERS),
@@ -132,6 +160,7 @@ export type HeaderFieldRow = Row<"header_fields">;
 export type WeeklyMetricRow = Row<"weekly_metrics">;
 export type HypothesisRow = Row<"hypotheses">;
 export type ArtifactCheckRow = Row<"artifact_checks">;
+export type ExploratoryRow = Row<"exploratory">;
 export type RiskRow = Row<"risk">;
 export type DegreeRow = Row<"degree_distribution">;
 export type CommunityEdgeRow = Row<"community_graph">;

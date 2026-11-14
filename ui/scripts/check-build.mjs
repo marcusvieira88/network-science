@@ -18,6 +18,22 @@ const NON_REQUEST_URLS = [
   { prefix: "http://fb.me/use-check-prop-types", reason: "React warning message text" },
 ];
 
+// Exact URL literals in the lazily loaded 3D chunk that are text, never requested. Each is accepted
+// only as this exact URL and only right after the given literal, i.e. in the comment or message it
+// belongs to; the same URL anywhere else (or any other URL from these hosts) still fails.
+const NON_REQUEST_LITERALS = [
+  {
+    url: "https://jcgt.org/published/0007/04/01/",
+    after: "// ",
+    reason: "citation comment inside a GLSL shader string (three.js PMREM generator)",
+  },
+  {
+    url: "https://github.com/styled-components/polished/blob/main/src/internalHelpers/errors.md#",
+    after: "An error occurred. See ",
+    reason: "error message text in polished (colour parsing, via three-render-objects)",
+  },
+];
+
 const REQUIRED_CSP = ["default-src 'self'", "connect-src 'self'", "script-src 'self'", "font-src 'self'"];
 
 function files(dir) {
@@ -40,8 +56,11 @@ if (!existsSync(join(DIST, "index.html"))) {
 for (const path of files(DIST).filter(isText)) {
   const text = readFileSync(path, "utf8");
   const name = relative(DIST, path);
-  for (const url of text.match(URL_PATTERN) ?? []) {
-    if (!NON_REQUEST_URLS.some((allowed) => url.startsWith(allowed.prefix))) {
+  for (const match of text.matchAll(URL_PATTERN)) {
+    const url = match[0];
+    const before = (literal) => text.slice(match.index - literal.length, match.index) === literal;
+    const isLiteral = NON_REQUEST_LITERALS.some((allowed) => url === allowed.url && before(allowed.after));
+    if (!isLiteral && !NON_REQUEST_URLS.some((allowed) => url.startsWith(allowed.prefix))) {
       problems.push(`${name}: external URL ${url}`);
     }
   }

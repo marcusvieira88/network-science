@@ -16,6 +16,7 @@ export const PERSON_COUNT_COLUMNS = {
   risk: ["n_targets"],
   degree_distribution: ["persons"],
   community_groups: ["n_persons"],
+  exploratory: ["custodians", "placebo_custodians"],
 } as const;
 
 /** The weekly metric whose value is itself a person count (PERSON_COUNT_METRIC in schemas.py). */

@@ -64,6 +64,11 @@ export function weekGraph(edges: CommunityEdgeRow[], week: string | null): WeekG
   };
 }
 
+/** The heaviest tie between two groups in any of the weeks: one scale for every week. */
+export function maxWeeklyTie(edges: CommunityEdgeRow[], weeks: string[]): number {
+  return Math.max(1, ...weeks.map((week) => weekGraph(edges, week).ties[0]?.total ?? 0));
+}
+
 interface LayoutNode extends SimulationNodeDatum {
   group: string;
   nPersons: number;
