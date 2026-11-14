@@ -186,7 +186,7 @@ flowchart TB
     subgraph Z0["Zone 0 · raw (git-ignored)"]
         DL["fetch<br/>download CMU archive,<br/>verify pinned SHA-256"]
     end
-    subgraph Z1["Zone 1 · ingest — identifiers allowed, purged after every run"]
+    subgraph Z1["Zone 1 · ingest — identifiers allowed, purged when a pipeline run ends"]
         P["parse<br/>headers only, allowlist"]
         C["clean<br/>normalize addresses,<br/>deduplicate without content,<br/>flag noise"]
         I["identity<br/>resolve aliases with<br/>recorded rules"]
@@ -330,7 +330,8 @@ in `src/enron_case/config.py`.
 
 - **Nodes** are resolved persons (pseudonyms). Lists, role and system addresses are not nodes.
 - **Ties** are directed and weighted, aggregated per ISO week (Monday, UTC) over 2000-01-01 to
-  2002-03-31; every week gets a row, also empty ones. A message to n distinct resolved
+  2002-03-31; every week gets a row, also empty ones (118 weekly rows in the committed release,
+  the weeks of 1999-12-27 to 2002-03-25; the first holds only 1 and 2 January 2000). A message to n distinct resolved
   recipients gives each recipient weight **1/n**, so one message adds 1 in total and a
   mass mailing does not dominate. Self-ties are dropped; messages flagged as noise (for example
   more than 50 recipients) are not in the network.
@@ -510,7 +511,7 @@ derived from message text and would break the content rule, so they were only re
 | Files in the release | 517,401 | 517,431 in the 2004 release; 30 files deleted since (1 + 6 + 23) | Zhou et al. (2007); CMU `DELETIONS.txt` | None: 517,431 − 30 = 517,401, the May 2015 release we use |
 | Files parsed | 517,364 (30 without a clean header end, 7 outside a mailbox folder) | — | — | Our reader rejects a member rather than risk reading a body |
 | Messages after deduplication | 250,537 | 250,484 (body MD5 within a day, 149 people); 252,830 (recipients + day + content MD5); 252,759 (ISI database, also drops blank and junk mail) | Corrada-Emmanuel, cited in Diesner, Frantz & Carley (2005); Zhou et al. (2007); Shetty & Adibi (2004), secondary | We use no content: copies merge on sender, second and recipient set (+ subset merges). That merges distinct messages sent in the same second to the same people (over-merge) and keeps copies whose recipient lists were rewritten (under-merge). Net: within 0.03 % of the body-hash count and 0.9 % of the content+recipients count |
-| Messages after folder cleaning | — | 200,399 of 619,446 (158 users, an earlier release) | Klimt & Yang (2004) | They drop computer-generated folders (`all_documents`, `discussion_threads`) instead of deduplicating; we never read folder names beyond four classes |
+| Messages after folder cleaning | — | 200,399 of 619,446 (158 users, an earlier release) | Klimt & Yang (2004) | They drop computer-generated folders (`all_documents`, `discussion_threads`) instead of deduplicating; we reduce each top-level folder name to one of four classes and keep nothing else |
 | Custodians | 147 custodian entities, 122 of them internal persons (restricted counts, not published) | 150 folders; 149 people after two pairs of duplicate mailboxes were found; 151, 156, 158 and 184 in other counts | CALO / EnronData; Zhou et al. (2007); Priebe et al. (2005) | A custodian is the most frequent sender of a mailbox's sent copies; three mailboxes yield no custodian or share one. We did not investigate why 25 resolve to an external or non-person entity |
 | Addresses → persons | 85,388 → 84,759 (629 merges: N2 532, N4 97, N3 0) | 1,234 addresses → 557 Enron people (2.2 per person) | Diesner, Frantz & Carley (2005) | Theirs is a manual mapping of employees; ours is rule-based over all addresses and favours precision. It is **clearly weaker for employees**: the name rule N3 made no merge on real data (193 candidates blocked as name-only), so aliases split people. That lowers degree and density alike in every period, unless alias use changed over time (see the record change) |
 | Invalid dates | 370 messages outside 1998–2002 | 327 in the ISI database (e.g. 2044, 0001) | Diesner & Carley (2005) | Different windows and database; same order of magnitude |
@@ -912,7 +913,7 @@ H26 and rejected, because their shape follows which mailboxes hold mail, not the
 | Committed | Never committed |
 |-----------|-----------------|
 | source code, tests, specs, contracts | the raw corpus (`data/raw`) |
-| `release/`: aggregate tables, `report.md`, `run_manifest.json`; `checks/`: counts of the manual merge check | the ingest zone (addresses, names; purged after each run) |
+| `release/`: aggregate tables, `report.md`, `run_manifest.json`; `checks/`: counts of the manual merge check | the ingest zone (addresses, names; purged when `enron-case run` ends) |
 | `docs/`: decision record, slides, AI-workflow note, all numbers injected | the restricted zone (pseudonymized person-level data) |
 | the synthetic corpus generator and a synthetic UI sample | the key, or anything derived from it except an 8-character fingerprint |
 
