@@ -25,8 +25,17 @@ uv run enron-case all    # Windows (or .\run.cmd); `uv run enron-case check` wit
 
 It installs locked dependencies, creates a key outside the repository if needed, fetches and
 verifies the corpus, runs the pipeline and every test, then serves the explorer at
-http://localhost:4173. A fresh clone took about 24 minutes, 20
-of them the download; the pipeline itself takes about 2.5.
+http://localhost:4173. Each step prints one line as it finishes.
+
+**How long it takes.** The first run takes about **25 minutes**, most of it the corpus download;
+later runs take about **4 minutes**, because the verified corpus is kept in `data/raw/`.
+
+| Step | First run | Later runs |
+|------|-----------|------------|
+| Install dependencies (uv, npm) | 1–2 min | seconds |
+| Download and verify the corpus (about 440 MB) | about 20 min, depending on the connection | skipped |
+| Pipeline on the real corpus | about 2.5 min | about 2.5 min |
+| Python and UI tests, build | about 1 min | about 1 min |
 
 ## Results in brief
 

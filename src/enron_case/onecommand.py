@@ -23,6 +23,7 @@ from typing import BinaryIO
 
 from enron_case.cli import REPO_ROOT, load_key_fingerprint, summary_line
 from enron_case.config import (
+    CORPUS_ARCHIVE,
     DEFAULT_KEY_PATH,
     DEFAULT_UI_PORT,
     EXPLORER_HOST,
@@ -45,7 +46,7 @@ from enron_case.config import (
 from enron_case.context import stderr_log
 from enron_case.errors import PipelineError, PrerequisiteMissing, StepFailed
 from enron_case.pseudo.keys import create_key_file
-from enron_case.zones import Paths
+from enron_case.zones import Paths, Zone
 
 ALL, CHECK = "all", "check"
 MODES = (ALL, CHECK)
@@ -55,6 +56,10 @@ NODE_HINT = (
     "or on macOS: brew install node)"
 )
 NPM_HINT = "npm (it comes with Node.js: https://nodejs.org)"
+DOWNLOAD_NOTICE = (
+    "Downloading the corpus (about 440 MB) once; this usually takes 10 to 25 minutes, "
+    "depending on the connection. Later runs reuse it."
+)
 PORT_PATTERN = re.compile(r"[0-9]{1,5}")
 BYTES_PER_GB = 1024**3
 SIGNAL_EXIT_BASE = 128  # a shell reports death by signal N as 128 + N
@@ -74,6 +79,8 @@ class Step:
     label: str
     log_name: str
     commands: tuple[Command, ...]
+    # Printed before the step line when the step will take long, so a quiet wait is expected.
+    notice: str | None = None
 
 
 @dataclass(frozen=True)
@@ -139,6 +146,8 @@ def run_step(step: Step, root: Path, log_dir: Path) -> None:
     """Run one step quietly: one line on success; on failure the log's tail and StepFailed."""
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"{step.log_name}.log"
+    if step.notice:
+        print(f"    {step.notice}", flush=True)
     print(f"==> {step.label:<44}", end="", flush=True)
     started = time.monotonic()
     code = run_logged(step.commands, log_path)
@@ -297,8 +306,15 @@ def pipeline_steps(tools: Tools, root: Path) -> tuple[Step, ...]:
     def cli(*args: str) -> tuple[Command, ...]:
         return (Command((tools.python, "-m", "enron_case", *args), root),)
 
+    archive = Paths.for_run(root, sample=False).dir(Zone.RAW) / CORPUS_ARCHIVE
+    download_notice = None if archive.exists() else DOWNLOAD_NOTICE
     return (
-        Step("download and verify the corpus", "fetch", cli("stage", "fetch")),
+        Step(
+            "download and verify the corpus",
+            "fetch",
+            cli("stage", "fetch"),
+            notice=download_notice,
+        ),
         Step("run the pipeline on the real corpus", "pipeline", cli("run")),
         Step("Python gate (lint, types, tests, canary)", "gate", python_gate(tools.python, root)),
         Step(
