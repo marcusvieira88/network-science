@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Engineering case brief, "What did Enron's network know before Enron did?" (24 hours). Build a headers-only pipeline over the public Enron email corpus that ingests and cleans, pseudonymizes, analyzes the communication network over time, and assesses re-identification risk; deliver a one-command repository with tests, a one-page decision record, an AI-workflow note and a 15-minute presentation.
+**Input**: Engineering case brief, "What did Enron's network know before Enron did?". Build a headers-only pipeline over the public Enron email corpus that ingests and cleans, pseudonymizes, analyzes the communication network over time, and assesses re-identification risk; deliver a one-command repository with tests, a one-page decision record, an AI-workflow note and a 15-minute presentation.
 
 ## Context
 
@@ -38,7 +38,7 @@ with whom and when, in which no message content and no direct identifier exists,
 data-quality report that says what was found in the raw data and what was done about it.
 
 **Why this priority**: Everything else depends on it, and it is where the brief's one hard rule
-and three of the four evaluation criteria (data handling, privacy, reproducibility) are decided.
+and three of the four review criteria (data handling, privacy, reproducibility) are decided.
 Delivered alone, it already answers tasks 1 and 2 of the brief.
 
 **Independent Test**: Run ingestion on a synthetic corpus with planted duplicates, aliases, noise
@@ -280,6 +280,9 @@ from outside.
   individual, pseudonym or group below the minimum size, and MUST NOT contact outside services.
 - **FR-031**: The interface MUST be optional: the one-command run, the tests and the report MUST
   work without it.
+  *(Superseded, as built, note of 2026-11-14: the explorer is part of the one command, which
+  builds it, runs its gate and serves it, so Node 20+ is a prerequisite of `make`. `make gate`
+  and `enron-case run`, and with them the Python tests and the report, work without Node.)*
 
 ### Key Entities
 
@@ -352,6 +355,8 @@ from outside.
 - The brief allows 24 hours; the work is planned to finish in 12, leaving the rest as reserve.
   Scope is split into a core that must ship and stretch items that are started only when the
   preceding checkpoint is met on time.
-- The presentation is delivered live by the candidate; the repository provides the slides.
+- The presentation is delivered live by the presenter; the repository provides the slides.
 - The visual interface is an addition beyond what the brief asks. It needs an extra toolchain
   that the one-command run does not depend on, and it is the first item cut if time runs short.
+  *(Superseded, as built, note of 2026-11-14: the one command depends on that toolchain; see
+  FR-031.)*

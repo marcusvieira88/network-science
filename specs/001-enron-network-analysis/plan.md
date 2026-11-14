@@ -15,22 +15,43 @@ or reviews showed it had to. Current descriptions: [architecture](../../docs/arc
 
 | Planned | As built | Why |
 |---------|----------|-----|
-| Stages S1–S10 | Eleven stages in `cli.STAGES`: fetch, parse, clean, identity, pseudo, network, finding, risk, release, report, ui-data. `enron-case run` stops at `report`; `make` (`enron-case all`, the same on Windows) runs fetch, the pipeline, both gates, `ui-data`, the UI build, then serves the explorer; `make check` does all but serve | Fetching is a stage of its own; one command had to reach a working UI on a fresh clone (about 24 minutes there, 20 of them the download; the pipeline about 2.5 minutes) |
-| Three zones | Raw, ingest, restricted and release, plus sub-zones `counts` (counts-only side outputs), `truth` (synthetic ground truth, sample only), `checks` (committed counts of the manual merge check, `checks/identity_manual.json`), `ui` and `docs` (write targets built from release only), all behind one path guard (`zones.ALLOWED`) | The release stage reads counts without importing ingest code; the UI and documents can only see release data |
-| Contract v1 | Contract 1.6 (history in [data-contracts.md](contracts/data-contracts.md)): `communities`, counts side outputs, `artifact_results` / `artifact_checks`, `exploratory_results` / `exploratory` with volume-equalised and retention-check columns and H25, the full cleaning funnel in `data_quality`, `profile_results` / `record_profile`, attacker A3 | Each addition followed a real-data result or a review |
-| Header reader stops at the first blank line | Also stops at a whitespace-only line, at the first line that is not a header line and after a line cap; such members are rejected; `X-Origin` is dropped; only known field names are published, others as `(other)` | The first independent review found that a message without a clean header end let the reader continue into the body |
-| Four hypotheses H1–H4, headline by the pre-registered rule | H1–H4 plus post-hoc artifact checks for H2 (baseline placebo) and H3 (within custodian) that cap confidence; twenty more hypotheses H5–H24, stated in `docs/hypotheses-exploratory.md` (as E1–E20) before they were computed, and H25 (E21), a post-hoc replication test of a published denser-network result; tested as paired within-custodian comparisons with placebo, leave-one-out, volume-equalised and (for H16, H25) retention checks, Holm across 21; one list H1–H25 in release, report and UI | H2 and H3 passed every pre-registered check, yet known artifacts (baseline drift, a changing mailbox mix) produce the same effects; the data-science review showed H16 could be produced by inbox retention; a later review asked for a replication of prior work |
-| A headline finding | The finding is about the record: the custodians' after-hours share of weekday sent mail falls from about half (up to April 2001) to a few percent (from August 2001; the fall starts in May) and the received mail kept grows up to several-fold, so the `Date` convention changed between the compared windows (`record_profile`, descriptive). No hypothesis among H1–H25 is held true: H2 and H3 fail their artifact checks; H16 fails its retention check and is capped at inconclusive; H25 finds no change | Decided by the person once the artifact checks had failed; the record profile was added in the last review to explain why |
+| Stages S1–S10 | Eleven stages in `cli.STAGES`: fetch, parse, clean, identity, pseudo, network, finding, risk, release, report, ui-data. `enron-case run` stops at `report`; `make` (`enron-case all`, the same on Windows) runs fetch, the pipeline, both gates, `ui-data`, the UI build, then serves the explorer; `make check` does all but serve | Fetching is a stage of its own; one command had to reach a working UI on a fresh clone (about 25 minutes there, about 20 of them the download; the pipeline about 2.5 minutes) |
+| Three zones | Raw, ingest, restricted and release, plus sub-zones `counts` (counts-only side outputs), `truth` (synthetic ground truth, sample only), `checks` (committed counts of the manual merge check, `checks/identity_manual.json`), `ui` and `docs` (write targets built from release only) and `logs` (run logs such as the stage timings, never data; git-ignored), all behind one path guard (`zones.ALLOWED`) | The release stage reads counts without importing ingest code; the UI and documents can only see release data |
+| Contract v1 | Contract 1.7 (history in [data-contracts.md](contracts/data-contracts.md)): `communities`, counts side outputs, `artifact_results` / `artifact_checks`, `exploratory_results` / `exploratory` with volume-equalised and retention-check columns and H25, the full cleaning funnel in `data_quality`, `profile_results` / `record_profile`, attacker A3, and for H26 `departure_results` / `departures` and `departure_test_results` / `departure_tests` | Each addition followed a real-data result or a review |
+| Header reader stops at the first blank line | Also stops at a whitespace-only line, at the first line that is not a header line, after a line cap (`MAX_HEADER_LINES`) and after a byte cap (`config.MAX_HEADER_BYTES`); such members are rejected; `X-Origin` is dropped; only known field names are published, others as `(other)` | The first independent review found that a message without a clean header end let the reader continue into the body |
+| Four hypotheses H1–H4, headline by the pre-registered rule | H1–H4 plus post-hoc artifact checks for H2 (baseline placebo) and H3 (within custodian) that cap confidence; twenty more hypotheses H5–H24, stated in `docs/hypotheses-exploratory.md` (as E1–E20) before they were computed, and H25 (E21), a post-hoc replication test of a published denser-network result; tested as paired within-custodian comparisons with placebo, leave-one-out, volume-equalised and (for H16, H25) retention checks, Holm across 21; then H26 (O1), a post hoc structural question about custodian departures with its own rule; one list H1–H26 in release, report and UI, with three timing labels: "pre-registered" (H1–H4), "stated before computed, after earlier results" (H5–H24), "post hoc" (H25, H26) | H2 and H3 passed every pre-registered check, yet known artifacts (baseline drift, a changing mailbox mix) produce the same effects; the data-science review showed H16 could be produced by inbox retention; a later review asked for a replication of prior work |
+| A headline finding | The finding: the record changed (high confidence that it changed; cause not established). No behavioural finding about the crisis year is claimed. The custodians' after-hours share of weekday sent mail falls from about half (up to April 2001) to a few percent (from August 2001; the fall starts in May) and the received mail kept grows up to about 3.5 times the largest reference month (about five times October on October), so the `Date` convention changed between the compared windows (`record_profile`, descriptive). No hypothesis among H1–H25 is held true: H2 and H3 fail their artifact checks; H16 is not established once inbox retention is accounted for and is capped at inconclusive; H25 is not established; H26 is not established | The lead agent's diagnostics showed the artifacts; the person then decided not to claim H2 or H3. The record profile was added in the last review to explain why |
 | Sensitivity variants published next to the default | `weekly_metrics` publishes the default variant only; variants stay restricted and feed the robustness count | Default minus variant `n_active` revealed groups below k |
 | Attack measured on every release, two attackers | R0 attacked as published from observed-scope snapshots, by A1, A2 and A3 (A2's propagation seeded with three custodians, A3's with every custodian); R1 and R2 hold no person-level records, so the rate there is zero by construction and reported as such | The second review found the report claimed attacks that were not run; the public corpus names every custodian, so A3 is the realistic insider |
 | Dedupe-rule sensitivity variant (`dedupe=exact`) | Not built | Needs a second clean pass; did not fit the budget |
 | Manual identity check by the lead | `enron-case review-merges`: a person judged a seeded sample of real merges in a terminal; only counts are stored (`identity_manual`, committed as `checks/identity_manual.json` so a fresh clone publishes the same rows) and published in `data_quality` | Real identifiers must not enter an AI conversation |
-| UI with seven views, 2D group network | Eight views: Overview, Metrics, Network (React Sigma + Sigma.js over graphology, one deterministic ForceAtlas2 layout, zoom, fullscreen, search and hover, an anonymous Individuals mode, an Overlap mode drawing the week's heaviest group pairs as intersecting contours, lazily loaded, with an SVG `d3-force` fallback), Clusters (chord diagram), Hypotheses (one list H1–H25), Data quality, Privacy and risk, Limits; plain-language text on Overview, Hypotheses and Network (`ui/src/lib/plainLanguage.ts`). Extra UI dependencies: `sigma`, `@react-sigma/core`, `@sigma/layer-webgl`, `graphology`, `graphology-layout-forceatlas2`, `d3-chord`, `d3-shape` | Added after the core was integrated |
-| Parameters frozen in `config.py` during the parallel phase | Constants that agents had placed in their modules moved into `Config` fields afterwards (outputs byte-identical), so `--set` overrides them and the manifest echoes them | AGENTS.md: one place per parameter |
+| UI with seven views, 2D group network | Ten views (`ui/src/lib/views.ts`): Executive summary (the landing view), Overview, Metrics, Network (React Sigma + Sigma.js over graphology, one deterministic ForceAtlas2 layout, zoom, fullscreen, search and hover, the group-size dots mode, whose dots only show how many people a group has, not real individuals or ties, an Overlap mode drawing the week's heaviest group pairs as intersecting contours, lazily loaded, with an SVG `d3-force` fallback), Clusters (chord diagram), Hypotheses (one list H1–H26), Data quality, Privacy and risk, Limits, Glossary; plain-language text on the Executive summary, Overview, Hypotheses and Network (`ui/src/lib/executive.ts`, `ui/src/lib/plainLanguage.ts`). Extra UI dependencies: `sigma`, `@react-sigma/core`, `@sigma/layer-webgl`, `graphology`, `graphology-layout-forceatlas2`, `d3-chord`, `d3-shape` | Added after the core was integrated |
+| Parameters frozen in `config.py` during the parallel phase | Tunable constants that agents had placed in their modules moved into `Config` fields afterwards (outputs byte-identical), so `--set` overrides them and the manifest echoes them. The definitions of the stated hypotheses stay fixed constants in their module on purpose (for example the working hours and the placebo fraction in `finding/exploratory.py`, the line cap in `ingest/headers.py`): changing one would change the hypothesis | AGENTS.md: one place per parameter |
 | `mypy --strict` on `src/` | `mypy --strict` on `src/` and `tests/`, ruff annotation rules, no `Any` in signatures | Added with the `/code-quality-review` skill |
 
 The 12-hour schedule and checkpoint table below describe the plan, not what happened; the work
 ran past the core into the exploratory hypotheses, the review rounds and the UI views.
+
+**Superseded statements in the original text below (note of 2026-11-14; the text is kept as
+written).**
+
+- "three data zones", "Three zones": as built, raw, ingest, restricted and release plus the
+  sub-zones in the table above.
+- "eleven work packages" (Summary), "10 work packages" (Scale/Scope), "10 agents" (schedule):
+  as built, the foundation WP0 by the lead and ten work packages WP-A to WP-J, one agent each,
+  on branches `wp/a-ingest` to `wp/j-ui`; they ran in waves, not all at once.
+- "Explorer UI (optional)", "Node 20+ needed only for `make ui`", "`make all` does not need
+  Node", "no UI" (Principle VII row), "optional target" (Complexity Tracking): as built, the
+  explorer is part of the one command and Node 20+ is a prerequisite of `make`;
+  `make gate` and `enron-case run` work without Node.
+- "GitHub Actions (Ubuntu)": as built, both gates and the sample pipeline run on Ubuntu, macOS
+  and Windows.
+- "three third-party runtime libraries": as built, four (Polars, NetworkX, NumPy, SciPy), as
+  the Technical Context lists.
+- "tests/integration/": not built; the end-to-end sample tests are in `tests/unit` and
+  `tests/privacy`.
+- Re-identification diagram, "R1 … --> ATT": as built, R0 is the only release measured; R1 and
+  R2 hold no person-level record, so their rate is 0 by construction, not a measurement.
 
 ## Summary
 
@@ -88,6 +109,22 @@ about 2.5–3.5k lines of code; 10 work packages; 4 written deliverables
 | V. Honest limits | Hypotheses fixed before results; all outcomes published; limits section in report, decision record, slides | review checklist |
 | VI. Spec-driven, agent-built | Work packages with owned paths and contracts; `make gate`; independent review with `/code-review` and `/data-privacy-review`; `/security-review` before submission; workflow log | CI; log |
 | VII. Simplicity | One process, files, three third-party runtime libraries; no UI | complexity table below |
+
+**Clarifications recorded 2026-11-14 (constitution 1.0.2).** The check above passed against
+wording that was looser than what the code does, so the constitution was amended to the precise
+promise:
+
+- *Principle I.* "Never read into memory" could not be literally true: body bytes pass through
+  the decompressor and are skipped, `Subject` lines are scanned and discarded, and the top-level
+  folder name in the archive path is reduced at once to one of four classes. The promise is that
+  content is never decoded, parsed, held, stored or logged, and Principle I now says so. The
+  check still passes: canary test, allowlist contract test.
+- *Principle II.* One documented exception to "identifiers only in the ingest zone": the `risk`
+  package reads the raw archive (`risk/aux_public.py`, the attacker's own copy of the public
+  corpus) and the ingest zone (`risk/score.py`, to score guesses), and emits counts only. The
+  path guard pins both to those modules (`tests/privacy/test_zones.py`).
+- *Logs.* They carry counts, and `file_id` inside the ingest zone; never an address, a name, a
+  header value or a pseudonym.
 
 **Initial gate**: PASS. **Post-design re-check**: PASS — the design artifacts
 ([research.md](research.md), [data-model.md](data-model.md), [contracts/](contracts/)) add no
@@ -444,4 +481,5 @@ not for stretch items.
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | A React explorer UI (second toolchain, not asked for by the brief, against Principle VII's "table over dashboard") | Requested for exploring and presenting the finding; the group-level network over time is hard to convey in a table | A generated static HTML page with charts would be simpler and was the first proposal; a richer interface was chosen. Contained by: optional target, release-only input, own work package, first to cut |
+| Work merged without a prior task (against Principle VI: "code without a task traceable to the spec MUST NOT be merged"), recorded 2026-11-14 | The artifact checks, H5–H26, the record profile, attacker A3, the review fixes and the UI views beyond WP-J each followed a real-data result or a review that no task had foreseen | Adding a task before each change was the rule and was not followed under the time budget. Contained by: every such change is listed afterwards in [tasks.md](tasks.md#work-done-beyond-the-original-tasks), its commit message names it, and it passed the same gate and reviews |
 | A synthetic corpus generator with ground truth (extra code not asked for by the brief) | It is the only way to measure dedupe, identity resolution, change detection and attack success, and it is what lets agents work in parallel and CI run without the corpus | Testing only on the real corpus gives counts but no correctness, and makes every test need a 400 MB download |
