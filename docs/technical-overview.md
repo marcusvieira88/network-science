@@ -618,6 +618,10 @@ The full story, including what was rejected and why, is in
 
 ## Next steps
 
+How to run all of this on AWS (zones as buckets and IAM roles, the key in KMS, Step Functions and
+Fargate, CloudFront, per-tenant accounts, monitoring with CloudWatch, Prometheus and Grafana) is
+in [docs/deployment-aws.md](deployment-aws.md); the sections below stay cloud-neutral.
+
 ### Many users on the UI: when DuckDB makes sense
 
 Today the UI is a static site over one pre-aggregated JSON file. **For that, many users need no
@@ -670,7 +674,7 @@ out of reach of the service entirely.
 | Formal privacy budget | Replace the noise sketch (release R2) with differential privacy accounted across every published output. |
 | Group-level attack | Attack the published group graph itself (communities matched to the public corpus), not only person-level releases. |
 | Retention, residency, works council | Restricted data expires on a schedule, processing stays in the customer's region, and the questions and thresholds are reviewed before the first run. |
-| Orchestration and monitoring | Run the stages under a scheduler (e.g. Dagster or Prefect) with the run manifest as the lineage record, and alert on contract or privacy violations. |
+| Orchestration and monitoring | Run the stages under a scheduler (e.g. Dagster or Prefect; Step Functions on AWS) with the run manifest as the lineage record, and alert on contract or privacy violations. |
 | Better identity resolution | A public-suffix list instead of the short table; an evaluated probabilistic model alongside the explainable rules. |
 
 ### Securing the explorer as a product

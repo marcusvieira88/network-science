@@ -13,9 +13,9 @@ Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Node 20+, `make`.
 make          # `make check` does the same without serving the explorer
 ```
 
-It installs locked dependencies, creates a key outside the repository if none exists, downloads
-and verifies the corpus, runs the pipeline and every test (Python and UI), then builds and serves
-the explorer at http://localhost:4173. A fresh clone took about 24 minutes, 20
+It installs locked dependencies, creates a key outside the repository if needed, fetches and
+verifies the corpus, runs the pipeline and every test, then serves the explorer at
+http://localhost:4173. A fresh clone took about 24 minutes, 20
 of them the download; the pipeline itself takes about 2.5.
 
 ## Results in brief
@@ -77,8 +77,7 @@ flowchart LR
     release -->|uiexport| UI
 ```
 
-From the archive to the explorer, each arrow names what crosses it. Every table crossing a zone is
-validated against a written contract.
+Each arrow names what crosses it; every table crossing a zone is validated against a contract.
 
 ```mermaid
 flowchart TB
@@ -119,20 +118,17 @@ flowchart TB
 | Keyed HMAC pseudonyms | stable, not confirmable by hashing guesses | key holders can test candidates; structure still re-identifies |
 | Aggregates-only release | nothing person-level published | no person-level analysis for readers |
 
-**With real customer data:** metadata-only connectors so content never leaves the source; the key
-in the customer's custody; retention schedules and data residency; works council review of
-questions, thresholds and outputs before the first run; a formal differential-privacy budget.
+**With real customer data:** metadata-only connectors so content never leaves the source,
+retention schedules, and works council review of questions and thresholds before the first run.
 
 ## AI workflow
 
-Built spec-first with GitHub Spec Kit (constitution → spec → plan → tasks → implement, in
-`specs/`). A lead agent froze the configuration, contracts and a synthetic corpus with known
-answers; ten agents then built one work package each in parallel worktrees, testing against that
-ground truth rather than each other's code.
+Built spec-first with GitHub Spec Kit (in `specs/`). A lead agent froze the configuration,
+contracts and a synthetic corpus with known answers; ten agents then built one work package each
+in parallel worktrees, testing against that ground truth.
 
-`make gate` (lint, strict typing, tests, a privacy canary, an import-boundary test) and review
-skills (`/code-review`, `/data-privacy-review`, `/code-quality-review`, `/data-scientist-review`)
-kept it correct. They caught a header reader that could run on into message bodies and showed
+`make gate` (lint, strict typing, tests, a privacy canary, an import-boundary test) and four
+review skills kept it correct. They caught a header reader that could run on into message bodies and showed
 H2/H3, then H16, to be artifacts; a final review against prior work found the record change and
 added H25 and attacker A3.
 
@@ -143,16 +139,46 @@ identifiers never entered an AI conversation), rejected the artifact results, an
 
 Our counts agree with published ones (517,401 files = the 2004 release minus 30 later deletions;
 250,537 messages, within 1 % of content-based dedupes); our identity resolution is weaker than
-published manual cleanups; and within custodians we do not find the published network changes of
-2001, because our design removes the record effects that produce them. Citations: [related work](docs/technical-overview.md#related-work-and-how-this-compares).
+published manual cleanups; within custodians we do not find the published 2001 network changes. Citations: [related work](docs/technical-overview.md#related-work-and-how-this-compares).
 
 ## Limits
 
 - Body bytes pass through the decompressor on the way to being skipped; the archive on disk holds them.
-- About 150 collected mailboxes, shaped by an investigation: what people kept differs by person and period.
+- About 150 mailboxes collected by an investigation: what people kept differs by person and period.
 - Every crisis comparison crosses the change of the `Date` convention; the placebo windows cannot see it.
 - Identity precision on real data rests on a manual sample, not ground truth.
 - The noise release is a sketch without a formal privacy budget.
+
+## Next steps
+
+**Deploy on AWS** so each privacy guarantee in the code gets a second line in the platform:
+
+```mermaid
+flowchart LR
+    CI["GitHub Actions<br/>make gate, OIDC"] -->|signed image| SFN
+    KMS{{"customer KMS<br/>HMAC key"}} -.-> SFN
+    subgraph W["tenant account · private VPC, no egress"]
+        SFN["Step Functions + Fargate<br/>one role per trust boundary"] --> S3[("zone buckets<br/>one KMS key each")]
+    end
+    subgraph SV["serving account"]
+        REL[("release bucket")] --> CF["CloudFront + WAF<br/>Cognito, CSP"]
+    end
+    OBS["CloudWatch, Prometheus,<br/>Grafana"]
+    SFN -->|aggregates| REL
+    SFN & CF -.->|counts only| OBS
+```
+
+- Zones become buckets; IAM roles mirror `zones.ALLOWED`. Ingest stays on task storage, never
+  versioned, and is deleted.
+- The key stays in the customer's KMS (`GenerateMac`, never exported); rotating it changes every
+  pseudonym.
+- Images built and signed only after `make gate`, deployed by OIDC with no stored keys.
+- Account per tenant, residency by region; telemetry carries counts only, with alarms on a
+  failed stage or an unpurged ingest zone.
+
+Also: the record profile as a view in the explorer; a query API with a privacy budget; differential
+privacy for releases; a group-level attack.
+Details: [deployment on AWS](docs/deployment-aws.md).
 
 ## More detail
 
