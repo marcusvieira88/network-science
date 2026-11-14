@@ -110,6 +110,9 @@ class Config:
     # Exploratory families E1–E20 (docs/hypotheses-exploratory.md, fixed before computing).
     exploratory_min_messages: int = 20
     exploratory_bootstrap_reps: int = 2000
+    # Subsamples per custodian when equalising mail volume between two windows (a check added
+    # after E12 was computed: more mail kept means more chances to observe a reply).
+    exploratory_equalise_reps: int = 40
     # Release mitigations. Lowest weighted degree of each published degree bucket; scale of the
     # Laplace noise in release R2 (a sketch, not a calibrated privacy budget; research R12).
     degree_bucket_floors: tuple[int, ...] = field(default=(1, 2, 5, 10))

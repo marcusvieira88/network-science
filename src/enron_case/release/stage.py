@@ -30,5 +30,6 @@ def published_tables(ctx: StageContext) -> dict[str, pl.DataFrame]:
         "hypotheses": ctx.read("hypothesis_results"),
         "risk": ctx.read("risk_results"),
         "artifact_checks": tables.artifact_checks(ctx.read("artifact_results"), ctx.config.k_min),
+        "exploratory": tables.exploratory(ctx.read("exploratory_results"), ctx.config.k_min),
         **r1,
     }

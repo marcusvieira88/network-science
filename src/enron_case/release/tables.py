@@ -162,3 +162,27 @@ def artifact_checks(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
         .otherwise(pl.col("n_units"))
         .alias("n_units")
     )
+
+
+def exploratory(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
+    """E1–E20 results. A comparison over fewer than k custodians is suppressed with its
+    statistics (the count and every number derived from it)."""
+    crisis = (
+        "custodians",
+        "median_change",
+        "ci_low",
+        "ci_high",
+        "p",
+        "p_holm",
+        "equalised_median",
+        "equalised_ci_low",
+        "equalised_ci_high",
+        "equalised_p",
+    )
+    placebo = ("placebo_custodians", "placebo_median", "placebo_ci_low", "placebo_ci_high")
+    small_crisis = pl.col("custodians") < k_min
+    small_placebo = pl.col("placebo_custodians") < k_min
+    return results.with_columns(
+        *[pl.when(small_crisis).then(None).otherwise(pl.col(c)).alias(c) for c in crisis],
+        *[pl.when(small_placebo).then(None).otherwise(pl.col(c)).alias(c) for c in placebo],
+    )

@@ -16,7 +16,7 @@ import polars as pl
 from scipy.stats import wilcoxon
 
 from enron_case.config import Config
-from enron_case.contracts import vocab
+from enron_case.contracts import schemas, vocab
 from enron_case.finding import stats
 
 UP, DOWN = 1, -1
@@ -388,6 +388,67 @@ def _loo_stable(direction: int, d: np.ndarray) -> bool:
     return all(direction * float(np.median(np.delete(d, i))) > 0 for i in range(len(d)))
 
 
+SECOND_FAMILY_FROM = 11  # E11 onwards was stated after E1–E10 were computed
+EQUALISED_STREAM = 200
+
+
+def _subsample(df: pl.DataFrame, caps: pl.DataFrame, cap: str, seed: int) -> pl.DataFrame:
+    """At most `cap` rows per custodian, chosen with a seeded shuffle (rows arrive sorted)."""
+    return (
+        df.join(caps.select("pid", pl.col(cap).alias("_cap")), on="pid")
+        .with_columns(pl.int_range(pl.len()).shuffle(seed=seed).over("pid").alias("_k"))
+        .filter(pl.col("_k") < pl.col("_cap"))
+        .drop("_cap", "_k")
+    )
+
+
+def volume_equalised(
+    tables: Tables, measure: Measure, after: Window, before: Window, config: Config, stream: int
+) -> Comparison:
+    """The paired comparison with mail volume held equal: each custodian's sent and received
+    messages in both windows are subsampled to the smaller of the two windows' counts, the
+    measure is recomputed, and each custodian's difference is averaged over the subsamples."""
+    sent_a, sent_b = _in(tables.sent, after), _in(tables.sent, before)
+    recv_a, recv_b = _in(tables.received, after), _in(tables.received, before)
+
+    def caps(a: pl.DataFrame, b: pl.DataFrame, name: str) -> pl.DataFrame:
+        counts = a.group_by("pid").len().join(b.group_by("pid").len(), on="pid", suffix="_b")
+        return counts.select("pid", pl.min_horizontal("len", "len_b").alias(name))
+
+    limits = (
+        caps(sent_a, sent_b, "sent_cap")
+        .join(caps(recv_a, recv_b, "recv_cap"), on="pid", how="full", coalesce=True)
+        .fill_null(0)
+    )
+    draws = []
+    for rep in range(config.exploratory_equalise_reps):
+        seed = config.seed + rep
+        sampled = Tables(
+            pl.concat(
+                [
+                    _subsample(sent_a, limits, "sent_cap", seed),
+                    _subsample(sent_b, limits, "sent_cap", seed),
+                ]
+            ),
+            pl.concat(
+                [
+                    _subsample(recv_a, limits, "recv_cap", seed),
+                    _subsample(recv_b, limits, "recv_cap", seed),
+                ]
+            ),
+        )
+        minimum = config.exploratory_min_messages
+        a = measure(sampled, after).filter(pl.col("n") >= minimum)
+        b = measure(sampled, before).filter(pl.col("n") >= minimum)
+        draws.append(
+            a.join(b, on="pid", suffix="_b").select(
+                "pid", (pl.col("value") - pl.col("value_b")).alias("d")
+            )
+        )
+    per_custodian = pl.concat(draws).group_by("pid").agg(pl.col("d").mean()).sort("pid")
+    return compare(per_custodian.get_column("d").to_numpy().astype(float), config, stream)
+
+
 def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -> pl.DataFrame:
     custodians = entities_p.filter(
         pl.col("is_custodian") & (pl.col("type") == vocab.PERSON) & pl.col("is_internal")
@@ -407,7 +468,7 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
         rows.append((hyp, d, crisis, placebo))
     p_holm = stats.holm([crisis.p for _h, _d, crisis, _pl in rows])
     out = []
-    for (hyp, d, crisis, placebo), ph in zip(rows, p_holm, strict=True):
+    for order, ((hyp, d, crisis, placebo), ph) in enumerate(zip(rows, p_holm, strict=True)):
         on_side = stats.on_side(hyp.direction, crisis.ci_low, crisis.ci_high)
         placebo_ok = _placebo_passes(hyp.direction, crisis, placebo)
         loo_ok = _loo_stable(hyp.direction, d)
@@ -419,9 +480,18 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
             outcome = INCONCLUSIVE
         else:
             outcome = NOT_SUPPORTED
+        equalised = (
+            volume_equalised(
+                tables, MEASURES[hyp.id], CRISIS, REFERENCE, config, EQUALISED_STREAM + order
+            )
+            if outcome != NOT_SUPPORTED and valid
+            else None
+        )
         out.append(
             {
+                "order": order + 1,
                 "hypothesis": hyp.id,
+                "family": "first" if order + 1 < SECOND_FAMILY_FROM else "second",
                 "measure": hyp.description,
                 "direction": "up" if hyp.direction == UP else "down",
                 "custodians": crisis.n,
@@ -438,6 +508,13 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
                 "loo_stable": loo_ok,
                 "outcome": outcome,
                 "caveat": CAVEATS.get(hyp.id, ""),
+                "equalised_median": equalised.median if equalised else None,
+                "equalised_ci_low": equalised.ci_low if equalised else None,
+                "equalised_ci_high": equalised.ci_high if equalised else None,
+                "equalised_p": equalised.p if equalised else None,
             }
         )
-    return pl.DataFrame(out)
+    return schemas.conform(
+        pl.DataFrame(out, schema=schemas.table("exploratory_results").polars_schema),
+        "exploratory_results",
+    )

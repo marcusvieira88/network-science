@@ -15,7 +15,7 @@ from enron_case.contracts import vocab as v
 from enron_case.errors import ContractViolation
 from enron_case.zones import Zone
 
-CONTRACT_VERSION = "1.2"
+CONTRACT_VERSION = "1.3"
 
 STR = pl.String()
 INT = pl.Int64()
@@ -108,6 +108,38 @@ def _artifact_cols(n_units_nullable: bool) -> tuple[Col, ...]:
         Col("n_units", INT, nullable=n_units_nullable),
         Col("passes", BOOL, nullable=True),
         Col("note", STR),
+    )
+
+
+EXPLORATORY_OUTCOMES = ("confident", "inconclusive", "not supported")
+
+
+def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
+    """E1–E20 results (docs/hypotheses-exploratory.md); one row per hypothesis."""
+    return (
+        Col("order", INT),
+        Col("hypothesis", STR),
+        Col("family", STR, enum=("first", "second")),
+        Col("measure", STR),
+        Col("direction", STR, enum=("up", "down")),
+        Col("custodians", INT, nullable=counts_nullable),
+        Col("median_change", FLOAT, nullable=True),
+        Col("ci_low", FLOAT, nullable=True),
+        Col("ci_high", FLOAT, nullable=True),
+        Col("p", FLOAT, nullable=True),
+        Col("p_holm", FLOAT, nullable=True),
+        Col("placebo_custodians", INT, nullable=counts_nullable),
+        Col("placebo_median", FLOAT, nullable=True),
+        Col("placebo_ci_low", FLOAT, nullable=True),
+        Col("placebo_ci_high", FLOAT, nullable=True),
+        Col("placebo_passes", BOOL),
+        Col("loo_stable", BOOL),
+        Col("outcome", STR, enum=EXPLORATORY_OUTCOMES),
+        Col("caveat", STR),
+        Col("equalised_median", FLOAT, nullable=True),
+        Col("equalised_ci_low", FLOAT, nullable=True),
+        Col("equalised_ci_high", FLOAT, nullable=True),
+        Col("equalised_p", FLOAT, nullable=True),
     )
 
 
@@ -233,6 +265,7 @@ TABLES: dict[str, Table] = {
         _t("hypothesis_results", Zone.RESTRICTED, ("hypothesis",), *_HYPOTHESIS_COLS),
         _t("risk_results", Zone.RESTRICTED, ("release_variant", "attacker"), *_RISK_COLS),
         _t("artifact_results", Zone.RESTRICTED, ("hypothesis",), *_artifact_cols(False)),
+        _t("exploratory_results", Zone.RESTRICTED, ("order",), *_exploratory_cols(False)),
         # ---- Zone 3: release (aggregates, k-thresholded; committed) ----
         _t(
             "data_quality",
@@ -272,6 +305,7 @@ TABLES: dict[str, Table] = {
         _t("hypotheses", Zone.RELEASE, ("hypothesis",), *_HYPOTHESIS_COLS, fmt="csv"),
         _t("risk", Zone.RELEASE, ("release_variant", "attacker"), *_RISK_COLS, fmt="csv"),
         _t("artifact_checks", Zone.RELEASE, ("hypothesis",), *_artifact_cols(True), fmt="csv"),
+        _t("exploratory", Zone.RELEASE, ("order",), *_exploratory_cols(True), fmt="csv"),
         _t(
             "degree_distribution",
             Zone.RELEASE,
@@ -310,6 +344,7 @@ PERSON_COUNT_COLUMNS: dict[str, tuple[str, ...]] = {
     "degree_distribution": ("persons",),
     "community_groups": ("n_persons",),
     "risk": ("n_targets",),
+    "exploratory": ("custodians", "placebo_custodians"),
 }
 # The weekly metric whose value is itself a person count.
 PERSON_COUNT_METRIC = "active_persons"

@@ -494,6 +494,50 @@ class FixtureBuilder:
         )
         return schemas.conform(df, "risk_results")
 
+    def exploratory_results_table(self) -> pl.DataFrame:
+        """Reference shape only: twenty rows, E12 confident with its volume-equalised check,
+        E16 inconclusive, the caveated three marked, the rest not supported."""
+        caveats = {
+            "E1": "invalid: timestamps in the 2000 part of the corpus are shifted by several hours",
+            "E3": "untestable: every Bcc line in the corpus repeats the Cc line",
+            "E15": "retention-sensitive: the 26-week look-back depends on how much older mail "
+            "was kept",
+        }
+        rows = []
+        for i in range(1, 21):
+            hid = f"E{i}"
+            outcome = {"E12": "confident", "E16": "inconclusive"}.get(hid, "not supported")
+            strong = outcome != "not supported"
+            rows.append(
+                {
+                    "order": i,
+                    "hypothesis": hid,
+                    "family": "first" if i < 11 else "second",
+                    "measure": f"measure {hid}",
+                    "direction": "down" if i in (7, 15, 18, 20) else "up",
+                    "custodians": 32,
+                    "median_change": 0.25 if strong else 0.01,
+                    "ci_low": 0.12 if strong else -0.02,
+                    "ci_high": 0.38 if strong else 0.04,
+                    "p": 0.0001 if strong else 0.6,
+                    "p_holm": 0.002 if strong else 1.0,
+                    "placebo_custodians": 15,
+                    "placebo_median": 0.0,
+                    "placebo_ci_low": -0.03,
+                    "placebo_ci_high": 0.04,
+                    "placebo_passes": hid != "E16",
+                    "loo_stable": strong,
+                    "outcome": outcome,
+                    "caveat": caveats.get(hid, ""),
+                    "equalised_median": 0.1 if strong else None,
+                    "equalised_ci_low": 0.06 if strong else None,
+                    "equalised_ci_high": 0.17 if strong else None,
+                    "equalised_p": 0.001 if strong else None,
+                }
+            )
+        spec = schemas.table("exploratory_results")
+        return schemas.conform(pl.DataFrame(rows, schema=spec.polars_schema), spec.name)
+
     def artifact_results_table(self) -> pl.DataFrame:
         """Planted change is behavioural and communities never drift: both checks pass."""
         rows = [
@@ -703,6 +747,7 @@ class FixtureBuilder:
             "hypotheses": self.hypothesis_results_table(),
             "risk": self.risk_results_table(),
             "artifact_checks": self.artifact_results_table(),
+            "exploratory": self.exploratory_results_table(),
             "degree_distribution": degree,
             "community_graph": graph,
             "community_groups": groups,
@@ -723,6 +768,7 @@ class FixtureBuilder:
             "hypothesis_results": self.hypothesis_results_table(),
             "risk_results": self.risk_results_table(),
             "artifact_results": self.artifact_results_table(),
+            "exploratory_results": self.exploratory_results_table(),
         }
         tables.update(self.release_tables())
         return tables
