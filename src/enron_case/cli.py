@@ -26,7 +26,7 @@ from enron_case.config import (
     Config,
 )
 from enron_case.context import LogFn, StageContext, stderr_log
-from enron_case.errors import KeyProblem, PipelineError, UsageError
+from enron_case.errors import PipelineError, UsageError
 from enron_case.manifest import RunManifest, code_version
 from enron_case.zones import Paths, Zone
 
@@ -89,14 +89,12 @@ def select(first: str | None, last: str | None) -> list[Stage]:
     return list(STAGES[start : end + 1])
 
 
-def load_key_fingerprint() -> str:
-    """Resolve the key through pseudo.keys; raise KeyProblem if unavailable."""
-    try:
-        keys = importlib.import_module("enron_case.pseudo.keys")
-    except ModuleNotFoundError as exc:
-        raise KeyProblem("key handling (pseudo.keys) is not implemented yet") from exc
-    fingerprint: str = keys.key_fingerprint(keys.load_key())
-    return fingerprint
+def load_key_fingerprint(sample: bool) -> str:
+    """Fingerprint of the run key; raise KeyProblem if it is unavailable or unfit for the run."""
+    # Imported here: pseudo.keys imports REPO_ROOT from this module.
+    from enron_case.pseudo.keys import key_fingerprint, load_run_key  # noqa: PLC0415
+
+    return key_fingerprint(load_run_key(sample))
 
 
 def ensure_sample_corpus(paths: Paths) -> None:
@@ -149,7 +147,7 @@ def run_pipeline(
                     break
                 raise PipelineError(f"stage '{stage.name}' is not implemented")
             if stage.package == "pseudo":
-                manifest.key_fingerprint = load_key_fingerprint()
+                manifest.key_fingerprint = load_key_fingerprint(sample)
             ctx = StageContext(stage.package, config, paths, sample, log)
             started = time.perf_counter()
             fn(ctx)
@@ -229,7 +227,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         os.environ.pop(KEY_FILE_ENV, None)
     try:
         if args.command == "check-key":
-            load_key_fingerprint()
+            load_key_fingerprint(sample=False)
             return 0
         if args.command == "review-merges":
             review = importlib.import_module("enron_case.identity.review")

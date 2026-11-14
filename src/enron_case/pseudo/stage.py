@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from enron_case.context import StageContext
 from enron_case.contracts.counts import PseudoCounts
-from enron_case.pseudo.keys import load_key
+from enron_case.pseudo.keys import load_run_key
 from enron_case.pseudo.pseudonymize import build_entities_p, build_events
 
 
 def run(ctx: StageContext) -> None:
-    key = load_key()
+    key = load_run_key(ctx.sample)
     messages = ctx.read("messages")
     entities = ctx.read("entities")
     events = ctx.write("events", build_events(key, messages, entities, ctx.read("address_map")))

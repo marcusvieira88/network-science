@@ -113,5 +113,12 @@ def path_for(paths: Paths, package: str, zone: Zone, name: str, mode: str) -> Pa
 
 
 def purge_ingest(paths: Paths) -> None:
-    """Delete the ingest zone: identifiers do not outlive the run."""
-    shutil.rmtree(paths.dir(Zone.INGEST), ignore_errors=True)
+    """Delete the ingest zone: identifiers do not outlive the run. A zone that cannot be
+    deleted is an error, never a silent leftover."""
+    directory = paths.dir(Zone.INGEST)
+    if not directory.exists():
+        return
+    try:
+        shutil.rmtree(directory)
+    except OSError as exc:
+        raise PrivacyViolation("the ingest zone could not be purged; delete it by hand") from exc
