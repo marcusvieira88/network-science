@@ -34,13 +34,13 @@ flowchart LR
     end
     subgraph TEN["tenant workload account · one per tenant, residency region"]
         WH["API Gateway webhook receiver<br/>signature check, IDs to SQS"]
-        SM{{"Secrets Manager<br/>OAuth tokens, tenant KMS key"}}
+        SM{{"Secrets Manager<br/>OAuth tokens,<br/>encrypted with the tenant KMS key"}}
         subgraph IDV["identifier VPC · private subnets, no NAT"]
             SFN["Step Functions<br/>stage order, retries, purge"]
             T1["Fargate task: identifier<br/>connectors or fetch, parse,<br/>clean, identity, pseudo"]
             T2["Fargate task: restricted<br/>network, finding, risk"]
             T3["Fargate task: release<br/>release, report, ui-data"]
-            EP["VPC endpoints<br/>S3, KMS, ECR, Logs, STS,<br/>Secrets Manager, SQS"]
+            EP["VPC endpoints<br/>S3, KMS, ECR, Logs, STS,<br/>Step Functions, Secrets Manager, SQS"]
         end
         FW["egress subnet<br/>Network Firewall allowlist:<br/>corpus host or provider API hosts"]
         RAW[("raw bucket")]
@@ -152,11 +152,12 @@ or export step exists. A unit test fails when the generated policies and `ALLOWE
 
 ### Network
 
-- Private subnets only, with no NAT gateway. Gateway endpoint for S3; interface endpoints for
-  KMS, ECR (api and dkr), CloudWatch Logs, STS and Step Functions. Endpoint policies admit only
-  this account's buckets and keys.
-- The fetch stage runs in its own subnet. Its route goes through AWS Network Firewall with a
-  domain allowlist for the corpus host, and it writes only to the raw bucket. With customer data,
+- The task subnets are private, with no NAT gateway and no route out. Gateway endpoint for S3;
+  interface endpoints for KMS, ECR (api and dkr), CloudWatch Logs, STS, Step Functions, Secrets
+  Manager and SQS. Endpoint policies admit only this account's buckets, keys, secrets and queues.
+- The fetch stage runs in its own egress subnet, the only one with a route out: through AWS
+  Network Firewall with a domain allowlist for the corpus host, then a NAT gateway. It writes
+  only to the raw bucket. With customer data,
   this subnet is replaced by metadata-only connectors (technical overview, "Toward real customer
   data"), each with an allowlist for its API host.
 - Security groups allow no inbound traffic, because no task serves anything.
@@ -316,7 +317,10 @@ flowchart LR
 - **Authentication.** Cognito user pools federated with the customer's IdP (SAML or OIDC). A
   Lambda@Edge viewer-request function validates the JWT signature, expiry and `tenant` claim on
   every request, including `release.json`, so one tenant cannot fetch another's release. Roles are
-  Cognito groups mapped from IdP groups, using the role model in the technical overview.
+  Cognito groups mapped from IdP groups, using the role model in the technical overview. The
+  token must reach the edge without loosening the CSP: the sign-in flow ends in a same-origin
+  callback that sets an `HttpOnly`, `Secure`, `SameSite=Strict` cookie, so `connect-src 'self'`
+  and `form-action 'none'` stay as they are. Today's `loadRelease` sends no credentials of its own.
 
 ### Query API, if added later
 
