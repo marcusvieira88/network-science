@@ -44,7 +44,7 @@ injected from release tables; none is typed.
   k = 5. On the aggregate release (R1) the shares fall to 0 and
   0. With no finding claimed, there is no effect whose loss to measure.
 
-**Finding.** No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
+**Finding.** No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report. Exploratory, not pre-registered: E12 (share of sent-to contacts who also wrote back, predicted up) is confident: median within-custodian change 0.267 (interval 0.144 to 0.386, Holm-adjusted p = 0.00000243, 32 custodians); with mail volume equalised, 0.122 (interval 0.0725 to 0.188). A lead for confirmation on independent data, not a finding of the same standing.
 
 ## What changes with real customer data
 

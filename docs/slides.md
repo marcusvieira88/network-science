@@ -64,6 +64,8 @@ No finding about the crisis year is claimed. H2, H3 passed the pre-registered st
 | H3 | the organization turned inward | -1.46 | -2.65 to -0.944 | 0.004 | yes | low |
 | H4 | working relationships were rewired faster | -0.195 | -0.938 to 0.335 | 1 | no | low |
 
+Exploratory, not pre-registered: E12 (share of sent-to contacts who also wrote back, predicted up) is confident: median within-custodian change 0.267 (interval 0.144 to 0.386, Holm-adjusted p = 0.00000243, 32 custodians); with mail volume equalised, 0.122 (interval 0.0725 to 0.188). A lead for confirmation on independent data, not a finding of the same standing.
+
 ---
 
 ## The strongest signal, over time
