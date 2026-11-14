@@ -1,5 +1,5 @@
 {
-  "code_version": "a3bd492",
+  "code_version": "913e22d",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -80,8 +80,8 @@
     "data_quality": "656573bfe0e1ace49e2dc8c191f42834bc3e00a467c7bbb1620a5782269444b0",
     "degree_distribution": "428004c79d9da95950529686820dd98adf5094dbfd2f6d75ebdd8c374bb50244",
     "departure_results": "4c88fccae2e791c17b2090dfb28112c11852a714e8452fa3c14acc4d14e8aeb1",
-    "departure_test_results": "bb9aa7d073ecef6017f859a016f93e5d9b4799e7d64838bc9b5ac6ec0dccca24",
-    "departure_tests": "4a6a1eb97e156039566a43194a71863234474592aa9fcd3387ed37c6c507bb62",
+    "departure_test_results": "11e7e96c575eb45937f811992136431b4d9948d0f371e54bf5832e4cf2f38533",
+    "departure_tests": "4f136afef06e79d0db254ba1bb0eee350b21a88d25231600fc6b95ee85df00f1",
     "departures": "25a814d2a490686bfddf8245739489ea07cfa12c5ed610c5f4932670120da302",
     "entities": "397cac15e1bc104b4ae5b770c130007ff9757175e22b764f828978dede8a45d2",
     "entities_p": "807c6b92ddaebacd9f2df97adc2067267380da3ebb0fadbe5a1238b76709e357",
@@ -110,53 +110,53 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.15,
-      "code_version": "a3bd492"
+      "seconds": 0.17,
+      "code_version": "913e22d"
     },
     {
       "stage": "parse",
-      "seconds": 28.52,
-      "code_version": "a3bd492"
+      "seconds": 28.9,
+      "code_version": "913e22d"
     },
     {
       "stage": "clean",
-      "seconds": 25.33,
-      "code_version": "a3bd492"
+      "seconds": 23.97,
+      "code_version": "913e22d"
     },
     {
       "stage": "identity",
-      "seconds": 4.36,
-      "code_version": "a3bd492"
+      "seconds": 4.21,
+      "code_version": "913e22d"
     },
     {
       "stage": "pseudo",
-      "seconds": 18.7,
-      "code_version": "a3bd492"
+      "seconds": 14.8,
+      "code_version": "913e22d"
     },
     {
       "stage": "network",
-      "seconds": 0.69,
-      "code_version": "a3bd492"
+      "seconds": 0.58,
+      "code_version": "913e22d"
     },
     {
       "stage": "finding",
-      "seconds": 23.36,
-      "code_version": "a3bd492"
+      "seconds": 21.85,
+      "code_version": "913e22d"
     },
     {
       "stage": "risk",
-      "seconds": 44.88,
-      "code_version": "a3bd492"
+      "seconds": 41.04,
+      "code_version": "913e22d"
     },
     {
       "stage": "release",
-      "seconds": 0.09,
-      "code_version": "a3bd492"
+      "seconds": 0.08,
+      "code_version": "913e22d"
     },
     {
       "stage": "report",
-      "seconds": 0.02,
-      "code_version": "a3bd492"
+      "seconds": 0.01,
+      "code_version": "913e22d"
     }
   ]
 }

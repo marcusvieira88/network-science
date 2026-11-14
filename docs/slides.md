@@ -86,14 +86,14 @@ Among the within-custodian hypotheses, none reached the standard to be held true
 
 ---
 
-## Structure: did the core of the organization leave? (post hoc)
+## Structure: did the custodians leave? (post hoc)
 
 No wave of custodian departures in the crisis can be established.
 
 - Asked after every behavioural hypothesis had failed; stated and committed before computing
 - A departure: a custodian stops sending while their own mailbox keeps receiving mail only it
   holds; if that mail stops too, the mailbox was no longer collected (a record end)
-- Read in weeks from the presence of mail, so the hour shift of the record cannot move it;
+- Read in weeks from the presence of mail, so the hour shift of the record barely moves it;
   the growth of inbox mail kept is tested by a stricter variant
 
 | Period | From | To | At risk | Departures | Record ends | Share departed |

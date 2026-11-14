@@ -1,12 +1,12 @@
-order,variant,in_rule,crisis_above_reference,p,p_band,placebo_p,placebo_p_band,rolling_windows,above_rolling,loo_stable,outcome
-1,primary,true,false,,alpha or above,,alpha or above,55,false,false,not established
-2,silence 8,true,false,,alpha or above,,alpha or above,53,false,,
-3,silence 26,true,false,,alpha or above,,alpha or above,55,false,,
-4,live 1,true,true,,alpha or above,,alpha or above,55,false,,
-5,live 8,true,false,,alpha or above,,alpha or above,55,false,,
-6,active 2,true,false,,alpha or above,,alpha or above,65,false,,
-7,active 8,true,,,,,,37,,,
-8,custodian-visible,true,true,,alpha or above,,alpha or above,37,true,,
-9,same cohort,true,false,,alpha or above,,alpha or above,55,false,,
-10,no successor,true,false,,alpha or above,,alpha or above,55,false,,
-11,any silence,false,true,,alpha or above,,alpha or above,55,false,,
+order,variant,in_rule,crisis_above_reference,p,p_band,placebo_p,placebo_p_band,rolling_windows,above_rolling,loo_stable,outcome,detectable_departures,placebo_detectable_departures
+1,primary,true,false,,alpha or above,,alpha or above,55,false,false,not established,9,16
+2,silence 8,true,false,,alpha or above,,alpha or above,53,false,,,,
+3,silence 26,true,false,,alpha or above,,alpha or above,55,false,,,,
+4,live 1,true,true,,alpha or above,,alpha or above,55,false,,,,
+5,live 8,true,false,,alpha or above,,alpha or above,55,false,,,,
+6,active 2,true,false,,alpha or above,,alpha or above,65,false,,,,
+7,active 8,true,,,,,,37,,,,,
+8,custodian-visible,true,true,,alpha or above,,alpha or above,37,true,,,,
+9,same cohort,true,false,,alpha or above,,alpha or above,55,false,,,,
+10,no successor,true,false,,alpha or above,,alpha or above,55,false,,,,
+11,any silence,false,true,,alpha or above,,alpha or above,55,false,,,,
