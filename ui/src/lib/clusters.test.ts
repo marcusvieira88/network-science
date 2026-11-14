@@ -6,6 +6,7 @@ import {
   driftCheckPasses,
   groupSummaries,
   largestCrossShareChange,
+  outsideWeightShare,
   periodRange,
   periodWeeks,
   weekEnd,
@@ -106,7 +107,7 @@ describe("clusterMatrix", () => {
 });
 
 describe("groupSummaries", () => {
-  it("gives size, total, within-group share and the top partners by weight", () => {
+  it("gives size, total, within-group share and the top partner groups; the outside bucket is never a partner and has none", () => {
     const summaries = groupSummaries(clusterMatrix(groups, edges, periods.baseline));
     expect(summaries).toEqual([
       { group: "G01", nPersons: 6, total: 7, within: 4, withinShare: 4 / 7, partners: [{ group: "G02", weight: 3 }] },
@@ -116,12 +117,10 @@ describe("groupSummaries", () => {
         total: 7,
         within: 3,
         withinShare: 3 / 7,
-        partners: [
-          { group: "G01", weight: 3 },
-          { group: "other", weight: 1 },
-        ],
+        // The weight to the outside bucket still counts in the total, so the within share is 3 / 7.
+        partners: [{ group: "G01", weight: 3 }],
       },
-      { group: "other", nPersons: 5, total: 1, within: 0, withinShare: 0, partners: [{ group: "G02", weight: 1 }] },
+      { group: "other", nPersons: 5, total: 1, within: 0, withinShare: 0, partners: [] },
     ]);
   });
 
@@ -148,6 +147,21 @@ describe("groupSummaries", () => {
       ["G02", 3, 0],
       ["other", 0, null],
     ]);
+  });
+});
+
+describe("outsideWeightShare", () => {
+  it("is the period's weight with the outside bucket at either end over all its weight", () => {
+    // Baseline: 4 + 2 + 1 + 3 (named) + 1 (G02 -> other; other -> G02 suppressed) = 11.
+    expect(outsideWeightShare(clusterMatrix(groups, edges, periods.baseline))).toBeCloseTo(1 / 11, 12);
+    expect(outsideWeightShare(clusterMatrix(groups, edges, periods.crisis))).toBe(0);
+    expect(outsideWeightShare(clusterMatrix(groups, [edge("2000-01-03", "other", "other", 2)], null))).toBe(1);
+  });
+
+  it("is null for a period without weight or a release without the bucket", () => {
+    expect(outsideWeightShare(clusterMatrix(groups, [], null))).toBeNull();
+    const named = groups.filter((g) => g.group !== "other");
+    expect(outsideWeightShare(clusterMatrix(named, [edge("2000-01-03", "G01", "G02", 1)], null))).toBeNull();
   });
 });
 
@@ -185,7 +199,7 @@ describe("largestCrossShareChange", () => {
     expect(largestCrossShareChange(before, after)?.change).toBeCloseTo(-3 / 7);
   });
 
-  it("never names the pooled other group", () => {
+  it("never names the outside bucket", () => {
     const pooled = [edge("2000-01-03", "other", "other", 1), edge("2000-01-03", "G01", "G01", 1)];
     const later = [edge("2000-01-03", "other", "G01", 1), edge("2000-01-03", "G01", "G01", 1)];
     // other: 0% -> 100% cross-group; G01: 0% -> 50% (within 1, with other 1). G01 is named.

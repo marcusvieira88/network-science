@@ -6,7 +6,7 @@
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
 import { formatNumber, metricLabel } from "@/lib/format";
 import type { HypothesisEntry } from "@/lib/hypotheses";
-import type { GroupTie } from "@/lib/network";
+import { type GroupTie, OTHER_GROUP } from "@/lib/network";
 
 /** What a hypothesis came to, in plain terms. */
 export type Verdict = "held" | "artifact" | "weak" | "unclear" | "untestable" | "none" | "withheld";
@@ -138,9 +138,14 @@ export function executiveSummary(entries: HypothesisEntry[]): ExecutiveSummary {
   return { answer, points };
 }
 
-/** The week in one sentence: its busiest link between groups and how many pairs exchanged mail. */
-export function weekInPlainWords(week: string | null, ties: readonly GroupTie[]): string {
+/**
+ * The week in one sentence: its busiest link between real groups and how many pairs of real
+ * groups exchanged mail. Ties to the outside bucket are left out: it is not a group, and the
+ * Network view states its share of the week's mail separately.
+ */
+export function weekInPlainWords(week: string | null, allTies: readonly GroupTie[]): string {
   if (week === null) return "No week selected.";
+  const ties = allTies.filter((tie) => tie.a !== OTHER_GROUP && tie.b !== OTHER_GROUP);
   const [busiest] = ties;
   if (!busiest) return `In the week of ${week} no published mail ran between groups.`;
   return (

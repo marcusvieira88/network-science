@@ -52,6 +52,7 @@ export function View({ view, data, onSelect }: ViewProps) {
           events={data.events}
           minGroupSize={minimumGroupSize(data)}
           seed={data.run.seed}
+          baseline={baselinePeriod(data)}
         />
       );
     case "clusters": {

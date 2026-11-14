@@ -91,9 +91,9 @@ function weightOf(weights: ReadonlyMap<string, GroupTie>, tie: GroupTie): number
 }
 
 /**
- * The week's overlaps and remaining lines between published groups. The `other` bucket is not a
- * published group and suppressed counts are 0, exactly as in `publishedTies`; a pair with no
- * published message is never an overlap.
+ * The week's overlaps and remaining lines between published groups. The outside bucket never takes
+ * part and suppressed counts are 0, exactly as in `publishedTies`; a pair with no published
+ * message is never an overlap.
  */
 export function weekOverlaps(edges: CommunityEdgeRow[], week: string, groupIds: Iterable<string>): WeekOverlaps {
   const known = [...groupIds];

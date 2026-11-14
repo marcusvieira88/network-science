@@ -14,6 +14,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from enron_case.contracts import vocab
 from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.report import render
 from enron_case.report.stage import DOCUMENTS, run
@@ -30,6 +31,7 @@ REPORT_TABLES = (
     "artifact_checks",
     "exploratory",
     "record_profile",
+    "community_groups",
 )
 RELEASE_TABLES = (*REPORT_TABLES, "weekly_metrics")
 
@@ -369,6 +371,35 @@ def test_limits_name_the_optimistic_interval_and_the_n2_risk(
     assert "no manual check of merges was run" in limits  # the fixture has no manual step
 
 
+def _groups(rows: list[tuple[str, int]]) -> pl.DataFrame:
+    return pl.DataFrame(rows, schema={"group": pl.Utf8, "n_persons": pl.Int64}, orient="row")
+
+
+def test_outside_statement_says_what_the_other_bucket_is_and_its_size() -> None:
+    groups = _groups([("G01", 926), ("G02", 743), (vocab.OTHER_GROUP, 25838)])
+    text = render.outside_statement(groups, k_min=5)
+    assert text == (
+        "The `other` row of `community_groups.csv` is not a community: it holds the 25838 people "
+        "with no tie in the baseline period (in this corpus mostly people first seen after it) "
+        "plus any community of fewer than 5 people. Its ties are published like a group's, but "
+        "the explorer does not draw it as a group: it labels these people as outside the "
+        "baseline groups and states, for each week, the share of mail that involves them."
+    )
+
+
+def test_outside_statement_without_the_bucket_says_it_is_withheld() -> None:
+    text = render.outside_statement(_groups([("G01", 926)]), k_min=5)
+    assert text == (
+        "No `other` row is published in `community_groups.csv`: fewer than 5 people fall outside "
+        "the groups, so none is shown."
+    )
+
+
+def test_limits_section_explains_the_other_bucket(synth: SynthOutput, tmp_path: Path) -> None:
+    limits = render_report(synth, tmp_path).split("## Limits", 1)[1]
+    assert "No `other` row is published" in limits  # the synthetic fixture has no bucket
+
+
 def test_n2_limit_reports_the_manual_check_from_data_quality(synth: SynthOutput) -> None:
     manual = pl.DataFrame(
         {
@@ -386,7 +417,7 @@ def test_n2_limit_reports_the_manual_check_from_data_quality(synth: SynthOutput)
         schema=synth.table("data_quality").schema,
     )
     quality = pl.concat([synth.table("data_quality"), manual])
-    text = " ".join(render.limits(quality))
+    text = " ".join(render.limits(quality, synth.table("community_groups"), 5))
     assert "a manual check of 50 sampled real merges found 1 wrong merges" in text
     assert "precision 0.98, exact binomial interval 0.894 to 1" in text
     assert "rule N2 accounts for 12 of the sampled merges and 1 of the wrong ones" in text

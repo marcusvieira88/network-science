@@ -168,6 +168,7 @@ class ReleaseTables:
     artifact_checks: pl.DataFrame
     exploratory: pl.DataFrame
     record_profile: pl.DataFrame
+    community_groups: pl.DataFrame
 
     @classmethod
     def read(cls, ctx: StageContext) -> ReleaseTables:
@@ -180,6 +181,7 @@ class ReleaseTables:
             artifact_checks=ctx.read("artifact_checks"),
             exploratory=ctx.read("exploratory"),
             record_profile=ctx.read("record_profile"),
+            community_groups=ctx.read("community_groups"),
         )
 
 
@@ -619,12 +621,30 @@ def n2_limit(data_quality: pl.DataFrame) -> str:
     return text + "."
 
 
-def limits(data_quality: pl.DataFrame) -> list[str]:
-    return [*LIMITS, n2_limit(data_quality)]
+def outside_statement(community_groups: pl.DataFrame, k_min: int) -> str:
+    """What the `other` bucket of the group tables is and how many people it holds."""
+    rows = community_groups.filter(pl.col("group") == vocab.OTHER_GROUP).rows(named=True)
+    if not rows:
+        return (
+            f"No `other` row is published in `community_groups.csv`: fewer than {k_min} people "
+            "fall outside the groups, so none is shown."
+        )
+    return (
+        "The `other` row of `community_groups.csv` is not a community: it holds the "
+        f"{format_value(rows[0]['n_persons'])} people with no tie in the baseline period (in this "
+        "corpus mostly people first seen after it) plus any community of fewer than "
+        f"{k_min} people. Its ties are published like a group's, but the explorer does not draw "
+        "it as a group: it labels these people as outside the baseline groups and states, for "
+        "each week, the share of mail that involves them."
+    )
 
 
-def limits_section(data_quality: pl.DataFrame) -> str:
-    return "\n\n".join(("## Limits", bullets(limits(data_quality))))
+def limits(data_quality: pl.DataFrame, community_groups: pl.DataFrame, k_min: int) -> list[str]:
+    return [*LIMITS, n2_limit(data_quality), outside_statement(community_groups, k_min)]
+
+
+def limits_section(data_quality: pl.DataFrame, community_groups: pl.DataFrame, k_min: int) -> str:
+    return "\n\n".join(("## Limits", bullets(limits(data_quality, community_groups, k_min))))
 
 
 def render_report(tables: ReleaseTables, config: Config) -> str:
@@ -638,7 +658,7 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
         hypotheses_section(tables.hypotheses),
         exploratory_section(tables.exploratory),
         risk_section(tables.risk, config.k_min, headline(tables.hypotheses) is not None),
-        limits_section(tables.data_quality),
+        limits_section(tables.data_quality, tables.community_groups, config.k_min),
     )
     text = "\n\n".join(sections) + "\n"
     check_no_identifiers(text)
@@ -744,7 +764,7 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
             "risk_table": risk_table(tables.risk),
             "risk_summary": risk_summary(tables.risk),
             "risk_verdicts": bullets(risk_verdicts(tables.risk)),
-            "limits": bullets(limits(tables.data_quality)),
+            "limits": bullets(limits(tables.data_quality, tables.community_groups, config.k_min)),
         }
     )
     return values

@@ -98,14 +98,21 @@ describe("executiveSummary", () => {
 });
 
 describe("weekInPlainWords", () => {
-  it("names the busiest link of the week and how many links there were", () => {
+  it("names the busiest link between real groups and how many pairs of real groups there were", () => {
     const ties = [
       { a: "G06", b: "other", weightAB: 2, weightBA: 1, total: 3 },
       { a: "G01", b: "G02", weightAB: 1, weightBA: 0, total: 1 },
+      { a: "G03", b: "G04", weightAB: 0.5, weightBA: 0, total: 0.5 },
     ];
+    // The outside bucket is not a group: it is never named as the busiest link or counted as a pair.
     expect(weekInPlainWords("2001-10-22", ties)).toBe(
-      "In the week of 2001-10-22 the busiest link between groups was G06 ↔ other (weight 3); 2 pairs of groups exchanged mail.",
+      "In the week of 2001-10-22 the busiest link between groups was G01 ↔ G02 (weight 1); 2 pairs of groups exchanged mail.",
     );
+  });
+
+  it("says no mail ran between groups when the only ties are to the outside bucket", () => {
+    const ties = [{ a: "G06", b: "other", weightAB: 2, weightBA: 1, total: 3 }];
+    expect(weekInPlainWords("2001-10-22", ties)).toBe("In the week of 2001-10-22 no published mail ran between groups.");
   });
 
   it("says so when a week has no published link", () => {

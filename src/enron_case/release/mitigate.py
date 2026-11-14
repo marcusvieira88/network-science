@@ -8,11 +8,10 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from enron_case.contracts.vocab import UNASSIGNED_COMMUNITY
+from enron_case.contracts.vocab import OTHER_GROUP, UNASSIGNED_COMMUNITY
 
 LAST_MONTH_OF_FIRST_HALF = 6
 GROUP_PREFIX = "G"
-OTHER_GROUP = "other"
 
 
 def half_year(week: pl.Expr) -> pl.Expr:

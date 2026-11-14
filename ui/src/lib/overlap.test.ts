@@ -86,6 +86,12 @@ describe("weekly overlap selection", () => {
     ]);
   });
 
+  it("never takes the outside bucket into a pair, even when it is passed as a group", () => {
+    const withOther = weekOverlaps(edges, WEEK, [...groups, "other"]);
+    expect(withOther).toEqual(weekOverlaps(edges, WEEK, groups));
+    expect(withOther.lines.some((tie) => tie.a === "other" || tie.b === "other")).toBe(false);
+  });
+
   it("keeps the remaining published ties as ordinary lines, as the Groups mode draws them", () => {
     const { lines } = weekOverlaps(edges, WEEK, groups);
     // A suppressed row counts as 0, as publishedTies counts it; the other bucket never appears.

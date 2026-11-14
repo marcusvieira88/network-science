@@ -12,12 +12,14 @@ import {
   clusterMatrix,
   groupSummaries,
   largestCrossShareChange,
+  outsideWeightShare,
   periodRange,
   periodWeeks,
 } from "@/lib/clusters";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
 import { formatNumber, formatShare } from "@/lib/format";
-import { groupColor } from "@/lib/network";
+import { OTHER_GROUP, groupColor } from "@/lib/network";
+import { outsideExplanation, outsideLabel, outsidePeople, outsidePeriodCaption } from "@/lib/outside";
 
 const DEFAULT_PERIOD: PeriodId = "all";
 const PERCENT = 100;
@@ -107,6 +109,9 @@ export function ClusterView({ groups, edges, periods, minGroupSize, driftCheck, 
     [groups, edges, periods],
   );
   const hasWeight = summaries.some((summary) => summary.total > 0);
+  const outside = outsidePeople(groups);
+  const outsideShare = outsideWeightShare(matrix);
+  const outsideName = outsideLabel(periods.baseline);
 
   return (
     <Card>
@@ -139,6 +144,7 @@ export function ClusterView({ groups, edges, periods, minGroupSize, driftCheck, 
               <ClusterChord
                 matrix={matrix}
                 summaries={summaries}
+                outsideName={outsideName}
                 label={`Message weight between groups, ${periodLabel(period).toLowerCase()}`}
               />
             ) : (
@@ -149,7 +155,7 @@ export function ClusterView({ groups, edges, periods, minGroupSize, driftCheck, 
             <p className="mt-2 text-xs text-muted-foreground">
               Arc length is a group's total weight in the period (within the group, sent and received). A ribbon is the
               weight between two groups, both directions summed; a ribbon that returns to its own arc is weight within
-              the group.
+              the group. The hatched grey arc is people outside the groups, not a group.
             </p>
           </div>
           <div>
@@ -164,33 +170,61 @@ export function ClusterView({ groups, edges, periods, minGroupSize, driftCheck, 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {summaries.map((summary) => (
-                  <TableRow key={summary.group}>
-                    <TableCell className="whitespace-nowrap">
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 rounded-full"
-                          style={{ background: groupColor(summary.group, matrix.groups) }}
-                          aria-hidden
-                        />
-                        {summary.group}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums" data-testid="group-size">
-                      {summary.nPersons}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {formatShare(summary.withinShare)}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {summary.partners.length === 0
-                        ? "—"
-                        : summary.partners.map((p) => `${p.group} (${formatNumber(p.weight)})`).join(", ")}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {summaries.map((summary) =>
+                  summary.group === OTHER_GROUP ? (
+                    <TableRow key={summary.group} data-outside="true" className="text-muted-foreground">
+                      <TableCell className="whitespace-nowrap">
+                        <span className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full border border-dashed border-muted-foreground" aria-hidden />
+                          {outsideName}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid="group-size">
+                        {formatNumber(summary.nPersons)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">—</TableCell>
+                      <TableCell className="text-xs">—</TableCell>
+                    </TableRow>
+                  ) : (
+                    <TableRow key={summary.group}>
+                      <TableCell className="whitespace-nowrap">
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ background: groupColor(summary.group, matrix.groups) }}
+                            aria-hidden
+                          />
+                          {summary.group}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid="group-size">
+                        {formatNumber(summary.nPersons)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {formatShare(summary.withinShare)}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {summary.partners.length === 0
+                          ? "—"
+                          : summary.partners.map((p) => `${p.group} (${formatNumber(p.weight)})`).join(", ")}
+                      </TableCell>
+                    </TableRow>
+                  ),
+                )}
               </TableBody>
             </Table>
+            {outside !== null && (
+              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <p data-testid="outside-note">
+                  {outsideName}: {outsideExplanation(outside, minGroupSize, periods.baseline)}
+                </p>
+                {outsideShare !== null && (
+                  <p data-testid="outside-share" className="font-medium text-foreground">
+                    {outsidePeriodCaption(outsideShare, periods.baseline)}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <WhatChanged change={change} driftCheck={driftCheck} onShowHypotheses={onShowHypotheses} />

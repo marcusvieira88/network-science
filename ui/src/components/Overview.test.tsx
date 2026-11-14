@@ -38,6 +38,19 @@ describe("Overview", () => {
     expect(screen.getByText(/cuts the strongest attacker's re-identification rate from/)).toBeInTheDocument();
   });
 
+  it("counts only real groups in the key numbers and names the outside bucket's size apart", () => {
+    const data = dataWith();
+    const groups = [
+      { group: "G01", n_persons: 926 },
+      { group: "G02", n_persons: 743 },
+      { group: "other", n_persons: 25838 },
+    ];
+    render(<Overview data={{ ...data, tables: { ...data.tables, community_groups: groups } }} />);
+    const header = screen.getByText("Groups in the network view").parentElement;
+    expect(header).toHaveTextContent("Groups in the network view2");
+    expect(header?.nextElementSibling).toHaveTextContent("each at least 5 people; 25,838 more people are outside the 2000 groups");
+  });
+
   it("leads to the plain-language hypotheses and to the network", async () => {
     const onSelect = vi.fn();
     render(<Overview data={dataWith()} onSelect={onSelect} />);

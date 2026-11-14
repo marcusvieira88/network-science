@@ -107,7 +107,7 @@ export interface GroupSummary {
   within: number;
   /** within / total; null when the group has no weight in the period. */
   withinShare: number | null;
-  /** The heaviest partner groups (both directions summed), at most TOP_PARTNERS. */
+  /** The heaviest partner groups (both directions summed), at most TOP_PARTNERS; never the outside bucket. */
   partners: Partner[];
 }
 
@@ -116,9 +116,10 @@ export function groupSummaries(matrix: ClusterMatrix): GroupSummary[] {
     const row = matrix.symmetric[i] ?? [];
     const total = row.reduce((sum, weight) => sum + weight, 0);
     const within = row[i] ?? 0;
-    const partners = matrix.groups
-      .map((other, j) => ({ group: other, weight: row[j] ?? 0 }))
-      .filter((p, j) => j !== i && p.weight > 0)
+    // The outside bucket is no partner group, and it has none: it is not a community.
+    const partners = (group === OTHER_GROUP ? [] : matrix.groups)
+      .map((partner, j) => ({ group: partner, weight: row[j] ?? 0 }))
+      .filter((p, j) => j !== i && p.weight > 0 && p.group !== OTHER_GROUP)
       .sort((x, y) => y.weight - x.weight || compareGroups(x.group, y.group))
       .slice(0, TOP_PARTNERS);
     return {
@@ -132,6 +133,24 @@ export function groupSummaries(matrix: ClusterMatrix): GroupSummary[] {
   });
 }
 
+/**
+ * The period's weight with the outside bucket at either end over all its weight (each directed
+ * cell once); null when the period has no weight or the release has no bucket.
+ */
+export function outsideWeightShare(matrix: ClusterMatrix): number | null {
+  const outside = matrix.groups.indexOf(OTHER_GROUP);
+  if (outside < 0) return null;
+  let total = 0;
+  let involving = 0;
+  matrix.directed.forEach((row, i) =>
+    row.forEach((weight, j) => {
+      total += weight;
+      if (i === outside || j === outside) involving += weight;
+    }),
+  );
+  return total > 0 ? involving / total : null;
+}
+
 export interface ShareChange {
   group: string;
   /** Cross-group share (1 − within-group share) in each period. */
@@ -142,7 +161,8 @@ export interface ShareChange {
 
 /**
  * The named group whose cross-group share changed most (either way); null if none is comparable.
- * `other` is skipped: it pools small communities, so its share describes no one group.
+ * `other` is skipped: it is not a community but the people with no tie in the baseline period
+ * (mostly people who first appear later) plus communities under k, so its share describes no group.
  */
 export function largestCrossShareChange(before: GroupSummary[], after: GroupSummary[]): ShareChange | null {
   const later = new Map(after.map((s) => [s.group, s.withinShare]));

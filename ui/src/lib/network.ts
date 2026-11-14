@@ -3,6 +3,11 @@ import type { SimulationLinkDatum, SimulationNodeDatum } from "d3-force";
 
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
 
+/**
+ * The release's leftover bucket (community_groups.csv): people with no tie in the baseline period
+ * plus communities under k. It is not a community, so the network never draws or lays it out
+ * and no tie to it is a tie between groups; lib/outside.ts says what it is instead.
+ */
 export const OTHER_GROUP = "other";
 const LAYOUT_TICKS = 300;
 const MIN_RADIUS = 10;
@@ -72,9 +77,10 @@ export function weekGraph(edges: CommunityEdgeRow[], week: string | null, measur
   };
 }
 
-/** The heaviest tie between two groups in any of the weeks: one scale for every week. */
-export function maxWeeklyTie(edges: CommunityEdgeRow[], weeks: string[]): number {
-  return Math.max(1, ...weeks.map((week) => weekGraph(edges, week).ties[0]?.total ?? 0));
+/** The heaviest tie between two real groups in any of the weeks: one scale for every week. */
+export function maxWeeklyTie(edges: CommunityEdgeRow[], weeks: string[], groupIds: Iterable<string>): number {
+  const groups = [...groupIds];
+  return Math.max(1, ...weeks.map((week) => publishedTies(edges, week, groups)[0]?.total ?? 0));
 }
 
 interface LayoutNode extends SimulationNodeDatum {
@@ -85,7 +91,15 @@ interface LayoutNode extends SimulationNodeDatum {
 
 type LayoutLink = SimulationLinkDatum<LayoutNode> & { strength: number };
 
-/** Ties in one week (or all weeks when `week` is null) between published groups only. */
+/** The published groups that are real groups: every row but the outside bucket. */
+export function namedGroups(groups: CommunityGroupRow[]): CommunityGroupRow[] {
+  return groups.filter((g) => g.group !== OTHER_GROUP);
+}
+
+/**
+ * Ties in one week (or all weeks when `week` is null) between published groups only; the outside
+ * bucket is never one of them, even if it is passed in `groupIds`.
+ */
 export function publishedTies(
   edges: CommunityEdgeRow[],
   week: string | null,
@@ -93,22 +107,22 @@ export function publishedTies(
   measure: TieMeasure = "weight",
 ): WeekGraph["ties"] {
   const known = new Set(groupIds);
+  known.delete(OTHER_GROUP);
   return weekGraph(edges, week, measure).ties.filter((tie) => known.has(tie.a) && known.has(tie.b));
 }
 
 /**
- * One force layout over the ties of all weeks, computed once so that groups stay in place while
- * the week changes. d3-force's initial placement and jitter are deterministic, so the same data
- * gives the same picture.
+ * One force layout over the ties of all weeks between real groups, computed once so that groups
+ * stay in place while the week changes. d3-force's initial placement and jitter are
+ * deterministic, so the same data gives the same picture.
  */
-
 export function layoutGroups(
   groups: CommunityGroupRow[],
   edges: CommunityEdgeRow[],
   width: number,
   height: number,
 ): PlacedGroup[] {
-  const nodes: LayoutNode[] = [...groups]
+  const nodes: LayoutNode[] = namedGroups(groups)
     .sort((x, y) => x.group.localeCompare(y.group))
     .map((g) => ({ group: g.group, nPersons: g.n_persons, radius: groupRadius(g.n_persons) }));
   const all = publishedTies(edges, null, nodes.map((n) => n.group));
