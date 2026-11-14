@@ -6,13 +6,16 @@ details are in [contracts/cli.md](contracts/cli.md); table schemas in
 
 ## Prerequisites
 
-- Python 3.12 and `uv`; Node.js 20 or later and `npm` (for the explorer UI)
-- `make`, about 3 GB free disk, internet access for the corpus download (about 440 MB)
+- `uv` (it provides Python 3.12); Node.js 20 or later and `npm` (for the explorer UI)
+- about 3 GB free disk, internet access for the corpus download (about 440 MB)
+- macOS or Linux: `make`. Windows: nothing more; every `make X` below is `uv run enron-case X`
+  there (`make sample` is `uv run enron-case run --sample`), run from PowerShell or cmd.
 
 ## 0. Everything at once
 
 ```bash
-make           # same as `make all`; needs no options
+make                     # macOS, Linux: same as `make all`; needs no options
+uv run enron-case all    # Windows (or .\run.cmd); the same steps
 ```
 
 One line per step: prerequisites, locked dependencies, key (created at
@@ -21,8 +24,8 @@ pipeline, the Python gate, the UI gate, the UI build. It ends with a summary (re
 hypotheses the release holds true, every gate passed) and serves the explorer at
 http://localhost:4173 until Ctrl+C. `make check` does the same without the server. Details of each
 step are in `data/logs/`; a failing step prints its log tail and stops the run (`make` reports the
-step's exit code as `Error N`; `scripts/run-all.sh` returns it directly). Port 4173 busy? Run
-`UI_PORT=4174 make`.
+step's exit code as `Error N`; `uv run enron-case all|check` returns it directly). Port 4173 busy?
+Run `UI_PORT=4174 make` (PowerShell: `$env:UI_PORT=4174; uv run enron-case all`).
 
 ## 1. Validate without the corpus (about 2 minutes)
 
@@ -59,7 +62,7 @@ Expected:
 | V2 | Zone boundary | `uv run pytest tests/privacy -k boundary` | pass; no downstream package imports an ingest-side package |
 | V3 | Stable pseudonyms (FR-010) | `enron-case verify` | all fingerprints equal across two runs |
 | V4 | Key dependence | run sample with a second key, compare `entities_p` | zero pseudonyms in common |
-| V5 | No key, no run | `env -u ENRON_CASE_KEY ENRON_CASE_KEY_FILE=/nonexistent scripts/run-all.sh check` | exit 3 at the key step, no key created, no pipeline run |
+| V5 | No key, no run | `env -u ENRON_CASE_KEY ENRON_CASE_KEY_FILE=/nonexistent uv run enron-case check` | exit 3 at the key step, no key created, no pipeline run |
 | V6 | Minimum group size (SC-008) | `uv run pytest tests/unit/release -k kanon` and inspect `release/*.csv` | no person count below 5 |
 | V7 | One finding (SC-005) | open `release/hypotheses.csv` | four rows; at most one `is_headline`; each with effect, interval, p, robustness, confidence |
 | V8 | Risk measured (SC-007) | open `release/risk.csv` | rows for R0/R1/R2 × attackers A1–A3 with re-identification rates and utility |

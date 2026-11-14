@@ -91,7 +91,7 @@ Work through every group. For each check record pass, fail or not applicable, wi
    merge check) and the run manifest, count matches of `@`, and of address- or name-shaped
    strings. Any non-zero count is a finding.
 5. No pseudonym-to-identity mapping is written anywhere; the ingest zone does not exist after a
-   normal run; `--keep-ingest` is not used by `make` (`scripts/run-all.sh`) or CI.
+   normal run; `--keep-ingest` is not used by `make` (`enron-case all`) or CI.
 
 ### D. Key handling (P6)
 

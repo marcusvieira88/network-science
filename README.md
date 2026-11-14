@@ -7,10 +7,11 @@ attacks its own output to measure re-identification risk, and publishes only agg
 
 ## Run it
 
-Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Node 20+, `make`.
+Prerequisites: [uv](https://docs.astral.sh/uv/) (it fetches Python 3.12), Node 20+.
 
 ```bash
-make          # `make check` does the same without serving the explorer
+make                     # macOS, Linux; `make check` does the same without serving the explorer
+uv run enron-case all    # Windows (or .\run.cmd); `uv run enron-case check` without serving
 ```
 
 It installs locked dependencies, creates a key outside the repository if needed, fetches and
@@ -82,7 +83,7 @@ Each arrow names what crosses it; every table crossing a zone is validated again
 
 ```mermaid
 flowchart TB
-    D["CMU tarball<br/>download + SHA-256 check<br/>make, scripts/run-all.sh"]
+    D["CMU tarball<br/>download + SHA-256 check<br/>make, enron-case all"]
     H["ingest: read each header<br/>stop at the first blank line<br/>Subject, body, attachments never read"]
     C["clean: normalize, dedupe"]
     I["identity: resolve aliases, rules N1–N5"]

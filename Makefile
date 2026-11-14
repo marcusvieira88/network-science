@@ -1,20 +1,25 @@
-.PHONY: all check sample gate key clean fixtures ui ui-sample ui-gate
+.PHONY: all check sample gate key clean fixtures ui ui-sample ui-gate ui-deps
 .DEFAULT_GOAL := all
 
 UV ?= uv
-KEY_FILE ?= $(HOME)/.config/enron-case/key
-# npm writes this file at the end of `npm ci`; rebuilding it only when the lockfile is newer
-# lets every target reuse installed UI dependencies.
-UI_DEPS := ui/node_modules/.package-lock.json
+# Every step lives in the `enron-case` CLI (contracts/cli.md), which runs the same on macOS,
+# Linux and Windows; these targets only call it. Windows runs the same commands without make:
+# `uv run enron-case all` or run.cmd.
+CLI := $(UV) run --locked enron-case
+# KEY_FILE (where to create a key) and UI_PORT reach the CLI as environment variables; unset,
+# they arrive empty and the CLI uses its defaults.
+export KEY_FILE UI_PORT
+# The CLI cannot report a missing uv, so the two run targets check for it first.
+NEED_UV = command -v $(UV) >/dev/null || { echo "==> missing prerequisite: uv (https://docs.astral.sh/uv/)" >&2; exit 1; }
 
 ## The one command (bare `make` is the same): prerequisites, locked dependencies, key, corpus,
 ## full pipeline, Python and UI gates, UI build, summary, then serve the explorer until Ctrl+C.
 all:
-	@KEY_FILE="$(KEY_FILE)" UV="$(UV)" scripts/run-all.sh all
+	@$(NEED_UV); $(CLI) all
 
-## Everything `make all` does except serving the explorer (CI, reviewers without a server).
+## Everything `make all` does except serving the explorer (reviewers without a server).
 check:
-	@KEY_FILE="$(KEY_FILE)" UV="$(UV)" scripts/run-all.sh check
+	@$(NEED_UV); $(CLI) check
 
 ## Full pipeline on the bundled synthetic corpus.
 sample:
@@ -24,14 +29,11 @@ sample:
 ## Lint, types and all tests (no corpus needed).
 gate:
 	@$(UV) sync --locked
-	@$(UV) run ruff check src tests
-	@$(UV) run ruff format --check src tests
-	@$(UV) run mypy
-	@$(UV) run pytest -q
+	@$(CLI) gate
 
 ## Create a key outside the repository if none exists.
 key:
-	@scripts/create-key.sh "$(KEY_FILE)"
+	@$(CLI) key
 
 ## Write synthetic fixtures for inspection into tests/fixtures (git-ignored).
 fixtures:
@@ -40,17 +42,18 @@ fixtures:
 clean:
 	rm -rf data/ingest data/restricted data/sample data/logs release-sample tests/fixtures
 
-$(UI_DEPS): ui/package-lock.json
-	@cd ui && npm ci
+## Install UI dependencies (`npm ci`) only when ui/package-lock.json is newer than them.
+ui-deps:
+	@$(CLI) ui-deps
 
 ## Explorer UI on its own (needs Node 20+): export release/, build, serve.
-ui: $(UI_DEPS)
-	@$(UV) run enron-case stage ui-data
+ui: ui-deps
+	@$(CLI) stage ui-data
 	@cd ui && npm run build && npm run preview
 
-ui-sample: $(UI_DEPS)
-	@$(UV) run enron-case stage ui-data --sample
+ui-sample: ui-deps
+	@$(CLI) stage ui-data --sample
 	@cd ui && npm run build && npm run preview
 
-ui-gate: $(UI_DEPS)
-	@cd ui && npm run lint && npm run typecheck && npm test && npm run build && node scripts/check-build.mjs
+ui-gate:
+	@$(CLI) ui-gate

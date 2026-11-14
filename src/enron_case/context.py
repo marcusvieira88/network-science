@@ -105,7 +105,7 @@ class StageContext:
         if "@" in text:
             raise PrivacyViolation(f"counts '{name}' contain an address")
         path = zones.path_for(self.paths, self.package, Zone.COUNTS, f"{name}.json", "w")
-        path.write_text(text + "\n", encoding="utf-8")
+        path.write_text(text + "\n", encoding="utf-8", newline="\n")
         self.count_outputs[name] = fingerprint_json(counts)
 
     def read_counts(self, name: str) -> JsonObject:
@@ -133,7 +133,7 @@ class StageContext:
             raise PrivacyViolation(f"check '{name}' holds something other than named counts")
         text = json.dumps(counts, indent=2, sort_keys=True)
         path = zones.path_for(self.paths, self.package, Zone.CHECKS, f"{name}.json", "w")
-        path.write_text(text + "\n", encoding="utf-8")
+        path.write_text(text + "\n", encoding="utf-8", newline="\n")
 
     # ---- other files ------------------------------------------------------------------------
     def path(self, zone: Zone, name: str, mode: str) -> Path:

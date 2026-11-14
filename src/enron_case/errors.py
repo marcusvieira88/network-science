@@ -12,6 +12,20 @@ class UsageError(PipelineError):
     exit_code = 2
 
 
+class PrerequisiteMissing(PipelineError):
+    """A tool the one command needs is missing or too old, or the port or disk is not free."""
+
+    exit_code = 1
+
+
+class StepFailed(PipelineError):
+    """A step of the one command failed; carries that step's own exit code."""
+
+    def __init__(self, exit_code: int) -> None:
+        super().__init__(f"step failed with exit code {exit_code}")
+        self.exit_code = exit_code
+
+
 class KeyProblem(PipelineError):
     """Key missing, too short, or stored inside the repository."""
 

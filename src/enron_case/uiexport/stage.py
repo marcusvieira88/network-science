@@ -34,6 +34,6 @@ def run(ctx: StageContext) -> None:
     document = build_document(tables, read_manifest(ctx))
     check_no_identifiers(document)
     text = render(document)
-    ctx.path(Zone.UI, UI_FILE, "w").write_text(text, encoding="utf-8")
+    ctx.path(Zone.UI, UI_FILE, "w").write_text(text, encoding="utf-8", newline="\n")
     rows = sum(df.height for df in tables.values())
     ctx.log(f"[ui-data] wrote {len(tables)} tables, {rows} rows")

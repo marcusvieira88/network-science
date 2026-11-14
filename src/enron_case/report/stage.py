@@ -19,7 +19,7 @@ DOCUMENTS = ("decision-record.md", "slides.md", "ai-workflow.md")
 def run(ctx: StageContext) -> None:
     tables = render.ReleaseTables.read(ctx)
     report = render.render_report(tables, ctx.config)
-    ctx.path(Zone.RELEASE, REPORT_FILE, "w").write_text(report, encoding="utf-8")
+    ctx.path(Zone.RELEASE, REPORT_FILE, "w").write_text(report, encoding="utf-8", newline="\n")
     ctx.log(f"[report] wrote report with {report.count(chr(10))} lines")
     if ctx.sample:
         return
@@ -30,5 +30,5 @@ def run(ctx: StageContext) -> None:
     for text in documents.values():
         render.check_no_identifiers(text)
     for name, text in documents.items():
-        ctx.path(Zone.DOCS, name, "w").write_text(text, encoding="utf-8")
+        ctx.path(Zone.DOCS, name, "w").write_text(text, encoding="utf-8", newline="\n")
     ctx.log(f"[report] injected {len(values)} values into {len(DOCUMENTS)} documents")
