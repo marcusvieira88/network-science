@@ -6,6 +6,7 @@ import {
   foundCard,
   funnelHeadline,
   headerHeadline,
+  headerNotes,
   joinList,
   metricCaption,
   metricHeadline,
@@ -241,6 +242,23 @@ describe("summary cards on the real outcomes", () => {
     expect(points).toContain(
       "H21 moved the other way too, but the comparison before the crisis, which lies before the change in the record, already shows the same move, so that change does not explain it.",
     );
+  });
+
+  it("calls the first week partial only when it begins before the analysis does", () => {
+    const whole = { ...data, run: { ...data.run, parameters: { ...data.run.parameters, analysis_start: "1999-12-27" } } };
+    expect(studiedCard(whole).points[0]).toBe(
+      "250,537 distinct messages from the public Enron email archive. The weekly network series has 118 weeks, beginning on the Mondays 1999-12-27 to 2002-03-25.",
+    );
+  });
+
+  it("notes the identifiers that are not retained and the fold, only where the release has them", () => {
+    const fields = data.tables.header_fields;
+    expect(headerNotes(fields)).toEqual(["X-FileName and X-Origin are direct identifiers that are not retained: the parser drops them."]);
+    const other = { field: "(other)", occurrences: 2, ruling: "dropped" };
+    expect(headerNotes([other, ...fields.filter((row) => row.field !== "X-Origin")])).toEqual([
+      "X-FileName is a direct identifier that is not retained: the parser drops it.",
+      "(other) counts occurrences of names without a ruling; it is not a field.",
+    ]);
   });
 
   it("states the placebo limit when the record changed", () => {

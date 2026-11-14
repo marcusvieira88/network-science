@@ -5,6 +5,7 @@
  * stated next to it (lib/record.ts), so this text never says a bare "no finding".
  */
 import type { ArtifactCheckRow, HypothesisRow } from "@/lib/data";
+import { joinList } from "@/lib/format";
 
 export interface NoFindingText {
   title: string;
@@ -12,8 +13,7 @@ export interface NoFindingText {
 }
 
 function names(rows: HypothesisRow[]): string {
-  const ids = rows.map((row) => row.hypothesis);
-  return ids.length <= 1 ? ids.join("") : `${ids.slice(0, -1).join(", ")} and ${ids[ids.length - 1]}`;
+  return joinList(rows.map((row) => row.hypothesis));
 }
 
 function its(rows: HypothesisRow[]): string {

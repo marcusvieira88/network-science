@@ -97,17 +97,19 @@ export function retentionCheck(row: ExploratoryRow): string | null {
 }
 
 /**
- * True when the pre-crisis placebo already shows the crisis change: on the side the crisis median
- * moved to, the placebo interval excludes zero or the placebo median is at least as large. The
- * stated placebo rule still passes such a row when that side is against the prediction or the
- * interval includes zero (placebo_shows_change in src/enron_case/report/render.py).
+ * True when the pre-crisis placebo passes its stated rule although the calm period moved as the
+ * crisis did: its interval excludes zero on the side the crisis median moved to, or the crisis
+ * median is on the predicted side and the placebo median is at least as large there
+ * (placebo_shows_change in src/enron_case/report/render.py). A note next to the rule, not a
+ * change of it.
  */
 export function placeboShowsChange(row: ExploratoryRow): boolean {
   const { median_change: median, placebo_median: placebo, placebo_ci_low: low, placebo_ci_high: high } = row;
   if (median === null || placebo === null || low === null || high === null || median === 0) return false;
   const sign = median > 0 ? 1 : -1;
-  const excludesZero = sign * low > 0 && sign * high > 0;
-  return excludesZero || sign * placebo >= sign * median;
+  if (sign * low > 0 && sign * high > 0) return true;
+  const predicted = row.direction === "up" ? 1 : -1;
+  return sign === predicted && sign * placebo >= sign * median;
 }
 
 /** The volume-equalised result, or null where none was computed. */

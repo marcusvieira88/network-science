@@ -16,6 +16,7 @@ import polars as pl
 from enron_case.config import CRISIS_WINDOW, PRIOR_WORK_YEAR, REFERENCE_WINDOW
 from enron_case.contracts import vocab
 from enron_case.report.markdown import format_value, table
+from enron_case.report.quality import FOLDER_NAME_RULE
 
 SHARE = "after_hours_share"
 TIMESTAMP_HYPOTHESIS = (
@@ -29,9 +30,7 @@ CONFIDENCE_RULE = (
     "when the ranges do not overlap but that change is not measured or its interval includes "
     "zero; with overlapping ranges no change is claimed"
 )
-# What happens to a folder name (contracts/header-allowlist.md; the classes are
-# vocab.FOLDER_CLASSES, and a test pins their number to the word used here).
-FOLDER_NAMES = "each is reduced at once to one of four classes and never kept"
+FOLDER_NAMES = f"each is {FOLDER_NAME_RULE}"
 PROFILE_HEADERS = (
     "Month",
     "Custodians sending",
@@ -111,17 +110,35 @@ def _timestamp_row(exploratory: pl.DataFrame) -> Row | None:
     return rows[0]
 
 
+def _excludes_zero(row: Row) -> bool:
+    """The within-custodian interval lies wholly on one side of zero."""
+    low, high = row["ci_low"], row["ci_high"]
+    if not isinstance(low, int | float) or not isinstance(high, int | float):
+        return False
+    return low > 0 or high < 0
+
+
 def _within_custodian(exploratory: pl.DataFrame) -> str:
+    """The change within the same people, read by what its interval allows: only an interval
+    that excludes zero rules out a change in who is in the data."""
     row = _timestamp_row(exploratory)
     if row is None:
         return ""
-    return (
+    measured = (
         f" Within the same people ({TIMESTAMP_HYPOTHESIS}, {format_value(row['custodians'])} "
         f"custodians) the share changes by a median of {format_value(row['median_change'])} "
-        f"(interval {format_value(row['ci_low'])} to {format_value(row['ci_high'])}), so it is "
-        f"not a change in who is in the data. As a hypothesis about behaviour, "
-        f"{TIMESTAMP_HYPOTHESIS} could not be tested, because the convention changed under "
-        "it; the same number is read here as a measurement of the record, not of behaviour."
+        f"(interval {format_value(row['ci_low'])} to {format_value(row['ci_high'])})"
+    )
+    if not _excludes_zero(row):
+        return (
+            f"{measured}: the interval includes zero, so a change in who is in the data is not "
+            "ruled out."
+        )
+    return (
+        f"{measured}, so it is not a change in who is in the data. As a hypothesis about "
+        f"behaviour, {TIMESTAMP_HYPOTHESIS} could not be tested, because the convention "
+        "changed under it; the same number is read here as a measurement of the record, not "
+        "of behaviour."
     )
 
 
@@ -131,14 +148,6 @@ def _lower(reference: Sequence[float], crisis: Sequence[float]) -> bool | None:
     if max(crisis) < min(reference):
         return True
     return False if min(crisis) > max(reference) else None
-
-
-def _excludes_zero(row: Row) -> bool:
-    """The within-custodian interval lies wholly on one side of zero."""
-    low, high = row["ci_low"], row["ci_high"]
-    if not isinstance(low, int | float) or not isinstance(high, int | float):
-        return False
-    return low > 0 or high < 0
 
 
 def record_confidence(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str | None:
@@ -215,20 +224,23 @@ def record_summary(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
     return (
         f"The share of weekday sent mail stamped outside working hours is {_span(reference)} "
         f"in the reference months and {_span(crisis)} in the crisis months; the `Date` "
-        f"convention changed in between{since}, within the same people "
-        f"({_within_custodian_short(exploratory)}). Every within-custodian comparison crosses "
-        "that change."
+        f"convention changed in between{since} ({_within_custodian_short(exploratory)}). "
+        "Every within-custodian comparison crosses that change."
     )
 
 
 def _within_custodian_short(exploratory: pl.DataFrame) -> str:
     row = _timestamp_row(exploratory)
     if row is None:
-        return "not measured"
-    return (
+        return "the change within the same people is not measured"
+    estimate = (
         f"{TIMESTAMP_HYPOTHESIS}: median change {format_value(row['median_change'])}, interval "
-        f"{format_value(row['ci_low'])} to {format_value(row['ci_high'])}, read as a "
-        "measurement of the record, not of behaviour"
+        f"{format_value(row['ci_low'])} to {format_value(row['ci_high'])}"
+    )
+    if not _excludes_zero(row):
+        return f"within the same people it is not established; {estimate}"
+    return (
+        f"within the same people; {estimate}, read as a measurement of the record, not of behaviour"
     )
 
 

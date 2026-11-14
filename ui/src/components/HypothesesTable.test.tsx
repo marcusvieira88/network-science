@@ -60,8 +60,8 @@ describe("HypothesesTable", () => {
     const h21 = { median_change: -0.148, ci_low: -0.191, ci_high: -0.106, placebo_median: -0.139, placebo_ci_low: -0.257, placebo_ci_high: -0.0672 };
     const entries = allHypotheses(hypotheses, rows.map((row) => (row.hypothesis === "H21" ? { ...row, ...h21 } : row)), checks);
     render(<HypothesesTable entries={entries} />);
-    expect(within(rowFor("H21")).getByText("the calm period already shows this change")).toBeInTheDocument();
-    expect(screen.getAllByText("the calm period already shows this change")).toHaveLength(1);
+    expect(within(rowFor("H21")).getByText("the calm period shows the same move")).toBeInTheDocument();
+    expect(screen.getAllByText("the calm period shows the same move")).toHaveLength(1);
   });
 
   it("states when each hypothesis was stated, from its table", () => {

@@ -34,12 +34,15 @@ HEADER_HEADERS = ("Header field", "Occurrences", "Ruling")
 HEADER_COLUMNS = ("field", "occurrences", "ruling")
 
 IDENTIFIER = "identifier"
+# What happens to a folder name (contracts/header-allowlist.md; the classes are
+# vocab.FOLDER_CLASSES, and a test pins their number to the word used here).
+FOLDER_NAME_RULE = "reduced at once to one of four classes and never kept"
 RULING_MEANING = {
     "usable": "kept as metadata; time is truncated to the hour",
     IDENTIFIER: "used inside the ingest zone only, then pseudonymized or discarded",
     "content": "never decoded, parsed, held, stored or logged: the line is discarded as the "
     "header is scanned. The folder class comes from the archive path, where a folder name is "
-    "reduced at once to one of four classes and never kept",
+    f"{FOLDER_NAME_RULE}",
     "technical": "used for diagnostics inside the ingest zone, then discarded",
     "dropped": "dropped by the parser",
 }

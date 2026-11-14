@@ -192,14 +192,14 @@ def test_summary_without_h5_says_not_measured_and_names_no_switch() -> None:
     assert text == (
         "The share of weekday sent mail stamped outside working hours is between 0.45 and 0.55 "
         "in the reference months and between 0.06 and 0.1 in the crisis months; the `Date` "
-        "convention changed in between, within the same people (not measured). Every "
+        "convention changed in between (the change within the same people is not measured). Every "
         "within-custodian comparison crosses that change."
     )
 
 
 def test_summary_with_suppressed_h5_says_not_measured() -> None:
     suppressed = _h5(-0.44).with_columns(pl.lit(None, pl.Float64).alias("median_change"))
-    assert "within the same people (not measured)" in record.record_summary(
+    assert "(the change within the same people is not measured)" in record.record_summary(
         _profile(SWITCHED), suppressed
     )
 
@@ -336,3 +336,17 @@ def test_replication_summary_is_the_outcome_in_a_few_words() -> None:
         "0.05); outcome: not supported."
     )
     assert record.replication_summary(NO_H5) == "The replication test of prior work was not run."
+
+
+def test_a_within_custodian_interval_holding_zero_does_not_rule_out_composition() -> None:
+    """Ranges part but H5 is -0.02 (interval -0.07 to 0.03): moderate, and the text must not
+    say the change is within the same people."""
+    text = record.record_statement(_profile(SWITCHED), _h5(-0.02))
+    assert (
+        "(interval -0.07 to 0.03): the interval includes zero, so a change in who is in the "
+        "data is not ruled out."
+    ) in text
+    assert "so it is not a change in who is in the data" not in text
+    assert "measurement of the record" not in text
+    summary = record.record_summary(_profile(SWITCHED), _h5(-0.02))
+    assert "within the same people it is not established; H5: median change -0.02" in summary

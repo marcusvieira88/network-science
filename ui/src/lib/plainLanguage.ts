@@ -73,7 +73,7 @@ export function untestableReason(caveat: string): string | null {
 }
 
 /** An interval that lies wholly on one side of zero. */
-function excludesZero(low: number | null, high: number | null): boolean {
+export function excludesZero(low: number | null, high: number | null): boolean {
   return low !== null && high !== null && (low > 0 || high < 0);
 }
 

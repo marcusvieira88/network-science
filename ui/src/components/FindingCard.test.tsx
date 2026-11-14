@@ -36,13 +36,21 @@ describe("FindingCard", () => {
   });
 
   it("states the finding about the record before what is not claimed about behaviour", () => {
-    const finding = "The finding: the record changed (high confidence that it changed; cause not established).";
+    const finding =
+      "The finding: the record changed (high confidence that it changed; cause not established). No behavioural finding about the crisis year is claimed.";
     render(
       <FindingCard hypotheses={[{ ...h1, supported: "no", is_headline: false }]} artifactChecks={[]} recordFinding={finding} />,
     );
-    expect(screen.getByText(`${finding} No behavioural finding about the crisis year is claimed.`)).toBeInTheDocument();
+    expect(screen.getByText(finding)).toBeInTheDocument();
     expect(screen.getByText("Headline among the pre-registered hypotheses")).toBeInTheDocument();
     expect(screen.queryByText(/no finding/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the finding about the record next to a behavioural headline", () => {
+    const finding = "The finding: the record changed (high confidence that it changed; cause not established).";
+    render(<FindingCard hypotheses={[h1]} artifactChecks={[]} recordFinding={finding} />);
+    expect(screen.getByText(finding)).toBeInTheDocument();
+    expect(screen.getByText("high confidence")).toBeInTheDocument();
   });
 
   it("shows the no-finding state when no headline hypothesis is supported", () => {

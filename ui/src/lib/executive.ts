@@ -6,7 +6,9 @@
  */
 import type { DataQualityRow, ExploratoryRow, HeaderFieldRow, Period, ReleaseData, RiskRow, Scope } from "@/lib/data";
 import { CONFIDENCE } from "@/lib/data";
-import { formatNumber, formatShare, metricLabel } from "@/lib/format";
+import { formatNumber, formatShare, joinList, metricLabel } from "@/lib/format";
+
+export { joinList };
 import { type HypothesisEntry, TIMING_LABELS, countByTiming, placeboShowsChange, releaseHypotheses } from "@/lib/hypotheses";
 import { namedGroups } from "@/lib/network";
 import { outsideLabel, outsidePeople } from "@/lib/outside";
@@ -45,12 +47,6 @@ export interface SummaryCard {
   linkLabel: string;
 }
 
-/** "A", "A and B", "A, B and C". */
-export function joinList(items: readonly string[]): string {
-  if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-}
-
 /** Counts are whole numbers: no decimals. */
 const COUNT_DECIMALS = 0;
 
@@ -85,21 +81,22 @@ function behaviouralHeldCount(entries: HypothesisEntry[]): number {
 }
 
 /**
- * The weekly series' span. Weeks begin on a Monday, so the first one starts before the analysis
- * does and is partial; the messages are not all inside these weeks, so they are counted apart.
+ * The weekly series' span. Weeks begin on a Monday, so a first week that starts before the
+ * analysis does is partial; the messages are not all inside these weeks, so they are counted apart.
  */
-function seriesSentence(weeks: string[]): string | null {
+function seriesSentence(weeks: string[], analysisStart: unknown): string | null {
   const [first] = weeks;
   const last = weeks[weeks.length - 1];
   if (first === undefined || last === undefined) return null;
-  return `The weekly network series has ${weeks.length} weeks, beginning on the Mondays ${first} to ${last}; the first week is partial.`;
+  const partial = typeof analysisStart === "string" && first < analysisStart ? "; the first week is partial" : "";
+  return `The weekly network series has ${weeks.length} weeks, beginning on the Mondays ${first} to ${last}${partial}.`;
 }
 
 export function studiedCard(data: ReleaseData): SummaryCard {
   const dedupe = step(data.tables.data_quality, STEPS.dedupe);
   const source = data.run.sample ? "the synthetic sample corpus" : "the public Enron email archive";
   const messages = dedupe ? `${count(dedupe.count_out)} distinct messages from ${source}` : `Messages from ${source}`;
-  const series = seriesSentence(analysisWeeks(data.tables.weekly_metrics));
+  const series = seriesSentence(analysisWeeks(data.tables.weekly_metrics), data.run.parameters.analysis_start);
   const content = contentFields(data.tables.header_fields);
   const contentText = content.length
     ? ` ${joinList(content)} count${content.length === 1 ? "s" : ""} as content and ${content.length === 1 ? "was" : "were"} never stored.`
@@ -185,15 +182,25 @@ function exploratoryRange(entries: HypothesisEntry[]): string {
   return ids.length > 1 ? `${ids[0]}–${ids[ids.length - 1]}` : joinList(ids);
 }
 
+/**
+ * The finding about the record and, only when no behavioural hypothesis is held, the sentence
+ * saying so; null when no change of the record is claimed. One line for every surface.
+ */
+export function recordFindingLine(data: ReleaseData): string | null {
+  const finding = recordFinding(data);
+  if (finding === null) return null;
+  return behaviouralHeldCount(releaseHypotheses(data)) === 0 ? `${finding} ${NO_BEHAVIOURAL_FINDING}` : finding;
+}
+
 export function recordCard(data: ReleaseData): SummaryCard {
   const entries = releaseHypotheses(data);
   const shifted = entries.filter(shiftedRecord);
   const artifacts = withVerdict(entries, "artifact").map((entry) => entry.id);
   const untestable = withVerdict(entries, "untestable").filter((entry) => !shiftedRecord(entry));
-  const finding = recordFinding(data);
+  const finding = recordFindingLine(data);
   const noBehaviour = behaviouralHeldCount(entries) === 0;
   const points = [
-    ...(finding === null ? [] : [noBehaviour ? `${finding} ${NO_BEHAVIOURAL_FINDING}` : finding]),
+    ...(finding === null ? [] : [finding]),
     ...shifted.map((entry) => shiftSentence(entry, data)),
     ...(artifacts.length ? [artifactSentence(artifacts)] : []),
     ...untestable.map((entry) => `${entry.id}: ${plainVerdict(entry).sentence}`),
@@ -447,4 +454,20 @@ export function headerHeadline(fields: HeaderFieldRow[]): string {
     ...(content.length ? [`${joinList(content)} ${content.length === 1 ? "is" : "are"} content and never stored`] : []),
   ];
   return `Of ${named.length} named header fields, ${parts.join("; ")}.`;
+}
+
+/** Fields ruled identifier that the parser drops instead of retaining (vocab.IDENTIFIERS_NOT_RETAINED). */
+const IDENTIFIERS_NOT_RETAINED: readonly string[] = ["X-Origin", "X-FileName"];
+
+/** What the ruling table cannot show by itself: identifiers that are not retained, and the fold that is not a field. */
+export function headerNotes(fields: HeaderFieldRow[]): string[] {
+  const dropped = fields.filter((row) => IDENTIFIERS_NOT_RETAINED.includes(row.field)).map((row) => row.field);
+  return [
+    ...(dropped.length
+      ? [`${joinList(dropped)} ${dropped.length === 1 ? "is a direct identifier that is" : "are direct identifiers that are"} not retained: the parser drops ${dropped.length === 1 ? "it" : "them"}.`]
+      : []),
+    ...(fields.some((row) => row.field === OTHER_HEADER_FIELD)
+      ? [`${OTHER_HEADER_FIELD} counts occurrences of names without a ruling; it is not a field.`]
+      : []),
+  ];
 }

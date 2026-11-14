@@ -26,9 +26,9 @@ const COLUMN_COUNT = 8;
 export const HELD_TRUE = "Held true";
 /** Shown where a comparison covers fewer than k custodians and the release suppresses it. */
 const SUPPRESSED = "suppressed";
-/** H1–H4 state their direction in docs/hypotheses.md; the release tables do not carry it. */
 /** A placebo that passes its stated rule although the calm period moved the way the crisis did. */
-const PLACEBO_SHOWS_CHANGE = "the calm period already shows this change";
+const PLACEBO_SHOWS_CHANGE = "the calm period shows the same move";
+/** H1–H4 state their direction in docs/hypotheses.md; the release tables do not carry it. */
 const DIRECTION_NOT_PUBLISHED = "not in the release data; see docs/hypotheses.md";
 
 function flag(value: boolean | null, yes: string, no: string): string {

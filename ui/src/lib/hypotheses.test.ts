@@ -159,6 +159,9 @@ describe("releaseHypotheses", () => {
     // H25 as released: rose by 0.00826; the placebo median is larger, its interval touches zero.
     const h25 = exploratory(25, { median_change: 0.00826, placebo_median: 0.0248, placebo_ci_low: 0, placebo_ci_high: 0.0331 });
     expect([h21, h14, h25].map(placeboShowsChange)).toEqual([true, false, true]);
+    // H11 as released: predicted down, rose by 1.03; the placebo rose by 1.55, its interval including zero.
+    const h11 = exploratory(11, { direction: "down", median_change: 1.03, placebo_median: 1.55, placebo_ci_low: -2.43, placebo_ci_high: 5.06 });
+    expect(placeboShowsChange(h11)).toBe(false);
     expect(placeboShowsChange(exploratory(8, { median_change: 0 }))).toBe(false);
     expect(placeboShowsChange(exploratory(9, { placebo_median: null }))).toBe(false);
   });

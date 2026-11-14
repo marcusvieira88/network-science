@@ -4,7 +4,8 @@
  * the report's (src/enron_case/report/record.py, CONFIDENCE_RULE), applied to the same release
  * tables: `record_profile` and the within-custodian after-hours hypothesis.
  */
-import type { ExploratoryRow, Period, RecordProfileRow, ReleaseData } from "@/lib/data";
+import type { Period, RecordProfileRow, ReleaseData } from "@/lib/data";
+import { excludesZero } from "@/lib/plainLanguage";
 
 /** The within-custodian after-hours share: its estimate measures the record (TIMESTAMP_HYPOTHESIS in record.py). */
 export const TIMESTAMP_HYPOTHESIS = "H5";
@@ -37,12 +38,6 @@ function movedLower(reference: number[], crisis: number[]): boolean | null {
   return Math.min(...crisis) > Math.max(...reference) ? false : null;
 }
 
-/** The within-custodian interval lies wholly on one side of zero. */
-function excludesZero(row: ExploratoryRow | undefined): boolean {
-  if (row === undefined || row.median_change === null || row.ci_low === null || row.ci_high === null) return false;
-  return row.ci_low > 0 || row.ci_high < 0;
-}
-
 /**
  * High when the monthly ranges of the two windows do not overlap and the change within the same
  * people has an interval that excludes zero; moderate when the ranges do not
@@ -56,7 +51,8 @@ export function recordConfidence(data: ReleaseData): RecordConfidence | null {
   if (!reference.length || !crisis.length) return null;
   if (movedLower(reference, crisis) === null) return null;
   const row = data.tables.exploratory.find((candidate) => candidate.hypothesis === TIMESTAMP_HYPOTHESIS);
-  return excludesZero(row) ? "high" : "moderate";
+  const measured = row !== undefined && row.median_change !== null;
+  return measured && excludesZero(row.ci_low, row.ci_high) ? "high" : "moderate";
 }
 
 /** The finding in one sentence, the same on every surface; null when no change of the record is claimed. */

@@ -374,6 +374,15 @@ def _span_of(exploratory: pl.DataFrame) -> str:
     return _ids(ids) if ids else "the within-custodian hypotheses"
 
 
+def _met_rule_but_retention(exploratory: pl.DataFrame) -> pl.DataFrame:
+    """Rows that met every other part of their rule and failed only the retention check."""
+    return exploratory.filter(
+        pl.col("retention_passes").eq(False)
+        & pl.col("placebo_passes").eq(True)
+        & pl.col("loo_stable").eq(True)
+    )
+
+
 def exploratory_statement(exploratory: pl.DataFrame) -> str:
     """One sentence per hypothesis held true among H5–H25, or a sentence saying there is none.
     With none, each hypothesis that met every other part of its rule (placebo, leave-one-out)
@@ -390,11 +399,7 @@ def exploratory_statement(exploratory: pl.DataFrame) -> str:
                 f"{format_value(r['retention_ci_low'])} to "
                 f"{format_value(r['retention_ci_high'])}). "
                 "It is not established on a measure that depends less on what one inbox kept."
-                for r in exploratory.filter(
-                    pl.col("retention_passes").eq(False)
-                    & pl.col("placebo_passes").eq(True)
-                    & pl.col("loo_stable").eq(True)
-                ).rows(named=True)
+                for r in _met_rule_but_retention(exploratory).rows(named=True)
             )
         )
     parts = []
@@ -442,10 +447,12 @@ def went_opposite(row: Row) -> bool:
 
 
 def placebo_shows_change(row: Row) -> bool:
-    """The pre-crisis placebo already shows the crisis change: on the side the crisis median
-    moved to, the placebo interval excludes zero or the placebo median is at least as large.
-    The stated rule still lets such a placebo pass when that side is against the prediction
-    or its interval includes zero; this reading is added next to the rule, not instead of it."""
+    """The pre-crisis placebo passes its stated rule although the calm period moved as the
+    crisis did. Two cases, both a consequence of that rule: the placebo interval excludes zero
+    on the side the crisis median moved to (it passes when that side is against the
+    prediction); or the crisis median is on the predicted side and the placebo median is at
+    least as large there (it passes only because its interval includes zero). A note next to
+    the rule, not a change of it."""
     median, placebo = row["median_change"], row["placebo_median"]
     low, high = row["placebo_ci_low"], row["placebo_ci_high"]
     if not (
@@ -458,11 +465,13 @@ def placebo_shows_change(row: Row) -> bool:
     if median == 0:
         return False
     sign = 1 if median > 0 else -1
-    excludes_zero = sign * low > 0 and sign * high > 0
-    return excludes_zero or sign * placebo >= sign * median
+    if sign * low > 0 and sign * high > 0:
+        return True
+    predicted = 1 if row["direction"] == "up" else -1
+    return sign == predicted and sign * placebo >= sign * median
 
 
-PLACEBO_SHOWS_CHANGE = "the calm period already shows this change"
+PLACEBO_SHOWS_CHANGE = "the calm period shows the same move"
 
 
 def _placebo_cell(row: Row) -> str:
@@ -524,14 +533,17 @@ def _failed_checks(row: Row) -> list[str]:
 
 
 def inconclusive_statement(exploratory: pl.DataFrame) -> str:
-    """Each inconclusive hypothesis with the checks it failed, except those the statement above
-    already names (met the stated rule and failed only the retention check); "" when none."""
+    """Each inconclusive hypothesis with the checks it failed; "" when there is none. Left out:
+    a hypothesis that cannot be tested at all (its caveat says so), one with no failed check
+    published, and those `exploratory_statement` already names."""
+    named = _met_rule_but_retention(exploratory).get_column("hypothesis").to_list()
+    confident = exploratory.filter(pl.col("outcome") == schemas.EXPLORATORY_CONFIDENT).height
     parts = []
     for r in exploratory.filter(pl.col("outcome") == schemas.EXPLORATORY_INCONCLUSIVE).rows(
         named=True
     ):
         failed = _failed_checks(r)
-        if failed == ["it fails its retention check"] or not failed:
+        if not failed or _untestable(r) or (not confident and r["hypothesis"] in named):
             continue
         parts.append(
             f"{r['hypothesis']} ({r['measure']}) is inconclusive: it changed in the predicted "
@@ -565,7 +577,7 @@ def timing_statement(hypotheses: pl.DataFrame, exploratory: pl.DataFrame) -> str
         else "",
         f"{_ids(stated)}: {TIMING_STATED}" if stated else "",
         f"{_joined(post_hoc)}: {TIMING_POST_HOC} (stated after every other result was known, "
-        "still before its own result was computed)",
+        "each still before its own result was computed)",
     ]
     return "; ".join(filter(None, parts)) + "."
 
@@ -574,9 +586,11 @@ COLUMN_NOTES = (
     "How to read two columns. **Placebo**: the same comparison between two pre-crisis windows "
     "a year apart. It passes when that calm period shows no change in the predicted direction: "
     "its interval includes zero, or its median lies below half the crisis median on the "
-    "predicted side. A calm-period change against the prediction therefore passes; where the "
-    "placebo already shows the crisis change (on the side the crisis median moved to, its "
-    "interval excludes zero or its median is at least as large), the cell says so. "
+    "predicted side. A calm-period change against the prediction therefore passes, and so "
+    "does one whose interval includes zero however large its median. The cell says so where "
+    "the calm period moved as the crisis did: its interval excludes zero on the side the "
+    "crisis median moved to, or the crisis median is on the predicted side and the placebo "
+    "median is at least as large. "
     "**Leave-one-out**: stable only if the median change keeps the predicted sign with each "
     "custodian left out in turn. It therefore reads unstable both when single custodians carry "
     "the result and when the result is not in the predicted direction to begin with; it is "

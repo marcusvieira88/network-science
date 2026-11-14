@@ -614,7 +614,7 @@ def test_timing_statement_uses_the_three_labels_from_the_family_column() -> None
         "H1–H4: pre-registered (before any real data was analysed); "
         "H5–H7: stated before computed, after earlier results; "
         f"H25 and H{HYPOTHESES_STATED}: post hoc (stated after every other result was known, "
-        "still before its own result was computed)."
+        "each still before its own result was computed)."
     )
 
 
@@ -692,6 +692,21 @@ def test_placebo_shows_change_when_its_median_is_at_least_as_large_on_that_side(
     assert not render.placebo_shows_change(smaller)
 
 
+def test_placebo_note_needs_a_clear_placebo_when_the_crisis_moved_against_the_prediction() -> None:
+    """H11 as released: predicted down, crisis median 1.03 and placebo median 1.55, both with
+    intervals that include zero. Noise beside noise is not "the same move"."""
+    h11 = _row(
+        direction="down",
+        median_change=1.03,
+        ci_low=-0.608,
+        ci_high=2.93,
+        placebo_median=1.55,
+        placebo_ci_low=-2.43,
+        placebo_ci_high=5.06,
+    )
+    assert not render.placebo_shows_change(h11)
+
+
 def test_placebo_shows_no_change_for_a_flat_or_suppressed_comparison() -> None:
     assert not render.placebo_shows_change(_row(median_change=0.0, placebo_median=0.0))
     assert not render.placebo_shows_change(_row(placebo_median=None))
@@ -703,8 +718,8 @@ def test_exploratory_table_says_when_a_passing_placebo_already_shows_the_change(
         pl.lit(32).alias("custodians"), pl.lit(15).alias("placebo_custodians")
     )
     section = render.exploratory_section(table)
-    assert "| passes; the calm period already shows this change | stable |" in section
-    assert section.count("the calm period already shows this change |") == 1
+    assert "| passes; the calm period shows the same move | stable |" in section
+    assert section.count("the calm period shows the same move |") == 1
     assert "| 15 | passes | stable |" in section and "| 15 | fails | stable |" in section
 
 
@@ -763,12 +778,25 @@ def test_inconclusive_statement_names_the_failed_checks() -> None:
         placebo_passes=False,
     )
     retention_only = _row(hypothesis="H16", outcome="inconclusive", retention_passes=False)
-    text = render.inconclusive_statement(pl.DataFrame([h20, retention_only]))
+    untestable = _row(hypothesis="H5", outcome="inconclusive", placebo_passes=False)
+    untestable["caveat"] = "invalid: the hour convention changes"
+    text = render.inconclusive_statement(pl.DataFrame([untestable, h20, retention_only]))
     assert text == (
         "H20 (m) is inconclusive: it changed in the predicted direction by a median of 5.85 "
         "(interval 5.05 to 7.74), significant after Holm's correction (p = 0.0004), but its "
         "pre-crisis placebo fails (3.3 (interval 1.6 to 4.7)), so it is not held true."
     )
+
+
+def test_inconclusive_statement_names_a_retention_failure_when_another_result_is_confident() -> (
+    None
+):
+    """With a confident hypothesis the statement above no longer names the retention failure,
+    so this one must."""
+    confident = _row(hypothesis="H12", outcome="confident")
+    retention_only = _row(hypothesis="H16", outcome="inconclusive", retention_passes=False)
+    text = render.inconclusive_statement(pl.DataFrame([confident, retention_only]))
+    assert text.startswith("H16 (m) is inconclusive:") and "fails its retention check" in text
 
 
 def test_timestamp_hypothesis_row_points_to_the_record_reading(

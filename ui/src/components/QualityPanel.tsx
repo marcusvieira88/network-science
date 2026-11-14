@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { DataQualityRow, DegreeRow, HeaderFieldRow } from "@/lib/data";
-import { funnelHeadline, headerHeadline } from "@/lib/executive";
+import { funnelHeadline, headerHeadline, headerNotes } from "@/lib/executive";
 import { formatNumber, formatShare } from "@/lib/format";
 
 const FUNNEL_CAPTION =
@@ -93,9 +93,8 @@ export function QualityPanel({ steps, headerFields, degrees }: QualityPanelProps
               <span className="block text-base font-medium text-foreground">{headerHeadline(headerFields)}</span>
               <span className="block">
                 Every header field seen, and what the parser does with it. Content fields are never decoded, parsed,
-                held, stored or logged: a Subject line is discarded as the header is scanned. Two identifier fields,
-                X-Origin and X-FileName, are direct identifiers that are not retained. &ldquo;(other)&rdquo; counts
-                occurrences of names without a ruling; it is not a field.
+                held, stored or logged: a Subject line is discarded as the header is scanned.{" "}
+                {headerNotes(headerFields).join(" ")}
               </span>
             </CardDescription>
           </CardHeader>

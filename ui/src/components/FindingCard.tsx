@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { ArtifactCheckRow, HypothesisRow } from "@/lib/data";
 import { noFindingExplanation } from "@/lib/finding";
 import { formatFloat, formatInterval, formatP, metricLabel } from "@/lib/format";
-import { NO_BEHAVIOURAL_FINDING } from "@/lib/record";
 import { headline } from "@/lib/series";
 
 export function ConfidenceBadge({ confidence }: { confidence: HypothesisRow["confidence"] }) {
@@ -19,7 +18,7 @@ export function FindingCard({
 }: {
   hypotheses: HypothesisRow[];
   artifactChecks: ArtifactCheckRow[];
-  /** The finding about the record (lib/record.ts), stated before what is not claimed about behaviour. */
+  /** The finding about the record, with what is not claimed about behaviour (recordFindingLine), stated first. */
   recordFinding?: string | null;
 }) {
   const finding = headline(hypotheses);
@@ -32,11 +31,7 @@ export function FindingCard({
           <CardTitle className="text-xl">{title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
-          {recordFinding !== null && (
-            <p className="text-foreground">
-              {recordFinding} {NO_BEHAVIOURAL_FINDING}
-            </p>
-          )}
+          {recordFinding !== null && <p className="text-foreground">{recordFinding}</p>}
           {body.map((sentence) => (
             <p key={sentence}>{sentence}</p>
           ))}
@@ -89,6 +84,7 @@ export function FindingCard({
             </dd>
           </div>
         </dl>
+        {recordFinding !== null && <p className="mt-4 text-sm">{recordFinding}</p>}
         <p className="mt-4 text-sm text-muted-foreground">
           Leaving out any single mailbox moves the effect between {formatFloat(finding.loo_min_effect)} and{" "}
           {formatFloat(finding.loo_max_effect)}.
