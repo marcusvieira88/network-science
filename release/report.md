@@ -56,7 +56,7 @@ Added after the first real-data run, which showed that the pre-registered checks
 | Hypothesis | Check | Statistic | Interval | Units | Result | Reading |
 |---|---|---|---|---|---|---|
 | H2 | baseline placebo | 10.8 | 8.2 to 17.4 | 52 | fails | a calm half-year out of sample already jumps: the test effect is baseline drift |
-| H3 | within custodian | -0.00987 | -0.0841 to 0.0675 | 42 | fails | no within-custodian change: the aggregate shift is a change in who is in the data |
+| H3 | within custodian | -0.00987 | -0.0874 to 0.0675 | 42 | fails | no within-custodian change: the aggregate shift is a change in who is in the data |
 
 ## All hypotheses
 

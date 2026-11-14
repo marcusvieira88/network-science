@@ -134,7 +134,8 @@ def within_custodian(network: Network, change_week: date | None, config: Config)
     ).with_columns(pl.col("ts_hour").dt.date().alias("day"))
     before = _shares(sent, config.baseline_start, config.baseline_end)
     after = _shares(sent, change_week, config.analysis_end)
-    paired = before.join(after, on="sender_pid", suffix="_after")
+    # Sorted, so the seeded bootstrap resamples the same order on every run.
+    paired = before.join(after, on="sender_pid", suffix="_after").sort("sender_pid")
     changes = (paired.get_column("share_after") - paired.get_column("share")).to_numpy()
     n = len(changes)
     if n < config.k_min:

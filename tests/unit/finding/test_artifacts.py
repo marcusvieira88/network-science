@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from enron_case.config import Config
 from enron_case.contracts import schemas
@@ -100,3 +101,19 @@ def test_table_matches_contract(synth: SynthOutput, tmp_path: Path) -> None:
     schemas.validate(
         schemas.conform(artifacts.table(checks), "artifact_results"), "artifact_results"
     )
+
+
+def test_within_custodian_is_independent_of_row_order(synth: SynthOutput) -> None:
+    network = _network(synth)
+    shuffled = Network(
+        network.events.sample(fraction=1.0, shuffle=True, seed=3),
+        network.entities_p,
+        network.communities,
+    )
+    first = artifacts.within_custodian(network, date(2001, 8, 13), CONFIG)
+    second = artifacts.within_custodian(shuffled, date(2001, 8, 13), CONFIG)
+    # Shuffling changes float summation order (last-bit noise); the custodians resampled by
+    # the seeded bootstrap must not change, so the interval agrees to rounding.
+    assert (first.n_units, first.passes) == (second.n_units, second.passes)
+    for field in ("statistic", "ci_low", "ci_high"):
+        assert getattr(first, field) == pytest.approx(getattr(second, field), rel=1e-9)

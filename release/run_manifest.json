@@ -1,6 +1,6 @@
 {
-  "written_utc": "2026-11-14T11:02:44Z",
-  "code_version": "3198aba",
+  "written_utc": "2026-11-14T11:09:37Z",
+  "code_version": "7c19c79",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -28,8 +28,8 @@
   "corpus_sha256": null,
   "tables": {
     "address_map": "b9ecaa695722955bd61f7e3e46554f0c414b6f80da879d4b1dc292dd50575c3c",
-    "artifact_checks": "69a5ad66596dced1710e78c0aae1fe50c2a4af9e7461e78872d39feda9b8c2c5",
-    "artifact_results": "69a5ad66596dced1710e78c0aae1fe50c2a4af9e7461e78872d39feda9b8c2c5",
+    "artifact_checks": "53fde1ed0af16e90c1ef4a8ba9b6c29291161e8abd4cf08893571fc6b9f1a835",
+    "artifact_results": "53fde1ed0af16e90c1ef4a8ba9b6c29291161e8abd4cf08893571fc6b9f1a835",
     "communities": "75e8456f71e028cf225bdda26ceb77fa688fdc9e491d1065a0b7d13244619ec5",
     "community_graph": "d5cfef45c919c2c245d72b45b9956920dd7de15bee172b3176c231fcea0cf0dd",
     "community_groups": "9eacfc92d01fb77d18c71e226a3f399c9269b5827621487fbcf71c0b24b2fefa",
@@ -58,39 +58,39 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.19
+      "seconds": 0.34
     },
     {
       "stage": "parse",
-      "seconds": 30.39
+      "seconds": 31.27
     },
     {
       "stage": "clean",
-      "seconds": 27.0
+      "seconds": 25.84
     },
     {
       "stage": "identity",
-      "seconds": 5.17
+      "seconds": 5.47
     },
     {
       "stage": "pseudo",
-      "seconds": 17.18
+      "seconds": 16.5
     },
     {
       "stage": "network",
-      "seconds": 1.51
+      "seconds": 0.73
     },
     {
       "stage": "finding",
-      "seconds": 22.58
+      "seconds": 21.25
     },
     {
       "stage": "risk",
-      "seconds": 35.95
+      "seconds": 35.66
     },
     {
       "stage": "release",
-      "seconds": 0.09
+      "seconds": 0.07
     },
     {
       "stage": "report",
