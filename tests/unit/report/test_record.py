@@ -7,6 +7,8 @@ from datetime import date
 
 import polars as pl
 
+from enron_case.config import PRIOR_WORK_YEAR
+from enron_case.contracts import vocab
 from enron_case.report import record
 
 MONTHS = [date(2000, m, 1) for m in range(8, 13)] + [date(2001, m, 1) for m in range(1, 13)]
@@ -191,8 +193,7 @@ def test_summary_without_h5_says_not_measured_and_names_no_switch() -> None:
         "The share of weekday sent mail stamped outside working hours is between 0.45 and 0.55 "
         "in the reference months and between 0.06 and 0.1 in the crisis months; the `Date` "
         "convention changed in between, within the same people (not measured). Every "
-        "within-custodian comparison crosses that change; confidence that it happened: high, "
-        "its cause not established."
+        "within-custodian comparison crosses that change."
     )
 
 
@@ -214,7 +215,11 @@ def test_statement_without_switch_h5_or_volumes_keeps_only_the_ranges_and_caveat
     assert text.startswith(
         f"{RANGES}: the ranges do not overlap. Working days do not move by hours within a year:"
     )
-    assert text.endswith("folder names would show it, and we do not read them.")
+    assert text.endswith(
+        "folder names would show it, and each is reduced at once to one of four classes and "
+        "never kept."
+    )
+    assert "do not read" not in text
     assert "From " not in text and "Within the same people" not in text
 
 
@@ -252,3 +257,82 @@ def test_replication_statement_when_h25_is_suppressed() -> None:
         "H25 (the replication test of prior work) is suppressed: fewer than k custodians "
         "could be compared."
     )
+
+
+# ---- the finding, its confidence rule and the reading of H5 ----------------------------------
+
+
+def test_confidence_is_high_only_when_ranges_part_and_h5_excludes_zero_on_that_side() -> None:
+    """SWITCHED: reference months 0.45-0.55, crisis months 0.06-0.1, so the ranges do not
+    overlap and the share fell. `_h5(m)` has the interval m ± 0.05."""
+    profile = _profile(SWITCHED)
+    assert record.record_confidence(profile, _h5(-0.44)) == "high"  # -0.49 to -0.39
+    assert record.record_confidence(profile, _h5(-0.02)) == "moderate"  # -0.07 to 0.03
+    assert record.record_confidence(profile, _h5(0.44)) == "moderate"  # excludes zero, wrong side
+    assert record.record_confidence(profile, NO_H5) == "moderate"  # not measured
+
+
+def test_confidence_reads_a_rise_of_the_share_the_same_way() -> None:
+    """The mirror case: crisis months above every reference month, H5 above zero."""
+    profile = _profile([1 - share for share in SWITCHED])
+    assert record.record_confidence(profile, _h5(0.44)) == "high"
+    assert record.record_confidence(profile, _h5(-0.44)) == "moderate"
+
+
+def test_no_confidence_and_no_finding_without_a_claimed_change() -> None:
+    flat = _profile([0.5] * len(MONTHS))
+    assert record.record_confidence(flat, _h5(-0.44)) is None
+    assert record.finding_statement(flat, _h5(-0.44)) == ""
+    hidden = _months_suppressed(SWITCHED, *REFERENCE_MONTHS)
+    assert record.record_confidence(hidden, _h5(-0.44)) is None
+
+
+def test_finding_statement_names_the_record_change_and_its_derived_confidence() -> None:
+    assert record.finding_statement(_profile(SWITCHED), _h5(-0.44)) == (
+        "The finding: the record changed (high confidence that it changed; cause not established)."
+    )
+    assert "(moderate confidence that it changed;" in record.finding_statement(
+        _profile(SWITCHED), NO_H5
+    )
+
+
+def test_statement_states_the_confidence_with_its_rule() -> None:
+    text = record.record_statement(_profile(SWITCHED), _h5(-0.44))
+    assert f"Confidence that the record changed: high (the rule: {record.CONFIDENCE_RULE})" in text
+    assert "moderate (the rule:" in record.record_statement(_profile(SWITCHED), NO_H5)
+
+
+def test_h5_estimate_is_read_as_a_measurement_of_the_record_not_of_behaviour() -> None:
+    """H5 is untestable as a behavioural hypothesis, yet its number is the evidence here: the
+    statement and the summary say which reading applies."""
+    text = record.record_statement(_profile(SWITCHED), _h5(-0.44))
+    assert (
+        "As a hypothesis about behaviour, H5 could not be tested, because the convention "
+        "changed under it; the same number is read here as a measurement of the record, not "
+        "of behaviour."
+    ) in text
+    summary = record.record_summary(_profile(SWITCHED), _h5(-0.44))
+    assert "read as a measurement of the record, not of behaviour" in summary
+
+
+def test_folder_names_wording_matches_the_number_of_folder_classes() -> None:
+    assert len(vocab.FOLDER_CLASSES) == 4
+    assert "one of four classes" in record.FOLDER_NAMES
+
+
+def test_replication_statement_names_prior_work_neutrally() -> None:
+    text = record.replication_statement(_h25(None))
+    assert text.startswith(
+        "H25, the post-hoc replication test of the denser crisis-period network reported in "
+        "published single-month comparisons of this corpus (Diesner and colleagues, "
+        f"{PRIOR_WORK_YEAR}), compares each custodian's share"
+    )
+    assert "Frantz" not in text
+
+
+def test_replication_summary_is_the_outcome_in_a_few_words() -> None:
+    assert record.replication_summary(_h25(None)) == (
+        "H25 (post-hoc replication test of prior work): median change 0.02 (interval -0.01 to "
+        "0.05); outcome: not supported."
+    )
+    assert record.replication_summary(NO_H5) == "The replication test of prior work was not run."

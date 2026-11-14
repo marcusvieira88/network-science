@@ -27,6 +27,21 @@ NO_CHECK = "no check"  # a hypothesis without an artifact check (docs/hypotheses
 MITIGATION_TARGET = 0.5  # SC-007: a mitigated release should at least halve the rate
 STEP_MANUAL_N2 = STEP_MANUAL_RULE.format(rule="N2")
 
+# When a hypothesis was stated: the three labels every surface uses (the explorer mirrors them
+# in ui/src/lib/hypotheses.ts). The release carries the timing as `exploratory.family`.
+TIMING_PREREGISTERED = "pre-registered"
+TIMING_STATED = "stated before computed, after earlier results"
+TIMING_POST_HOC = "post hoc"
+_FIRST_FAMILY, _SECOND_FAMILY, _POST_HOC_FAMILY = schemas.EXPLORATORY_FAMILIES
+FAMILY_TIMING = {
+    _FIRST_FAMILY: TIMING_STATED,
+    _SECOND_FAMILY: TIMING_STATED,
+    _POST_HOC_FAMILY: TIMING_POST_HOC,
+}
+# Caveat prefixes (before the colon) of a hypothesis that could not be tested validly; the
+# explorer reads the same prefixes (ui/src/lib/plainLanguage.ts).
+UNTESTABLE_PREFIXES = ("invalid", "untestable")
+
 HYPOTHESIS_CLAIMS = {
     "H1": "communication concentrated on fewer people as the crisis approached",
     "H2": "communication increasingly crossed established group boundaries",
@@ -43,9 +58,11 @@ CONFIDENCE_WORDS = {
 RELEASE_VARIANTS = {
     "R0": "pseudonymized person-level weekly edge list (the naive output; never published)",
     "R1": "aggregates only, every cell meeting the minimum group size, bucketed degrees, "
-    "weekly resolution; it contains no pseudonyms, and groups carry size-ordered labels",
+    "weekly resolution; it contains no pseudonyms, and groups carry size-ordered labels. This "
+    "is what is published; it holds no person-level record",
     "R2": "R1 plus seeded Laplace noise of a fixed scale on degree counts and group tie weights; "
-    "the noise is not calibrated to any privacy budget (a sketch, not differential privacy)",
+    "the noise is not calibrated to any privacy budget (a sketch, not differential privacy). "
+    "It holds no person-level record either",
 }
 ATTACKERS = {
     "A1": "outsider who holds the public corpus and matches per-address activity features",
@@ -53,6 +70,8 @@ ATTACKERS = {
     "A3": "the same propagation seeded with every custodian: the public corpus names every "
     "mailbox owner, so anyone holding it knows them all",
 }
+# A rate of zero on a release without person-level records: a consequence of the design.
+BY_CONSTRUCTION = "by construction, not a measurement"
 ALTERNATIVE_EXPLANATIONS = (
     "Retention: what each person kept, and what was collected, differs by person and period, "
     "so coverage changes toward late in the period for reasons unrelated to behaviour.",
@@ -84,7 +103,8 @@ LIMITS = (
     "re-identifiable (see the attack on R0), so only aggregates are published; the noise variant "
     "is a sketch, not a formal privacy budget.",
     "Observational design: a structural change near public events does not show what people "
-    "knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.",
+    "knew. Stating a hypothesis before computing it limits hindsight bias but does not remove "
+    "it, and only the pre-registered hypotheses were stated before any real data was seen.",
     "No group-level attack on the community graph was run: an attacker who knows some group "
     "members could try to infer ties or membership from group-to-group weights, and that risk "
     "is bounded only by the minimum of k distinct senders per published tie, not measured.",
@@ -233,12 +253,23 @@ def _artifact_result(checks: pl.DataFrame, hypothesis: str) -> bool | str | None
 
 
 def _names(hypotheses: list[str]) -> str:
-    return ", ".join(sorted(hypotheses))
+    return _joined(sorted(hypotheses))
+
+
+def _its(hypotheses: list[str]) -> str:
+    return "its check" if len(hypotheses) == 1 else "their checks"
+
+
+def _joined(items: list[str]) -> str:
+    """`A`, `A and B`, `A, B and C`."""
+    if len(items) <= 1:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} and {items[-1]}"
 
 
 def no_headline_statement(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
-    """Why no finding is claimed. Only hypotheses with `supported = yes` are named; a hypothesis
-    that is not supported is never said to have passed anything."""
+    """Why no behavioural finding is claimed. Only hypotheses with `supported = yes` are named;
+    a hypothesis that is not supported is never said to have passed anything."""
     supported = hypotheses.filter(pl.col("supported") == "yes").rows(named=True)
     if not supported:
         return (
@@ -248,19 +279,20 @@ def no_headline_statement(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str
     result = {row["hypothesis"]: _artifact_result(checks, row["hypothesis"]) for row in supported}
     failed = [h for h, r in result.items() if r is False]
     not_run = [h for h, r in result.items() if r is None]
-    sentences = ["No finding about the crisis year is claimed."]
+    sentences = ["No behavioural finding about the crisis year is claimed."]
     if failed:
         sentences.append(
-            f"{_names(failed)} passed the pre-registered statistical tests but failed its check "
-            "against a known artifact of the data (release/artifact_checks.csv): the apparent "
+            f"{_names(failed)} passed the pre-registered statistical tests but failed "
+            f"{_its(failed)} against a known artifact of the data "
+            "(release/artifact_checks.csv): the apparent "
             "change is explained by how the data was collected and analysed, not by a "
             "detectable change in how people communicated."
         )
     if not_run:
         sentences.append(
-            f"{_names(not_run)} passed the pre-registered statistical tests but its check "
-            "against a known artifact of the data could not run, so that artifact is not ruled "
-            "out."
+            f"{_names(not_run)} passed the pre-registered statistical tests but "
+            f"{_its(not_run)} against a known artifact of the data could not run, so that "
+            "artifact is not ruled out."
         )
     for row in supported:
         if result[row["hypothesis"]] in (True, NO_CHECK):
@@ -338,8 +370,8 @@ SUPPRESSED = "suppressed (fewer than k custodians)"
 def _span_of(exploratory: pl.DataFrame) -> str:
     """`H5–H25`: the first and last hypothesis of the within-custodian table (released in
     hypothesis order)."""
-    ids = exploratory.get_column("hypothesis").to_list()
-    return f"{ids[0]}–{ids[-1]}" if ids else "the within-custodian hypotheses"
+    ids = [str(h) for h in exploratory.get_column("hypothesis").to_list()]
+    return _ids(ids) if ids else "the within-custodian hypotheses"
 
 
 def exploratory_statement(exploratory: pl.DataFrame) -> str:
@@ -384,17 +416,190 @@ def exploratory_statement(exploratory: pl.DataFrame) -> str:
         parts.append(text + ".")
     return (
         " ".join(parts)
-        + " Each was stated after the results of H1–H4 and before being computed (H25 also after"
-        " every other result, as a post-hoc replication test), and each comparison crosses the"
-        " change of the record described above, so a held-true result is a lead for confirmation"
-        " on independent data rather than a pre-registered finding."
+        + f" None of these is {TIMING_PREREGISTERED}: each was stated after the results of H1–H4"
+        " and before being computed (H25 also after every other result, as a post-hoc"
+        " replication test), and each comparison crosses the change of the record described"
+        " above, so a held-true result is a lead for confirmation on independent data rather"
+        " than a pre-registered finding."
     )
+
+
+def _untestable(row: Row) -> bool:
+    """The caveat rules the test invalid or untestable, whatever its numbers."""
+    prefix, separator, _ = str(row["caveat"] or "").partition(":")
+    return bool(separator) and prefix.strip().lower() in UNTESTABLE_PREFIXES
+
+
+def went_opposite(row: Row) -> bool:
+    """Not supported because the whole interval lies on the side against the prediction: the
+    measure moved, but the other way. An untestable hypothesis is never read this way."""
+    low, high = row["ci_low"], row["ci_high"]
+    if row["outcome"] != schemas.EXPLORATORY_NOT_SUPPORTED or _untestable(row):
+        return False
+    if not isinstance(low, int | float) or not isinstance(high, int | float):
+        return False
+    return high < 0 if row["direction"] == "up" else low > 0
+
+
+def placebo_shows_change(row: Row) -> bool:
+    """The pre-crisis placebo already shows the crisis change: on the side the crisis median
+    moved to, the placebo interval excludes zero or the placebo median is at least as large.
+    The stated rule still lets such a placebo pass when that side is against the prediction
+    or its interval includes zero; this reading is added next to the rule, not instead of it."""
+    median, placebo = row["median_change"], row["placebo_median"]
+    low, high = row["placebo_ci_low"], row["placebo_ci_high"]
+    if not (
+        isinstance(median, int | float)
+        and isinstance(placebo, int | float)
+        and isinstance(low, int | float)
+        and isinstance(high, int | float)
+    ):
+        return False
+    if median == 0:
+        return False
+    sign = 1 if median > 0 else -1
+    excludes_zero = sign * low > 0 and sign * high > 0
+    return excludes_zero or sign * placebo >= sign * median
+
+
+PLACEBO_SHOWS_CHANGE = "the calm period already shows this change"
+
+
+def _placebo_cell(row: Row) -> str:
+    passes = row["placebo_passes"]
+    if passes is None:
+        return SUPPRESSED
+    if passes and placebo_shows_change(row):
+        return f"passes; {PLACEBO_SHOWS_CHANGE}"
+    return "passes" if passes else "fails"
+
+
+def _estimate(row: Row, prefix: str = "") -> str:
+    """`median (interval low to high)` of a comparison; `prefix` picks the placebo's columns."""
+    median = "median_change" if not prefix else f"{prefix}median"
+    return (
+        f"{format_value(row[median])} (interval {format_value(row[f'{prefix}ci_low'])} to "
+        f"{format_value(row[f'{prefix}ci_high'])})"
+    )
+
+
+def opposite_statement(exploratory: pl.DataFrame) -> str:
+    """The hypotheses that are not supported because the measure moved against the prediction,
+    each with its numbers; "" when there is none."""
+    rows = [r for r in exploratory.rows(named=True) if went_opposite(r)]
+    if not rows:
+        return ""
+    one = len(rows) == 1
+    listed = "; ".join(
+        f"{r['hypothesis']} ({r['measure']}, predicted {r['direction']}) changed by a median of "
+        f"{_estimate(r)}"
+        for r in rows
+    )
+    text = (
+        f"{_joined([str(r['hypothesis']) for r in rows])} {'is' if one else 'are'} listed as not "
+        f"supported because {'it' if one else 'they'} moved against the prediction, not because "
+        f"nothing moved: {listed}. Each of these comparisons crosses the change of the record "
+        "described above, where one is claimed, which may explain a move that the placebo does "
+        "not show."
+    )
+    for r in rows:
+        if placebo_shows_change(r):
+            text += (
+                f" For {r['hypothesis']} the pre-crisis placebo, whose windows both lie before "
+                f"that change, already shows the same move ({_estimate(r, 'placebo_')}), so "
+                "the change of the record does not explain it."
+            )
+    return text
+
+
+def _failed_checks(row: Row) -> list[str]:
+    failed = []
+    if row["placebo_passes"] is False:
+        failed.append(f"its pre-crisis placebo fails ({_estimate(row, 'placebo_')})")
+    if row["loo_stable"] is False:
+        failed.append("it is unstable when each custodian is left out in turn")
+    if row["retention_passes"] is False:
+        failed.append("it fails its retention check")
+    return failed
+
+
+def inconclusive_statement(exploratory: pl.DataFrame) -> str:
+    """Each inconclusive hypothesis with the checks it failed, except those the statement above
+    already names (met the stated rule and failed only the retention check); "" when none."""
+    parts = []
+    for r in exploratory.filter(pl.col("outcome") == schemas.EXPLORATORY_INCONCLUSIVE).rows(
+        named=True
+    ):
+        failed = _failed_checks(r)
+        if failed == ["it fails its retention check"] or not failed:
+            continue
+        parts.append(
+            f"{r['hypothesis']} ({r['measure']}) is inconclusive: it changed in the predicted "
+            f"direction by a median of {_estimate(r)}, significant after Holm's correction "
+            f"(p = {format_value(r['p_holm'])}), but {_joined(failed)}, so it is not held true."
+        )
+    return " ".join(parts)
+
+
+def _ids(rows: list[str]) -> str:
+    """`H5–H24` for a run of ids in table order, `H25` for one."""
+    return f"{rows[0]}–{rows[-1]}" if len(rows) > 1 else "".join(rows)
+
+
+def _ids_by_timing(exploratory: pl.DataFrame, timing: str) -> list[str]:
+    return [
+        str(r["hypothesis"])
+        for r in exploratory.rows(named=True)
+        if FAMILY_TIMING[str(r["family"])] == timing
+    ]
+
+
+def timing_statement(hypotheses: pl.DataFrame, exploratory: pl.DataFrame) -> str:
+    """When each hypothesis was stated, under the three labels used on every surface."""
+    preregistered = [str(h) for h in hypotheses.get_column("hypothesis").to_list()]
+    stated = _ids_by_timing(exploratory, TIMING_STATED)
+    post_hoc = [*_ids_by_timing(exploratory, TIMING_POST_HOC), departures.HYPOTHESIS]
+    parts = [
+        f"{_ids(preregistered)}: {TIMING_PREREGISTERED} (before any real data was analysed)"
+        if preregistered
+        else "",
+        f"{_ids(stated)}: {TIMING_STATED}" if stated else "",
+        f"{_joined(post_hoc)}: {TIMING_POST_HOC} (stated after every other result was known, "
+        "still before its own result was computed)",
+    ]
+    return "; ".join(filter(None, parts)) + "."
+
+
+COLUMN_NOTES = (
+    "How to read two columns. **Placebo**: the same comparison between two pre-crisis windows "
+    "a year apart. It passes when that calm period shows no change in the predicted direction: "
+    "its interval includes zero, or its median lies below half the crisis median on the "
+    "predicted side. A calm-period change against the prediction therefore passes; where the "
+    "placebo already shows the crisis change (on the side the crisis median moved to, its "
+    "interval excludes zero or its median is at least as large), the cell says so. "
+    "**Leave-one-out**: stable only if the median change keeps the predicted sign with each "
+    "custodian left out in turn. It therefore reads unstable both when single custodians carry "
+    "the result and when the result is not in the predicted direction to begin with; it is "
+    "not, by itself, a statement that one person drives the result."
+)
+
+
+def _caveat_cell(row: Row) -> str:
+    """The caveat; the timestamp hypothesis also says where its estimate is used as evidence."""
+    caveat = str(row["caveat"] or "")
+    if row["hypothesis"] == record.TIMESTAMP_HYPOTHESIS and _untestable(row):
+        return (
+            f"{caveat}. Untestable as a hypothesis about behaviour; the record section reads "
+            "the same estimate as a measurement of the record"
+        )
+    return caveat or "—"
 
 
 def exploratory_section(exploratory: pl.DataFrame) -> str:
     rows = [
         [
             r["hypothesis"],
+            FAMILY_TIMING[r["family"]],
             r["measure"],
             r["direction"],
             format_value(r["custodians"]),
@@ -402,29 +607,40 @@ def exploratory_section(exploratory: pl.DataFrame) -> str:
             f"{format_value(r['ci_low'])} to {format_value(r['ci_high'])}",
             format_value(r["p_holm"]),
             format_value(r["placebo_custodians"]),
-            {True: "passes", False: "fails", None: SUPPRESSED}[r["placebo_passes"]],
+            _placebo_cell(r),
             {True: "stable", False: "unstable", None: SUPPRESSED}[r["loo_stable"]],
             r["outcome"] or SUPPRESSED,
-            r["caveat"] or "—",
+            _caveat_cell(r),
         ]
         for r in exploratory.iter_rows(named=True)
     ]
+    stated = _ids(_ids_by_timing(exploratory, TIMING_STATED))
+    post_hoc = _joined(_ids_by_timing(exploratory, TIMING_POST_HOC))
+    narrative = (
+        exploratory_statement(exploratory),
+        opposite_statement(exploratory),
+        inconclusive_statement(exploratory),
+    )
     return "\n\n".join(
         (
             f"## Hypotheses {_span_of(exploratory)}",
-            "Further hypotheses: H5–H24 stated by the project owner in two groups of ten, each "
-            "committed before it was computed, and H25, stated in the review after every other "
-            "result as a replication test of Diesner, Frantz and Carley (post hoc; recorded "
-            "with their original numbers E1–E21 in docs/hypotheses-exploratory.md). Every "
+            f"Further hypotheses, none of them {TIMING_PREREGISTERED}. {stated}: "
+            f"{TIMING_STATED}; the project owner stated them in two groups of ten, each "
+            "committed before it was computed, the second after the results of the first. "
+            f"{post_hoc}: {TIMING_POST_HOC}; stated in the review after every other result, as "
+            f"a replication test of {record.PRIOR_WORK} (all are recorded with their original "
+            "numbers E1–E21 in docs/hypotheses-exploratory.md). Every "
             "comparison is a custodian against themselves between fixed windows (the crisis "
             "weeks against the same weeks a year earlier), with a pre-crisis placebo, "
             "leave-one-out and Holm's correction across all of them. A hypothesis is held true "
             "only if all of these pass. Mail-volume equalisation and the retention checks were "
             "added after results were seen and are labelled as such.",
-            exploratory_statement(exploratory),
+            *filter(None, narrative),
+            COLUMN_NOTES,
             table(
                 [
                     "ID",
+                    "Stated",
                     "Measure",
                     "Predicted",
                     "Custodians",
@@ -443,9 +659,12 @@ def exploratory_section(exploratory: pl.DataFrame) -> str:
     )
 
 
-def finding_section(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
+def finding_section(hypotheses: pl.DataFrame, checks: pl.DataFrame, record_finding: str) -> str:
+    """The finding about the record (when one is claimed), then what is and is not claimed
+    about behaviour."""
     row = headline(hypotheses)
-    parts = ["## The finding", headline_statement(hypotheses, checks), artifact_section(checks)]
+    statement = " ".join(filter(None, (record_finding, headline_statement(hypotheses, checks))))
+    parts = ["## The finding", statement, artifact_section(checks)]
     if row is not None:
         parts += [
             "### Evidence",
@@ -483,12 +702,14 @@ def hypotheses_table(hypotheses: pl.DataFrame) -> str:
     return table(HYPOTHESIS_HEADERS, [hypothesis_row(r) for r in hypotheses.rows(named=True)])
 
 
-def hypotheses_section(hypotheses: pl.DataFrame) -> str:
+def hypotheses_section(hypotheses: pl.DataFrame, exploratory: pl.DataFrame) -> str:
+    ids = [str(h) for h in hypotheses.get_column("hypothesis").to_list()]
     return "\n\n".join(
         (
-            "## All hypotheses",
+            f"## Hypotheses {_ids(ids)} ({TIMING_PREREGISTERED})",
             "Written down before the analysis ran on the real corpus. Every outcome is shown, "
-            "including those not supported.",
+            "including those not supported. When each hypothesis of this report was stated: "
+            f"{timing_statement(hypotheses, exploratory)}",
             hypotheses_table(hypotheses),
         )
     )
@@ -515,9 +736,25 @@ def hypotheses_summary(hypotheses: pl.DataFrame) -> str:
 # ---- risk ---------------------------------------------------------------------------------
 
 
+def _zero_by_construction(row: Row) -> bool:
+    """A rate of zero on a release that holds no person-level record: the attack had nothing
+    to match, so the zero restates the design and is not a measurement."""
+    return row["release_variant"] != vocab.NAIVE_RELEASE and row["reid_top1"] == 0
+
+
+def _reid_cell(row: Row) -> str:
+    rate = _f(row, "reid_top1")
+    return f"{rate} (by construction)" if _zero_by_construction(row) else rate
+
+
 def risk_table(risk: pl.DataFrame) -> str:
-    rows = risk.select(RISK_COLUMNS).rows()
-    return table(RISK_HEADERS, [[format_value(v) for v in row] for row in rows])
+    position = RISK_COLUMNS.index("reid_top1")
+    rows = []
+    for row in risk.rows(named=True):
+        cells = [format_value(row[column]) for column in RISK_COLUMNS]
+        cells[position] = _reid_cell(row)
+        rows.append(cells)
+    return table(RISK_HEADERS, rows)
 
 
 def risk_summary(risk: pl.DataFrame) -> str:
@@ -527,7 +764,7 @@ def risk_summary(risk: pl.DataFrame) -> str:
             row["release_variant"],
             row["attacker"],
             _f(row, "unique_share"),
-            _f(row, "reid_top1"),
+            _reid_cell(row),
             f"{_f(row, 'reid_ci_low')} to {_f(row, 'reid_ci_high')}",
             _f(row, "finding_survives"),
         ]
@@ -547,22 +784,47 @@ def _risk_row(risk: pl.DataFrame, variant: str, attacker: str) -> Row:
 
 
 def risk_verdicts(risk: pl.DataFrame) -> list[str]:
-    """One line per mitigated release and attacker: rate before and after, halved or not."""
+    """One line per mitigated release and attacker. The mitigation target (SC-007: at most
+    half the rate measured on the person-level output) is checked as before; a zero on a
+    release without person-level records is worded as the design it is, never as an attack
+    that was run and failed."""
     lines = []
+    naive = vocab.NAIVE_RELEASE
     for variant, attacker in risk.select("release_variant", "attacker").rows():
-        if variant == vocab.NAIVE_RELEASE:
+        if variant == naive:
             continue
-        before = _risk_row(risk, vocab.NAIVE_RELEASE, attacker)
+        before = _risk_row(risk, naive, attacker)
         after = _risk_row(risk, variant, attacker)
         halved = _number(after, "reid_top1") <= _number(before, "reid_top1") * MITIGATION_TARGET
-        naive = vocab.NAIVE_RELEASE
+        measured = f"{attacker} re-identified a share of {_f(before, 'reid_top1')} on {naive}"
+        if _zero_by_construction(after):
+            lines.append(
+                f"{variant} and {attacker}: {measured} (measured). On {variant} the attack does "
+                f"not apply: no person-level record remains for it to match, so its rate there "
+                f"is {_f(after, 'reid_top1')} {BY_CONSTRUCTION}; the mitigation target is met "
+                f"in that sense only. Finding survives: {_f(after, 'finding_survives')}."
+            )
+            continue
         lines.append(
-            f"{variant} against {attacker}: re-identified share "
-            f"{_f(before, 'reid_top1')} on {naive}, {_f(after, 'reid_top1')} on {variant} "
-            f"({'at least halved' if halved else 'not halved: target missed'}); "
+            f"{variant} and {attacker}: {measured} and of {_f(after, 'reid_top1')} on {variant} "
+            f"({'at most half: target met' if halved else 'more than half: target missed'}); "
             f"finding survives: {_f(after, 'finding_survives')}."
         )
     return lines
+
+
+def aggregate_risk_phrase(risk: pl.DataFrame) -> str:
+    """What the person-level attacks say about the published aggregate release, in a sentence."""
+    published = vocab.PUBLISHED_RELEASE
+    rows = risk.filter(pl.col("release_variant") == published).rows(named=True)
+    if rows and all(_zero_by_construction(row) for row in rows):
+        return (
+            f"The aggregate release ({published}) holds no person-level record for these "
+            f"attacks to match: their rate there is {_f(rows[0], 'reid_top1')} "
+            f"{BY_CONSTRUCTION}."
+        )
+    rates = _joined([_f(row, "reid_top1") for row in rows])
+    return f"Run against the aggregate release ({published}), the same attacks reach {rates}."
 
 
 NO_HEADLINE_UTILITY = (
@@ -577,27 +839,40 @@ def risk_section(risk: pl.DataFrame, k_min: int, has_headline: bool) -> str:
     variants = bullets(f"**{name}**: {text}" for name, text in RELEASE_VARIANTS.items())
     attackers = bullets(f"**{name}**: {text}" for name, text in ATTACKERS.items())
     utility_note = () if has_headline else (NO_HEADLINE_UTILITY,)
+    naive = vocab.NAIVE_RELEASE
     return "\n\n".join(
         (
             "## Privacy and re-identification risk",
             f"Every published table meets a minimum group size of k = {k_min}. The risk of "
-            "the person-level output R0 was tested by attacking it, not asserted. R1 and R2 "
-            "hold no person-level records, so both person-level attacks return no guesses by "
-            "construction: their re-identification rate of zero restates that design, it is "
-            "not a measurement of their risk.",
-            "Releases attacked:",
+            f"the person-level output {naive}, which is never published, was tested by "
+            f"attacking it, not asserted; {naive} is the only release whose rows below are "
+            "measurements. R1 and R2 hold no person-level records, so the person-level attacks "
+            "return no guesses by construction: a re-identification rate of zero there restates "
+            "that design, it is not a measurement of their risk, and no attack on the published "
+            "group tables themselves was run.",
+            "Release variants:",
             variants,
-            "Attackers:",
+            "Attackers (simulated against the person-level output):",
             attackers,
             risk_table(risk),
             *utility_note,
-            "Before and after mitigation:",
+            "Person-level output against the mitigated releases:",
             bullets(risk_verdicts(risk)),
         )
     )
 
 
 # ---- report -------------------------------------------------------------------------------
+
+
+def _manual_check(row: Row) -> str:
+    return (
+        f"a manual check of {format_value(row['count_in'])} real merges, sampled from "
+        f"the merges of every rule, found "
+        f"{format_value(row['removed'])} wrong merges (precision {format_value(row['precision'])}, "
+        f"exact binomial interval {format_value(row['precision_ci_low'])} to "
+        f"{format_value(row['precision_ci_high'])})"
+    )
 
 
 def n2_limit(data_quality: pl.DataFrame) -> str:
@@ -610,14 +885,7 @@ def n2_limit(data_quality: pl.DataFrame) -> str:
     manual = data_quality.filter(pl.col("step") == STEP_MANUAL).rows(named=True)
     if not manual:
         return f"{risk}; no manual check of merges was run."
-    row = manual[0]
-    text = (
-        f"{risk}; a manual check of {format_value(row['count_in'])} real merges, sampled from "
-        f"the merges of every rule, found "
-        f"{format_value(row['removed'])} wrong merges (precision {format_value(row['precision'])}, "
-        f"exact binomial interval {format_value(row['precision_ci_low'])} to "
-        f"{format_value(row['precision_ci_high'])})"
-    )
+    text = f"{risk}; {_manual_check(manual[0])}"
     n2 = data_quality.filter(pl.col("step") == STEP_MANUAL_N2).rows(named=True)
     if n2:
         text += (
@@ -627,6 +895,46 @@ def n2_limit(data_quality: pl.DataFrame) -> str:
     else:
         text += "; how many were N2 merges is not in the committed check"
     return text + "."
+
+
+def identity_quality_phrase(data_quality: pl.DataFrame) -> str:
+    """How well identity resolution is known to work, and on which corpus."""
+    synthetic = "precision and recall are measured on the synthetic corpus only"
+    manual = data_quality.filter(pl.col("step") == STEP_MANUAL).rows(named=True)
+    if not manual:
+        return f"No manual check of real merges was run; {synthetic}."
+    row = manual[0]
+    return (
+        f"A manual check of {format_value(row['count_in'])} sampled merges, judged by a person, "
+        f"found {format_value(row['removed'])} wrong (precision interval "
+        f"{format_value(row['precision_ci_low'])} to {format_value(row['precision_ci_high'])}); "
+        f"it gives no recall, and {synthetic}."
+    )
+
+
+def not_established_summary(
+    hypotheses: pl.DataFrame, checks: pl.DataFrame, exploratory: pl.DataFrame
+) -> str:
+    """Which apparent signals were not established, and by which kind of check."""
+    supported = hypotheses.filter(pl.col("supported") == "yes").get_column("hypothesis").to_list()
+    failed = [h for h in supported if _artifact_result(checks, h) is False]
+    retention = (
+        exploratory.filter(pl.col("retention_passes").eq(False)).get_column("hypothesis").to_list()
+    )
+    parts = []
+    if failed:
+        parts.append(
+            f"{_joined(failed)} failed {_its(failed)} against a known artifact of the data"
+        )
+    if retention:
+        one = len(retention) == 1
+        parts.append(
+            f"{_joined(retention)} {'is' if one else 'are'} not established once inbox "
+            "retention is accounted for"
+        )
+    if not parts:
+        return "No apparent signal failed a check against a known artifact."
+    return "; ".join(parts) + "."
 
 
 def outside_statement(community_groups: pl.DataFrame, k_min: int) -> str:
@@ -639,11 +947,11 @@ def outside_statement(community_groups: pl.DataFrame, k_min: int) -> str:
         )
     return (
         "The `other` row of `community_groups.csv` is not a community: it holds the "
-        f"{format_value(rows[0]['n_persons'])} people with no tie in the baseline period (such as "
-        "people first seen after it) plus any community of fewer than "
-        f"{k_min} people. Its ties are published like a group's, but the explorer does not draw "
-        "it as a group: it labels these people as outside the baseline groups and states, for "
-        "each week, the share of mail that involves them."
+        f"{format_value(rows[0]['n_persons'])} internal people without a baseline group, either "
+        "because they have no tie in the baseline period or because their community has fewer "
+        f"than {k_min} people. Its ties are published like a group's, but the explorer does not "
+        "draw it as a group: it labels these people as outside the baseline groups and states, "
+        "for each week, the share of mail that involves them."
     )
 
 
@@ -663,8 +971,12 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
         quality.quality_section(tables.data_quality, tables.header_fields),
         record.record_section(tables.record_profile, tables.exploratory),
         departures.departure_section(tables.departures, tables.departure_tests, config),
-        finding_section(tables.hypotheses, tables.artifact_checks),
-        hypotheses_section(tables.hypotheses),
+        finding_section(
+            tables.hypotheses,
+            tables.artifact_checks,
+            record.finding_statement(tables.record_profile, tables.exploratory),
+        ),
+        hypotheses_section(tables.hypotheses, tables.exploratory),
         exploratory_section(tables.exploratory),
         risk_section(tables.risk, config.k_min, headline(tables.hypotheses) is not None),
         limits_section(tables.data_quality, tables.community_groups, config.k_min),
@@ -693,8 +1005,11 @@ def _row_values(prefix: str, row: Row, skip: tuple[str, ...]) -> dict[str, str]:
 
 def utility_phrase(risk: pl.DataFrame, top: Row | None) -> str:
     if top is None:
-        return "With no finding claimed, there is no effect whose loss to measure."
-    row = _risk_row(risk, "R1", "A1")
+        return (
+            "With no behavioural finding claimed, there is no headline effect whose loss to "
+            "measure."
+        )
+    row = _risk_row(risk, vocab.PUBLISHED_RELEASE, "A1")
     return (
         f"The headline effect keeps a ratio of {format_value(row['utility_effect_ratio'])} of its "
         "restricted value."
@@ -757,6 +1072,16 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
     values.update(
         {
             "headline_statement": headline_statement(tables.hypotheses, tables.artifact_checks),
+            "finding_statement": record.finding_statement(
+                tables.record_profile, tables.exploratory
+            ),
+            "timing_statement": timing_statement(tables.hypotheses, tables.exploratory),
+            "prior_work": record.PRIOR_WORK,
+            "aggregate_risk_phrase": aggregate_risk_phrase(tables.risk),
+            "identity_quality_phrase": identity_quality_phrase(tables.data_quality),
+            "not_established_summary": not_established_summary(
+                tables.hypotheses, tables.artifact_checks, tables.exploratory
+            ),
             "utility_phrase": utility_phrase(tables.risk, top),
             "exploratory_statement": exploratory_statement(tables.exploratory),
             "record_statement": record.record_statement(tables.record_profile, tables.exploratory),
@@ -764,6 +1089,7 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
             "record_chart": record.record_chart(tables.record_profile),
             "record_summary": record.record_summary(tables.record_profile, tables.exploratory),
             "replication_statement": record.replication_statement(tables.exploratory),
+            "replication_summary": record.replication_summary(tables.exploratory),
             "departure_statement": departures.departure_statement(
                 tables.departures, tables.departure_tests, config
             ),

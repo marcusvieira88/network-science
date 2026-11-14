@@ -533,7 +533,9 @@ class FixtureBuilder:
             ("R0", "A2", 50, 0.94, 1.0, 0.62, 0.48, 0.75, 1.0, True),
             ("R0", "A3", 40, 0.94, 1.0, 0.7, 0.55, 0.82, 1.0, True),
             ("R1", "A1", 50, 0.0, 12.0, 0.0, 0.0, 0.06, 0.97, True),
-            ("R1", "A2", 50, 0.0, 12.0, 0.02, 0.0, 0.08, 0.97, True),
+            # R1 and R2 hold no person-level record, so every person-level attack returns no
+            # guess there: a rate of zero by construction, as on the real corpus.
+            ("R1", "A2", 50, 0.0, 12.0, 0.0, 0.0, 0.06, 0.97, True),
             ("R1", "A3", 40, 0.0, 12.0, 0.0, 0.0, 0.09, 0.97, True),
             ("R2", "A1", 50, 0.0, 12.0, 0.0, 0.0, 0.06, 0.91, True),
             ("R2", "A2", 50, 0.0, 12.0, 0.0, 0.0, 0.06, 0.91, True),

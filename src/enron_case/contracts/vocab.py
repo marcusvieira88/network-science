@@ -44,6 +44,9 @@ KNOWN_HEADER_FIELDS = (
     "X-FileName",
 )
 OTHER_HEADER_FIELD = "(other)"
+# Fields ruled identifier that the parser drops instead of retaining in the ingest zone
+# (contracts/header-allowlist.md: "Ruled identifier in header_fields.csv, but not retained").
+IDENTIFIERS_NOT_RETAINED = ("X-Origin", "X-FileName")
 
 RECIPIENT_ROLES = ("to", "cc", "bcc")
 ROLE_STRENGTH = {"to": 3, "cc": 2, "bcc": 1}
@@ -59,6 +62,9 @@ MESSAGE_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailin
 # Message flags that take a message out of the network (data-contracts.md, events.in_network);
 # `bad_address` is flagged but stays in.
 NETWORK_EXCLUSION_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailing")
+# The parser emits `bad_date` and `folded` on a parsed message; `no_header_end` is the reason a
+# file is rejected (ingest_counts), and `decode_error` is reserved: the reader decodes header
+# bytes leniently and never raises it.
 PARSE_FLAGS = ("no_header_end", "bad_date", "folded", "decode_error")
 CORE_SCOPE = "core"
 OBSERVED_SCOPE = "observed"
@@ -79,7 +85,8 @@ HYPOTHESES = ("H1", "H2", "H3", "H4")
 SUPPORT = ("yes", "no", "inconclusive")
 CONFIDENCE = ("high", "moderate", "low")
 NAIVE_RELEASE = "R0"  # the person-level baseline every mitigation is measured against
-RELEASE_VARIANTS = (NAIVE_RELEASE, "R1", "R2")
+PUBLISHED_RELEASE = "R1"  # the aggregate release that is published
+RELEASE_VARIANTS = (NAIVE_RELEASE, PUBLISHED_RELEASE, "R2")
 # A1 outsider; A2 insider who knows a few custodians; A3 the same propagation seeded with every
 # custodian, because the mailbox folder names of the public corpus name them all.
 ATTACKERS = ("A1", "A2", "A3")

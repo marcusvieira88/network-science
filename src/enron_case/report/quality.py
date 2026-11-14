@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import polars as pl
 
+from enron_case.contracts import vocab
 from enron_case.errors import ContractViolation
 from enron_case.report.markdown import format_value, table
 
@@ -32,10 +33,13 @@ FUNNEL_COLUMNS = (
 HEADER_HEADERS = ("Header field", "Occurrences", "Ruling")
 HEADER_COLUMNS = ("field", "occurrences", "ruling")
 
+IDENTIFIER = "identifier"
 RULING_MEANING = {
     "usable": "kept as metadata; time is truncated to the hour",
-    "identifier": "used inside the ingest zone only, then pseudonymized or discarded",
-    "content": "never stored",
+    IDENTIFIER: "used inside the ingest zone only, then pseudonymized or discarded",
+    "content": "never decoded, parsed, held, stored or logged: the line is discarded as the "
+    "header is scanned. The folder class comes from the archive path, where a folder name is "
+    "reduced at once to one of four classes and never kept",
     "technical": "used for diagnostics inside the ingest zone, then discarded",
     "dropped": "dropped by the parser",
 }
@@ -59,12 +63,25 @@ def fields_by_ruling(header_fields: pl.DataFrame) -> dict[str, str]:
     return {ruling: ", ".join(fields) for ruling, fields in out.items()}
 
 
+def _meaning(ruling: str, fields: list[str]) -> str:
+    """What a ruling means; for identifiers, which of the fields seen are not even retained."""
+    not_retained = [f for f in fields if f in vocab.IDENTIFIERS_NOT_RETAINED]
+    if ruling != IDENTIFIER or not not_retained:
+        return RULING_MEANING[ruling]
+    return (
+        f"{RULING_MEANING[ruling]}; {', '.join(not_retained)}: identifier, not retained "
+        "(dropped by the parser, so it never enters the ingest zone)"
+    )
+
+
 def ruling_legend(header_fields: pl.DataFrame) -> str:
-    rulings = sorted(set(header_fields.get_column("ruling").to_list()))
-    unknown = [r for r in rulings if r not in RULING_MEANING]
+    by_ruling: dict[str, list[str]] = {}
+    for field, ruling in header_fields.select("field", "ruling").rows():
+        by_ruling.setdefault(ruling, []).append(field)
+    unknown = [r for r in by_ruling if r not in RULING_MEANING]
     if unknown:
         raise ContractViolation(f"header_fields: {len(unknown)} unknown rulings")
-    return "\n".join(f"- **{r}**: {RULING_MEANING[r]}" for r in rulings)
+    return "\n".join(f"- **{r}**: {_meaning(r, by_ruling[r])}" for r in sorted(by_ruling))
 
 
 def quality_section(data_quality: pl.DataFrame, header_fields: pl.DataFrame) -> str:
@@ -73,9 +90,10 @@ def quality_section(data_quality: pl.DataFrame, header_fields: pl.DataFrame) -> 
             "## What we found in the data",
             "### Cleaning funnel",
             "Counts before and after each cleaning step. Precision and recall are measured "
-            "against ground truth where it exists; a dash means not measured. Where precision "
-            "is estimated from a sample (the manual merge check), its exact binomial "
-            "(Clopper-Pearson) interval is shown next to it. The main steps "
+            "against ground truth, which exists for the synthetic corpus only; a dash means "
+            "not measured, as for every step on the real corpus. There, the manual merge check "
+            "estimates precision from a sample judged by a person, with its exact binomial "
+            "(Clopper-Pearson) interval next to it, and gives no recall. The main steps "
             "come first, then their detail: rejected files by reason, the exact and subset "
             "parts of deduplication, each message flag, messages without a timestamp, and "
             "events in and out of the network. "
@@ -88,7 +106,9 @@ def quality_section(data_quality: pl.DataFrame, header_fields: pl.DataFrame) -> 
             funnel_table(data_quality),
             "### Header fields and where the line is",
             "Every header field name seen in the corpus, how often, and how it was ruled. "
-            "Only field names and counts are reported; no value is ever read out.",
+            "Only field names and counts are published, never the value of a field. "
+            f"`{vocab.OTHER_HEADER_FIELD}` is not a field: it counts the occurrences of every "
+            "name without a ruling, whose spelling is not kept.",
             header_table(header_fields),
             ruling_legend(header_fields),
         )

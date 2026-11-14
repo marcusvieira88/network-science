@@ -14,10 +14,11 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from enron_case.config import HYPOTHESES_STATED, Config
+from enron_case.config import HYPOTHESES_STATED, PRIOR_WORK_YEAR, Config
 from enron_case.contracts import vocab
 from enron_case.errors import ContractViolation, PrivacyViolation
-from enron_case.report import render
+from enron_case.finding.exploratory import PLACEBO_FRACTION
+from enron_case.report import quality, render
 from enron_case.report.stage import DOCUMENTS, run
 from enron_case.report.templates import load_template
 from enron_case.synth import SynthOutput
@@ -103,7 +104,7 @@ def test_report_has_every_section(synth: SynthOutput, tmp_path: Path) -> None:
     for heading in (
         "## What we found in the data",
         "## The finding",
-        "## All hypotheses",
+        "## Hypotheses H1–H4 (pre-registered)",
         "## Privacy and re-identification risk",
         "## Limits",
     ):
@@ -135,8 +136,10 @@ def test_limits_section_has_at_least_three_items(synth: SynthOutput, tmp_path: P
 
 
 def run_parameters(config: Config) -> list[float]:
-    """Run parameters the H26 section states (its definitions and decision rule)."""
+    """Run parameters the H26 section states (its definitions and decision rule), and the
+    year of the prior work H25 tests: a citation, the one number no release table holds."""
     return [
+        float(PRIOR_WORK_YEAR),
         float(config.alpha),
         float(HYPOTHESES_STATED),
         float(config.departure_silence_weeks),
@@ -268,7 +271,7 @@ def test_documents_numbers_trace_to_release_cells(synth: SynthOutput, tmp_path: 
     ctx = ctx_with_fixtures("report", synth, tmp_path, tables=RELEASE_TABLES)
     values = render.document_values(render.ReleaseTables.read(ctx), ctx.config)
     numbers, dates = cell_values(synth, RELEASE_TABLES)
-    numbers += [float(ctx.config.k_min), float(ctx.config.seed)]
+    numbers += [float(ctx.config.k_min), float(ctx.config.seed), float(PRIOR_WORK_YEAR)]
     for name in ("decision-record.md", "slides.md"):
         assert untraced(render.inject(load_template(name), values), numbers, dates) == [], name
 
@@ -395,11 +398,12 @@ def test_outside_statement_says_what_the_other_bucket_is_and_its_size() -> None:
     groups = _groups([("G01", 926), ("G02", 743), (vocab.OTHER_GROUP, 25838)])
     text = render.outside_statement(groups, k_min=5)
     assert text == (
-        "The `other` row of `community_groups.csv` is not a community: it holds the 25838 people "
-        "with no tie in the baseline period (such as people first seen after it) "
-        "plus any community of fewer than 5 people. Its ties are published like a group's, but "
-        "the explorer does not draw it as a group: it labels these people as outside the "
-        "baseline groups and states, for each week, the share of mail that involves them."
+        "The `other` row of `community_groups.csv` is not a community: it holds the 25838 "
+        "internal people without a baseline group, either because they have no tie in the "
+        "baseline period or because their community has fewer than 5 people. Its ties are "
+        "published like a group's, but the explorer does not draw it as a group: it labels "
+        "these people as outside the baseline groups and states, for each week, the share of "
+        "mail that involves them."
     )
 
 
@@ -546,3 +550,377 @@ def test_n2_limit_without_a_per_rule_count_says_the_rule_mix_is_not_recorded(
     )
     assert "sampled from the merges of every rule" in text
     assert "how many were N2 merges is not in the committed check" in text
+
+
+# ---- contradiction review: one finding, one wording -------------------------------------------
+
+BARE_NO_FINDING = re.compile(r"\bno finding\b", re.IGNORECASE)
+
+
+def test_finding_section_states_the_record_finding_then_the_behavioural_null(
+    synth: SynthOutput,
+) -> None:
+    """The record changed, and no behavioural finding is claimed: both, in that order."""
+    record_finding = (
+        "The finding: the record changed (high confidence that it changed; cause not established)."
+    )
+    hypotheses = _no_headline(synth, {"H2": "yes"})
+    section = render.finding_section(hypotheses, _checks(synth, {"H2": False}), record_finding)
+    assert section.startswith(
+        f"## The finding\n\n{record_finding} No behavioural finding about the crisis year is "
+        "claimed. H2 passed the pre-registered statistical tests but failed its check"
+    )
+
+
+def test_finding_section_without_a_record_change_opens_with_the_behavioural_statement(
+    synth: SynthOutput,
+) -> None:
+    section = render.finding_section(_no_headline(synth, {}), _checks(synth, {}), "")
+    assert section.startswith("## The finding\n\nNo hypothesis is supported.")
+
+
+@pytest.mark.parametrize("name", DOCUMENTS)
+def test_no_template_says_a_bare_no_finding(name: str) -> None:
+    assert BARE_NO_FINDING.search(load_template(name)) is None
+
+
+@pytest.mark.parametrize("fixture", ["synth", "synth_nochange"])
+def test_no_generated_text_says_a_bare_no_finding(
+    fixture: str, request: pytest.FixtureRequest, tmp_path: Path
+) -> None:
+    corpus: SynthOutput = request.getfixturevalue(fixture)
+    ctx = ctx_with_fixtures("report", corpus, tmp_path, tables=RELEASE_TABLES)
+    values = render.document_values(render.ReleaseTables.read(ctx), ctx.config)
+    texts = [render_report(corpus, tmp_path / "report")]
+    texts += [render.inject(load_template(name), values) for name in DOCUMENTS]
+    texts.append(
+        render.headline_statement(_no_headline(corpus, {"H2": "yes"}), _checks(corpus, {}))
+    )
+    for text in texts:
+        assert BARE_NO_FINDING.search(text) is None
+
+
+# ---- when each hypothesis was stated ----------------------------------------------------------
+
+
+def _family_rows(families: dict[str, str]) -> pl.DataFrame:
+    return pl.DataFrame({"hypothesis": list(families), "family": list(families.values())})
+
+
+def test_timing_statement_uses_the_three_labels_from_the_family_column() -> None:
+    hypotheses = pl.DataFrame({"hypothesis": ["H1", "H2", "H3", "H4"]})
+    exploratory = _family_rows({"H5": "first", "H6": "first", "H7": "second", "H25": "post hoc"})
+    assert render.timing_statement(hypotheses, exploratory) == (
+        "H1–H4: pre-registered (before any real data was analysed); "
+        "H5–H7: stated before computed, after earlier results; "
+        f"H25 and H{HYPOTHESES_STATED}: post hoc (stated after every other result was known, "
+        "still before its own result was computed)."
+    )
+
+
+def test_report_labels_every_hypothesis_table_with_its_timing(
+    synth: SynthOutput, tmp_path: Path
+) -> None:
+    text = render_report(synth, tmp_path)
+    preregistered = text.split("## Hypotheses H1–H4 (pre-registered)", 1)[1]
+    assert "H5–H24: stated before computed, after earlier results" in preregistered
+    exploratory = text.split("## Hypotheses H5–H25", 1)[1].split("## Privacy", 1)[0]
+    assert "| ID | Stated | Measure |" in exploratory
+    assert "| H5 | stated before computed, after earlier results |" in exploratory
+    assert "| H25 | post hoc |" in exploratory
+    assert "Frantz" not in text  # prior work is named neutrally, in one wording
+
+
+# ---- placebo, leave-one-out and the results that moved the other way --------------------------
+
+
+def _row(**overrides: object) -> dict[str, object]:
+    """One exploratory row: predicted up, a clear rise, a flat placebo, every check passing."""
+    row: dict[str, object] = {
+        "hypothesis": "H9",
+        "family": "first",
+        "measure": "m",
+        "direction": "up",
+        "median_change": 0.2,
+        "ci_low": 0.1,
+        "ci_high": 0.3,
+        "p_holm": 0.01,
+        "placebo_median": 0.0,
+        "placebo_ci_low": -0.1,
+        "placebo_ci_high": 0.1,
+        "placebo_passes": True,
+        "loo_stable": True,
+        "outcome": "not supported",
+        "caveat": "",
+        "retention_passes": None,
+    }
+    return {**row, **overrides}
+
+
+# H21 as released: predicted up, fell; the placebo interval lies wholly below zero as well.
+FELL_WITH_PLACEBO = _row(
+    hypothesis="H21",
+    median_change=-0.148,
+    ci_low=-0.191,
+    ci_high=-0.106,
+    placebo_median=-0.139,
+    placebo_ci_low=-0.257,
+    placebo_ci_high=-0.0672,
+)
+# H14 as released: predicted up, fell; the placebo rose and its interval includes zero.
+FELL_ALONE = _row(
+    hypothesis="H14",
+    median_change=-0.168,
+    ci_low=-0.272,
+    ci_high=-0.102,
+    placebo_median=0.0816,
+    placebo_ci_low=-0.0279,
+    placebo_ci_high=0.105,
+)
+
+
+def test_placebo_shows_change_when_its_interval_lies_on_the_side_the_crisis_moved_to() -> None:
+    assert render.placebo_shows_change(FELL_WITH_PLACEBO)
+    assert not render.placebo_shows_change(FELL_ALONE)
+
+
+def test_placebo_shows_change_when_its_median_is_at_least_as_large_on_that_side() -> None:
+    """H25 as released: crisis 0.00826, placebo 0.0248 with an interval touching zero."""
+    larger = _row(median_change=0.00826, placebo_median=0.0248, placebo_ci_low=0.0)
+    assert render.placebo_shows_change(larger)
+    smaller = _row(median_change=0.2, placebo_median=0.19, placebo_ci_low=-0.01)
+    assert not render.placebo_shows_change(smaller)
+
+
+def test_placebo_shows_no_change_for_a_flat_or_suppressed_comparison() -> None:
+    assert not render.placebo_shows_change(_row(median_change=0.0, placebo_median=0.0))
+    assert not render.placebo_shows_change(_row(placebo_median=None))
+
+
+def test_exploratory_table_says_when_a_passing_placebo_already_shows_the_change() -> None:
+    table = pl.DataFrame([FELL_WITH_PLACEBO, FELL_ALONE, _row(placebo_passes=False)])
+    table = table.with_columns(
+        pl.lit(32).alias("custodians"), pl.lit(15).alias("placebo_custodians")
+    )
+    section = render.exploratory_section(table)
+    assert "| passes; the calm period already shows this change | stable |" in section
+    assert section.count("the calm period already shows this change |") == 1
+    assert "| 15 | passes | stable |" in section and "| 15 | fails | stable |" in section
+
+
+def test_column_notes_state_the_placebo_and_leave_one_out_rules_as_coded() -> None:
+    """The placebo rule (finding/exploratory.py `_placebo_passes`) and the leave-one-out rule
+    (`_loo_stable`) in words; "half" is PLACEBO_FRACTION."""
+    assert PLACEBO_FRACTION == 0.5
+    notes = render.COLUMN_NOTES
+    assert "no change in the predicted direction" in notes
+    assert "its median lies below half the crisis median on the predicted side" in notes
+    assert "A calm-period change against the prediction therefore passes" in notes
+    assert "keeps the predicted sign with each custodian left out in turn" in notes
+    assert "not, by itself, a statement that one person drives the result" in notes
+
+
+def test_opposite_statement_names_each_result_that_moved_against_its_prediction() -> None:
+    untestable = _row(hypothesis="H5", median_change=-0.44, ci_low=-0.51, ci_high=-0.37)
+    untestable["caveat"] = "invalid: the hour convention changes"
+    flat = _row(hypothesis="H8", median_change=0.0, ci_low=-0.02, ci_high=0.03)
+    table = pl.DataFrame([untestable, flat, FELL_ALONE, FELL_WITH_PLACEBO])
+    text = render.opposite_statement(table)
+    assert text.startswith(
+        "H14 and H21 are listed as not supported because they moved against the prediction, "
+        "not because nothing moved: H14 (m, predicted up) changed by a median of -0.168 "
+        "(interval -0.272 to -0.102); H21 (m, predicted up) changed by a median of -0.148 "
+        "(interval -0.191 to -0.106)."
+    )
+    assert "H5" not in text and "H8" not in text
+    assert text.endswith(
+        "For H21 the pre-crisis placebo, whose windows both lie before that change, already "
+        "shows the same move (-0.139 (interval -0.257 to -0.0672)), so the change of the "
+        "record does not explain it."
+    )
+    assert "For H14" not in text
+
+
+def test_opposite_statement_reads_a_predicted_fall_that_rose() -> None:
+    rose = _row(hypothesis="H22", direction="down", median_change=0.0578, ci_low=0.0405)
+    text = render.opposite_statement(pl.DataFrame([rose]))
+    assert text.startswith("H22 is listed as not supported because it moved against")
+    assert render.opposite_statement(pl.DataFrame([_row(outcome="inconclusive")])) == ""
+
+
+def test_inconclusive_statement_names_the_failed_checks() -> None:
+    """H20 as released: significant on the predicted side, but the placebo fails."""
+    h20 = _row(
+        hypothesis="H20",
+        outcome="inconclusive",
+        median_change=5.85,
+        ci_low=5.05,
+        ci_high=7.74,
+        p_holm=0.0004,
+        placebo_median=3.3,
+        placebo_ci_low=1.6,
+        placebo_ci_high=4.7,
+        placebo_passes=False,
+    )
+    retention_only = _row(hypothesis="H16", outcome="inconclusive", retention_passes=False)
+    text = render.inconclusive_statement(pl.DataFrame([h20, retention_only]))
+    assert text == (
+        "H20 (m) is inconclusive: it changed in the predicted direction by a median of 5.85 "
+        "(interval 5.05 to 7.74), significant after Holm's correction (p = 0.0004), but its "
+        "pre-crisis placebo fails (3.3 (interval 1.6 to 4.7)), so it is not held true."
+    )
+
+
+def test_timestamp_hypothesis_row_points_to_the_record_reading(
+    synth: SynthOutput, tmp_path: Path
+) -> None:
+    """H5 is untestable as behaviour and is the evidence of the record finding: its row says
+    which reading applies where."""
+    exploratory = render_report(synth, tmp_path).split("## Hypotheses H5–H25", 1)[1]
+    row = next(line for line in exploratory.splitlines() if line.startswith("| H5 |"))
+    assert row.endswith(
+        "Untestable as a hypothesis about behaviour; the record section reads the same "
+        "estimate as a measurement of the record |"
+    )
+
+
+# ---- risk: only the person-level output is measured -------------------------------------------
+
+
+def _risk(rates: dict[tuple[str, str], float]) -> pl.DataFrame:
+    return pl.DataFrame(
+        [
+            {
+                "release_variant": variant,
+                "attacker": attacker,
+                "reid_top1": rate,
+                "finding_survives": None,
+            }
+            for (variant, attacker), rate in rates.items()
+        ],
+        schema={
+            "release_variant": pl.Utf8,
+            "attacker": pl.Utf8,
+            "reid_top1": pl.Float64,
+            "finding_survives": pl.Boolean,
+        },
+    )
+
+
+def test_risk_verdict_words_a_zero_on_an_aggregate_release_as_design_not_measurement() -> None:
+    lines = render.risk_verdicts(_risk({("R0", "A1"): 0.251, ("R1", "A1"): 0.0}))
+    assert lines == [
+        "R1 and A1: A1 re-identified a share of 0.251 on R0 (measured). On R1 the attack does "
+        "not apply: no person-level record remains for it to match, so its rate there is 0 by "
+        "construction, not a measurement; the mitigation target is met in that sense only. "
+        "Finding survives: —."
+    ]
+
+
+def test_risk_verdict_reports_a_measured_rate_against_the_mitigation_target() -> None:
+    """A non-zero rate on a mitigated release is a measurement: target is half the R0 rate."""
+    met = render.risk_verdicts(_risk({("R0", "A2"): 0.6, ("R1", "A2"): 0.3}))
+    assert "of 0.3 on R1 (at most half: target met)" in met[0]
+    missed = render.risk_verdicts(_risk({("R0", "A2"): 0.6, ("R1", "A2"): 0.31}))
+    assert "of 0.31 on R1 (more than half: target missed)" in missed[0]
+
+
+def test_risk_section_never_calls_the_aggregate_releases_attacked(
+    synth: SynthOutput, tmp_path: Path
+) -> None:
+    risk = render_report(synth, tmp_path).split("## Privacy and re-identification risk", 1)[1]
+    risk = risk.split("## Limits", 1)[0]
+    assert "Releases attacked" not in risk and "at least halved" not in risk
+    assert "both person-level attacks" not in risk
+    assert "is the only release whose rows below are measurements" in risk
+    assert "| R1 | A1 | 50 | 0 | 12 | 0 (by construction) |" in risk
+    assert "| R0 | A1 | 50 | 0.94 | 1 | 0.9 |" in risk
+
+
+def test_aggregate_risk_phrase_follows_the_published_rates() -> None:
+    zero = _risk({("R0", "A1"): 0.251, ("R1", "A1"): 0.0, ("R1", "A2"): 0.0})
+    assert render.aggregate_risk_phrase(zero) == (
+        "The aggregate release (R1) holds no person-level record for these attacks to match: "
+        "their rate there is 0 by construction, not a measurement."
+    )
+    measured = _risk({("R0", "A1"): 0.251, ("R1", "A1"): 0.0, ("R1", "A2"): 0.02})
+    assert render.aggregate_risk_phrase(measured) == (
+        "Run against the aggregate release (R1), the same attacks reach 0 and 0.02."
+    )
+
+
+# ---- header rulings, content wording, identity quality ----------------------------------------
+
+
+def _fields(rulings: dict[str, str]) -> pl.DataFrame:
+    return pl.DataFrame({"field": list(rulings), "ruling": list(rulings.values())})
+
+
+def test_ruling_legend_marks_identifiers_that_are_not_retained() -> None:
+    fields = _fields({"From": "identifier", "X-FileName": "identifier", "X-Origin": "identifier"})
+    assert quality.ruling_legend(fields) == (
+        "- **identifier**: used inside the ingest zone only, then pseudonymized or discarded; "
+        "X-FileName, X-Origin: identifier, not retained (dropped by the parser, so it never "
+        "enters the ingest zone)"
+    )
+    assert "not retained" not in quality.ruling_legend(_fields({"From": "identifier"}))
+
+
+def test_content_ruling_uses_the_precise_wording() -> None:
+    legend = quality.ruling_legend(_fields({"Subject": "content"}))
+    assert "never decoded, parsed, held, stored or logged" in legend
+    assert "discarded as the header is scanned" in legend
+    assert "reduced at once to one of four classes and never kept" in legend
+    assert len(vocab.FOLDER_CLASSES) == 4
+
+
+def test_report_does_not_claim_content_is_never_read(synth: SynthOutput, tmp_path: Path) -> None:
+    text = render_report(synth, tmp_path)
+    assert "never read" not in text and "do not read" not in text
+    assert "read out" not in text
+
+
+def test_identity_quality_phrase_separates_synthetic_truth_from_the_manual_sample(
+    synth: SynthOutput,
+) -> None:
+    assert render.identity_quality_phrase(synth.table("data_quality")) == (
+        "No manual check of real merges was run; precision and recall are measured on the "
+        "synthetic corpus only."
+    )
+    manual = pl.DataFrame(
+        {
+            "order": [4],
+            "step": ["manual merge check"],
+            "count_in": [50],
+            "count_out": [50],
+            "removed": [0],
+            "rule": ["seeded sample, judged by a person"],
+            "precision": [1.0],
+            "recall": [None],
+            "precision_ci_low": [0.929],
+            "precision_ci_high": [1.0],
+        },
+        schema=synth.table("data_quality").schema,
+    )
+    text = render.identity_quality_phrase(pl.concat([synth.table("data_quality"), manual]))
+    assert text == (
+        "A manual check of 50 sampled merges, judged by a person, found 0 wrong (precision "
+        "interval 0.929 to 1); it gives no recall, and precision and recall are measured on "
+        "the synthetic corpus only."
+    )
+
+
+def test_not_established_summary_names_artifact_and_retention_failures(
+    synth: SynthOutput,
+) -> None:
+    hypotheses = _no_headline(synth, {"H2": "yes", "H3": "yes"})
+    checks = _checks(synth, {"H2": False, "H3": False})
+    exploratory = pl.DataFrame({"hypothesis": ["H16", "H17"], "retention_passes": [False, None]})
+    assert render.not_established_summary(hypotheses, checks, exploratory) == (
+        "H2 and H3 failed their checks against a known artifact of the data; H16 is not "
+        "established once inbox retention is accounted for."
+    )
+    nothing = pl.DataFrame({"hypothesis": ["H16"], "retention_passes": [True]})
+    assert render.not_established_summary(_no_headline(synth, {}), checks, nothing) == (
+        "No apparent signal failed a check against a known artifact."
+    )

@@ -120,3 +120,13 @@ def test_folder_reduced_to_class(folder: str, expected: str) -> None:
     assert record["folder_class"] == expected
     assert record["folder_class"] in vocab.FOLDER_CLASSES
     assert folder not in repr(record) or folder == expected
+
+
+def test_identifiers_not_retained_are_exactly_the_identifier_fields_the_parser_drops() -> None:
+    """The report's legend names these fields from `vocab`; the allowlist is the source."""
+    dropped = {
+        name
+        for name, ruling in allowlist.RULINGS.items()
+        if ruling == allowlist.IDENTIFIER and name not in allowlist.RETAINED
+    }
+    assert set(vocab.IDENTIFIERS_NOT_RETAINED) == dropped
