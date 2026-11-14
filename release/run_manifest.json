@@ -1,5 +1,5 @@
 {
-  "code_version": "c3acfde",
+  "code_version": "65ef424",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -62,8 +62,8 @@
     "entities": "397cac15e1bc104b4ae5b770c130007ff9757175e22b764f828978dede8a45d2",
     "entities_p": "807c6b92ddaebacd9f2df97adc2067267380da3ebb0fadbe5a1238b76709e357",
     "events": "b77a33ef0dc912cf14817e6f64f69acd0cc38bcde6b30f9e8342b5e7d20966bf",
-    "exploratory": "7b6a8d9aa3ffef29f2a1656bacce2ad8695e0030cd2d4a08da2db4654339e5c8",
-    "exploratory_results": "7b6a8d9aa3ffef29f2a1656bacce2ad8695e0030cd2d4a08da2db4654339e5c8",
+    "exploratory": "b42c4b58be5e3c5d24457d2a10f9fe20bdce9e6282717e442af43063e376e17f",
+    "exploratory_results": "b42c4b58be5e3c5d24457d2a10f9fe20bdce9e6282717e442af43063e376e17f",
     "header_fields": "abe77c7a00f3a9f98aa0375ff3add6e1e7d4f68f643f825b08b0e6c22f1640e3",
     "header_records": "b49d34453c50a23d81d245db2c25b83a31b3ab893988578af8064b1d6f16126b",
     "hypotheses": "a7a1e034d7597946d5fadd5c80f58061bbfea688e905411e88541d1084349538",
@@ -84,43 +84,43 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.19
+      "seconds": 0.21
     },
     {
       "stage": "parse",
-      "seconds": 28.99
+      "seconds": 30.24
     },
     {
       "stage": "clean",
-      "seconds": 24.5
+      "seconds": 25.57
     },
     {
       "stage": "identity",
-      "seconds": 4.43
+      "seconds": 4.36
     },
     {
       "stage": "pseudo",
-      "seconds": 15.54
+      "seconds": 16.63
     },
     {
       "stage": "network",
-      "seconds": 0.8
+      "seconds": 0.74
     },
     {
       "stage": "finding",
-      "seconds": 22.58
+      "seconds": 26.21
     },
     {
       "stage": "risk",
-      "seconds": 49.15
+      "seconds": 47.63
     },
     {
       "stage": "release",
-      "seconds": 0.11
+      "seconds": 0.16
     },
     {
       "stage": "report",
-      "seconds": 0.01
+      "seconds": 0.02
     }
   ]
 }

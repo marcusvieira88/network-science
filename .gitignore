@@ -22,3 +22,6 @@ ui/dist/
 ui/public/data/release.json
 
 .DS_Store
+
+# Agent worktrees created inside the repository
+.claude/worktrees/
