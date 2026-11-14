@@ -90,6 +90,10 @@ LIMITS = (
     "The effect interval is computed at a change week chosen from the same data (the week that "
     "maximises the change statistic), so it is optimistic: it ignores the uncertainty of where "
     "the change happened.",
+    "For H5–H24, the pre-crisis placebos run on fewer custodians than the crisis comparison "
+    "(fewer meet the minimum message count in the January-to-April windows; see the placebo "
+    "custodians column), so they have less power: a passing placebo does not exclude a "
+    "pre-existing trend.",
     "The artifact checks were added after the first real-data run, because two hypotheses "
     "passed every pre-registered check yet looked implausibly strong. They are documented as a "
     "post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.",
@@ -348,6 +352,7 @@ def exploratory_section(exploratory: pl.DataFrame) -> str:
             format_value(r["median_change"]),
             f"{format_value(r['ci_low'])} to {format_value(r['ci_high'])}",
             format_value(r["p_holm"]),
+            format_value(r["placebo_custodians"]),
             {True: "passes", False: "fails", None: SUPPRESSED}[r["placebo_passes"]],
             {True: "stable", False: "unstable", None: SUPPRESSED}[r["loo_stable"]],
             r["outcome"] or SUPPRESSED,
@@ -375,6 +380,7 @@ def exploratory_section(exploratory: pl.DataFrame) -> str:
                     "Median change",
                     "Interval",
                     "Holm p",
+                    "Placebo custodians",
                     "Placebo",
                     "Leave-one-out",
                     "Outcome",

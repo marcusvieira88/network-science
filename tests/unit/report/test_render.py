@@ -406,3 +406,13 @@ def test_risk_section_has_no_empty_utility_note_with_headline(
 ) -> None:
     risk = render_report(synth, tmp_path).split("## Privacy and re-identification", 1)[1]
     assert "no headline finding to recompute" not in risk
+
+
+def test_report_states_the_weaker_placebo(synth: SynthOutput, tmp_path: Path) -> None:
+    text = render_report(synth, tmp_path)
+    exploratory = text.split("## Hypotheses H5–H24", 1)[1].split("## Privacy", 1)[0]
+    assert "| Placebo custodians |" in exploratory
+    assert "| 32 | 0.25 | 0.12 to 0.38 | 0.002 | 15 |" in exploratory  # H16: crisis n, placebo n
+    limits = text.split("## Limits", 1)[1]
+    assert "placebos run on fewer custodians than the crisis comparison" in limits
+    assert "does not exclude a pre-existing trend" in limits

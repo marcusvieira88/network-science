@@ -83,6 +83,13 @@ outcomes are published, whatever they are.
   use exactly those copies.
 - This family is exploratory. A confident result here is a lead for confirmation on other data,
   not a pre-registered finding.
+- *(Added after the data-science review.)* The placebo windows (January–April) hold less mail
+  than the crisis and reference windows, so fewer custodians meet the minimum of 20 messages:
+  in the last committed real run about half as many (`placebo_custodians` against `custodians`
+  in `release/exploratory.csv`, e.g. 15 against 32 for the sent-side measures). The placebo
+  therefore has lower power than the crisis comparison, and its custodians are a subset that
+  may differ from those compared in the crisis. A passing placebo (interval covering zero) does
+  not exclude a pre-existing trend; it only fails to detect one.
 
 ---
 
