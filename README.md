@@ -31,6 +31,7 @@ by the run.
 - [Quick start](#quick-start)
 - [Content never enters the system](#content-never-enters-the-system)
 - [From the download to the UI](#from-the-download-to-the-ui)
+- [Network science methods](#network-science-methods)
 - [Libraries and why each is here](#libraries-and-why-each-is-here)
 - [How correctness is kept](#how-correctness-is-kept)
 - [Next steps](#next-steps)
@@ -234,6 +235,153 @@ external URL: no CDN, no web fonts, no analytics.
 
 ---
 
+## Network science methods
+
+What the code computes, for a reader who knows network science. Full definitions:
+[docs/metrics.md](docs/metrics.md), [docs/hypotheses.md](docs/hypotheses.md),
+[docs/hypotheses-exploratory.md](docs/hypotheses-exploratory.md). Parameters are `Config` fields
+in `src/enron_case/config.py`.
+
+### The network (`network/snapshots.py`)
+
+- **Nodes** are resolved persons (pseudonyms). Lists, role and system addresses are not nodes.
+- **Ties** are directed and weighted, aggregated per ISO week (Monday, UTC) over 2000-01-01 to
+  2002-03-31; every week gets a row, also empty ones. A message to n distinct resolved
+  recipients gives each recipient weight **1/n**, so one message adds 1 in total and a
+  mass mailing does not dominate. Self-ties are dropped; messages flagged as noise (for example
+  more than 50 recipients) are not in the network.
+- **Two scopes.** The corpus is about 150 collected mailboxes, and a tie is visible only if one
+  end is one of them. The **observed** network (internal person → internal person) is therefore
+  a union of ego networks around the custodians, and its size follows what was collected. The
+  **core** keeps only ties whose two ends are both custodians: the one subgraph seen from both
+  sides (the sender's sent mail and the recipient's inbox).
+- A week with fewer than 5 active persons (`k_min`) has every metric null, not zero.
+
+### Communities (`network/communities.py`)
+
+Louvain modularity optimisation (`networkx.community.louvain_communities`, `weight="weight"`,
+`seed=config.seed`) on the **undirected** weighted observed network of the baseline year 2000
+(w(u→v) + w(v→u) per pair; nodes and edges inserted in sorted order so the result is
+reproducible). Communities are numbered by size; a person with no baseline tie gets −1 and is left
+out of the cross-community share.
+
+The partition is then **frozen**: every week and every variant uses it. Re-fitting each week
+would make "crossing established groups" meaningless, since each week's partition is fitted to
+minimise its own crossing weight. Freezing has a cost that produced the H2 artifact: a partition
+fits its training period best, so out of sample the crossing share rises as groups drift, with or
+without any event. The pre-registered checks could not see this (the null model randomises ties
+in every week alike, so it tests degree, not staleness). The **baseline placebo** did: fitted on
+the first half of 2000 and measured on the calm second half, the share already jumps far beyond
+the 2.0 standard-deviation threshold ([release/artifact_checks.csv](release/artifact_checks.csv)).
+
+### The eight metrics (`network/metrics.py`)
+
+Per scope and week: A = active persons (an end of at least one tie), n = |A|, E = directed ties,
+w = tie weight, c(·) = frozen community.
+
+| Metric | Formula |
+|--------|---------|
+| `volume` | number of distinct messages with at least one tie in the scope |
+| `active_persons` | n |
+| `density` | \|E\| / (n (n − 1)) |
+| `reciprocity` | \|{(u, v) ∈ E : (v, u) ∈ E}\| / \|E\| (unweighted) |
+| `indegree_gini` | Gini of s(v) = Σ_u w(u, v) over A, zeros included: 2 Σᵢ i·s₍ᵢ₎ / (n Σ s) − (n + 1)/n |
+| `cross_community_share` | Σ w over ties with c(u) ≠ c(v), divided by Σ w over ties with both c ≥ 0 |
+| `external_share` | Σ w to external persons / Σ w to all persons, over all mail of the scope's senders (internal persons, or custodians for the core) |
+| `tie_turnover` | 1 − \|E_t ∩ E_{t−1}\| / \|E_t ∪ E_{t−1}\| (1 − Jaccard of directed tie sets; null after an undefined week) |
+
+### Testing H1–H4 (`finding/stats.py`, `nullmodel.py`, `hypotheses.py`, `select.py`, `artifacts.py`)
+
+```mermaid
+flowchart LR
+    S["weekly series<br/>(metric, scope)"] --> CP["CUSUM change point<br/>after the baseline,<br/>permutation p"]
+    CP --> EF["effect vs 2000 baseline<br/>+ block-bootstrap interval"]
+    CP --> H["Holm over H1–H4"]
+    EF --> SUP{"supported?<br/>p_holm &lt; 0.05 and<br/>interval on side"}
+    H --> SUP
+    SUP --> CONF{"confidence:<br/>null model z,<br/>leave-one-mailbox-out,<br/>variants"}
+    CONF --> ART{"artifact check<br/>(H2 placebo, H3 within-custodian)"}
+    ART -->|fails or not run| LOW["capped at low"]
+    ART -->|passes| HL["may be headline"]
+```
+
+- **Change point.** Weighted directional CUSUM: with S_τ = Σ_{i<τ} (x_i − x̄),
+  T = max_τ −d · S_τ · √(n / (τ (n − τ))), τ over the weeks after the baseline that leave at
+  least 4 weeks after them (d = +1 up, −1 down). p = (1 + #{T_perm ≥ T}) / (1 + 1000), permuting
+  the order of the weeks.
+- **Effect.** (mean after the change week − mean of 2000) / sample sd of 2000.
+- **Interval.** Moving-block bootstrap, blocks of 4 weeks, 1000 replicates; baseline and after
+  period resampled separately with the change week fixed; 95 % percentile interval.
+- **Null model (degree-preserving).** Within each week, recipients are permuted among events of
+  equal weight and equal `in_network` flag. Each sender keeps its out-weight and each recipient
+  its in-weight (inside and outside the network); only who is tied to whom changes. The series is
+  recomputed on 20 rewired copies, the effect taken at the same change week, and
+  z = (effect − mean null) / sd null. Passes when d · z > 1.645 (one-sided): the change is not a
+  volume or degree change.
+- **Leave-one-mailbox-out.** Each custodian in turn: drop every event touching them, recompute,
+  take the effect at the same change week. Passes when every effect has the hypothesised sign.
+- **Variants.** Recipient cap 20 and monthly window, each re-estimated from scratch (own change
+  point, own interval).
+- **Holm** step-down correction of the four permutation p-values.
+- **Artifact checks** (added after the first real run, labelled as such). *Baseline placebo*
+  (H2): refit Louvain on the first half of 2000, effect of the second half; fails when
+  |effect| > 2.0. *Within-custodian* (H3): for custodians with at least 30 sent events in both
+  periods, the change in each one's own weighted external share from 2000 to after the change
+  point; median with a bootstrap interval over custodians; passes only if the interval lies
+  below zero. A failed check, or one that could not run, caps confidence at low.
+
+### Exploratory families E1–E20 (`finding/exploratory.py`)
+
+- **Unit and comparison.** Each custodian against themselves: d_i = m_i(crisis) − m_i(reference),
+  with windows fixed by public dates (2001-08-14 to 2001-12-02 against the same weeks of 2000).
+  Measures are ratios or per-active-week rates over all of a custodian's sent or received
+  messages (not only network ties); a custodian needs at least 20 messages in each window. E12
+  is ego-level reciprocity: the share of a custodian's sent-to contacts who wrote back in the
+  same window.
+- **Test.** Wilcoxon signed-rank (two-sided) on d; median of d with a percentile bootstrap
+  interval over custodians (2000 draws); Holm across all twenty.
+- **Pre-crisis placebo.** The same difference for January–April 2001 against January–April 2000;
+  passes if its interval covers zero or its median is less than half the crisis median.
+- **Leave-one-out.** The median recomputed without each custodian; every one must keep the sign.
+- **Mail-volume equalisation** (added after seeing results). For every hypothesis not rejected
+  and without a caveat, each custodian's sent and received messages in both windows are
+  subsampled to the smaller window's count, the measure recomputed, the difference averaged over
+  40 seeded subsamples, and the test rerun. It is reported next to the outcome, not part of the
+  rule.
+
+### Re-identification attacks as graph matching (`risk/attack.py`)
+
+The attacks target **R0**, a pseudonymised node-level weekly edge list. The attacker's auxiliary
+graph is the public corpus parsed with their own naive parser, labelled by address. The aggregate
+releases R1 and R2 contain no node to match, so the attacks return nothing on them.
+
+- **A1, outsider: temporal degree fingerprint.** Each node becomes a vector of its distinct
+  out-neighbours and distinct in-neighbours per week, computed by the same function on both
+  sides. Each pseudonym is matched to the Euclidean-nearest address (nearest neighbour, not
+  one-to-one).
+- **A2, insider: seeded propagation.** Starting from 3 custodians whose addresses are known,
+  every unmatched pseudonym p is scored against every unused address a by the number of
+  (week, already-matched neighbour) contacts they share, divided by √(contacts of a) so busy
+  addresses do not win by size. A match needs support ≥ 2 and a strict best on both sides
+  (one-to-one); each round's matches seed the next until nothing changes. This is
+  de-anonymisation in the spirit of seed-based graph matching (Narayanan–Shmatikov style
+  propagation), on time-stamped edges.
+
+Scoring is separate, runs in the ingest zone and emits counts only. Results are in
+[release/risk.csv](release/risk.csv): on R0, A1 re-identifies about a quarter and A2 more than
+half of the targets; on R1 and R2, nobody.
+
+### Method by hypothesis family
+
+| Family | Compared | Method | Decision rule |
+|--------|----------|--------|---------------|
+| H1–H4 (pre-registered) | weekly network series, after a searched change week vs 2000 | CUSUM + permutation p, standardised effect, block bootstrap, Holm over 4 | supported if p_holm < 0.05 and interval on the hypothesised side; confidence from null-model z, leave-one-mailbox-out, variants |
+| Artifact checks (H2, H3) | placebo half-year in 2000; custodians against themselves | refit Louvain on half the baseline; within-custodian median change with bootstrap | failed or not run caps confidence at low; no headline |
+| E1–E20 (exploratory) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 20 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable and no caveat; volume-equalised result reported alongside |
+| A1, A2 (risk) | release R0, R1, R2 against the public corpus | nearest-neighbour fingerprint matching; seeded propagation | share of targets re-identified (top-1), with interval |
+
+---
+
 ## Libraries and why each is here
 
 ### Pipeline (Python 3.12)
@@ -241,9 +389,9 @@ external URL: no CDN, no web fonts, no analytics.
 | Library | Role here | Why this one |
 |---------|-----------|--------------|
 | **Polars** | every stage table; Parquet in and out | Fast, typed columnar frames with list and struct columns, which recipients need. Lazy group-bys fit 1.3 M events comfortably on a laptop. |
-| **NetworkX** | baseline communities (Louvain), graph helpers | The network is tens of thousands of nodes, well within reach. Readable, seeded algorithms matter more here than raw speed. |
+| **NetworkX** | baseline communities (Louvain); the only graph algorithm the pipeline calls a library for | The network is tens of thousands of nodes, well within reach. Readable, seeded algorithms matter more here than raw speed. Snapshots, metrics and the null model are Polars table operations. |
 | **NumPy** | bootstrap, permutation and attack arithmetic | Vectorised resampling with seeded generators. |
-| **SciPy** | the normal quantile behind the one-sided null-model threshold | One standard function instead of a hand-typed critical value. |
+| **SciPy** | the normal quantile behind the one-sided null-model threshold; the Wilcoxon signed-rank test of the exploratory families | Standard, tested implementations instead of a hand-typed critical value or a home-made rank test. |
 | `tarfile`, `email.utils`, `hmac`, `hashlib` (standard library) | streaming the archive, parsing dates, keyed pseudonyms, fingerprints | No dependency needed, and easy to audit: the code that touches raw data stays small and standard. |
 | **uv** | environment and lockfile | Pinned, reproducible installs in seconds (`uv sync --locked`). |
 | **pytest** + **Hypothesis** | unit, contract, privacy and property tests | Property tests check that dedupe ignores input order, that the header reader never reads past the header, and that k-suppression never leaks. |
@@ -258,7 +406,8 @@ external URL: no CDN, no web fonts, no analytics.
 | **Tailwind CSS** | styling and the dark theme tokens | One set of design tokens, no runtime CSS. |
 | **shadcn/ui** on **Radix UI** | cards, tabs, tables, badges, slider, select, tooltip | Accessible primitives copied into the repo rather than imported from a registry, so there is no external fetch. |
 | **Recharts** (via shadcn charts) | metrics over time, change-point and event markers | Declarative charts that match the shadcn theme. |
-| **d3-force** | the group network layout | One force layout computed once and kept stable while the week slider moves. |
+| **d3-force** | the flat (2D) group network layout, the fallback without WebGL | One force layout computed once and kept stable while the week slider moves. |
+| **react-force-graph-3d** + **three** | the 3D group network | Loaded as a separate chunk only when the browser has WebGL; bundled, so still no external request. |
 | **lucide-react**, **@fontsource-variable/inter** | icons, bundled font | Bundled assets, so no external request. |
 | `class-variance-authority`, `clsx`, `tailwind-merge` | component variants and class composition | The standard shadcn helpers. |
 | **Vitest** + **Testing Library** + **jsdom** | UI tests, including a privacy test | Checks the data contains no `@`, no pseudonym and no group below five, and that no view renders per person. |
@@ -360,6 +509,77 @@ out of reach of the service entirely.
 | Retention, residency, works council | Restricted data expires on a schedule, processing stays in the customer's region, and the questions and thresholds are reviewed before the first run. |
 | Orchestration and monitoring | Run the stages under a scheduler (e.g. Dagster or Prefect) with the run manifest as the lineage record, and alert on contract or privacy violations. |
 | Better identity resolution | A public-suffix list instead of the short table; an evaluated probabilistic model alongside the explainable rules. |
+
+### Securing the explorer as a product
+
+*Proposal; none of this is implemented.* Today the explorer is a static site over public
+aggregates: it has a Content-Security-Policy and a build check against external URLs, but no
+login, roles or server. Before it serves real customer data:
+
+```mermaid
+flowchart LR
+    B["browser"] -->|HTTPS only, HSTS| T["TLS termination"]
+    T --> G["API gateway<br/>JWT signature and expiry,<br/>rate limit per user and tenant"]
+    G --> Q["query service<br/>role check on every query,<br/>k-threshold and query budget"]
+    Q --> S[("encrypted store<br/>per-tenant KMS key")]
+    Q --> A[("audit log<br/>who queried what")]
+```
+
+| Control | What changes |
+|---------|--------------|
+| Transport | HTTPS everywhere: TLS termination at the edge, HSTS, TLS between internal services too. The existing CSP stays. |
+| Authentication | Sign-in through the customer's identity provider (OIDC/SSO). Short-lived signed JWTs (minutes), refresh through the provider, signing-key rotation, and revocation on offboarding or suspected theft. |
+| Authorisation | Roles such as viewer (published aggregates), analyst (re-aggregation within thresholds), admin (users, no data access beyond viewer) and auditor (audit log only), checked server-side on every query, never only in the UI. Least privilege by default; the role definitions are agreed with the works council before go-live. |
+| Rate limits and budgets | Per user and per tenant. Besides protecting the service, a query budget is a privacy control: it limits differencing attacks that combine many overlapping aggregates. |
+| Encryption | At rest for every store (Parquet, database, backups, logs) with KMS-managed keys per tenant; the pseudonymisation key held by the customer, in their KMS. In transit everywhere. |
+| Audit | Append-only log of who asked which query, with which role, and how much budget it used; readable by the auditor role and the customer. |
+| Supply chain | Dependency and container image scanning in CI, pinned versions (as today), signed images. |
+| Testing | Load tests (for example k6 or Locust) with realistic query mixes and tenant counts; an external penetration test before go-live and periodically after; abuse tests that try to re-identify people through the query interface, extending the attacks in `risk/` from releases to live queries. |
+
+### Multi-tenant SaaS: database constraints and scale
+
+*Proposal; the current pipeline serves one corpus on one machine.*
+
+**Tenant isolation.** Three options:
+
+| Option | Isolation | Cost | Fit here |
+|--------|-----------|------|----------|
+| Database (and storage) per tenant | strongest: separate files, keys, region and deletion | more instances to run and migrate | **chosen for analytical data** |
+| Schema per tenant | medium: one engine, separate namespaces | one shared failure and resource domain | possible for small tenants |
+| Shared tables with a tenant key and row-level security | weakest: one missing predicate leaks across tenants | cheapest to run | only for non-sensitive control data |
+
+Communication metadata is sensitive, every tenant needs its own pseudonymisation key and often its
+own region, and deleting a tenant must be provable. A separate store per tenant gives all three:
+deletion is dropping the tenant's prefix and destroying its key.
+
+**Stores.**
+
+- **Analytical data**: Parquet per tenant, read by DuckDB in the query service, as in the
+  current design. Object storage laid out as `region/tenant/zone/table/week=…/`, each tenant
+  prefix encrypted with its own KMS key.
+- **Transactional data** (users, roles, audit log, job state): PostgreSQL. This is small and
+  not person-level, so shared tables with a tenant key and row-level security are acceptable
+  here, with the policy tested in CI.
+
+**Scale.**
+
+- The pipeline runs as **per-tenant jobs** on a queue, with workers scaled horizontally; one
+  tenant's run never shares a process with another's.
+- **Incremental processing by week**: a new week of headers updates that week's snapshots and
+  metrics instead of recomputing the whole history. Frozen baseline communities and fixed
+  windows make this natural; change-point tests over the whole series are cheap to rerun.
+- **Partitioned Parquet** by tenant and week, so queries read only the weeks they need.
+- The UI reads **cached aggregate releases** (or read replicas), not the pipeline's working
+  files.
+- **Noisy-neighbour limits**: per-tenant worker quotas, query timeouts and memory caps.
+
+**Constraints from privacy.** No cross-tenant joins and no shared identity resolution: one
+person in two customers' data stays two unrelated pseudonyms. Differential-privacy budgets are
+tracked per tenant (and per release), and a query that would exceed the budget is refused.
+
+**What to measure.** Query latency (p50, p95) per role; pipeline run time against tenant size
+(mailboxes, messages per week); cost per tenant (compute, storage, KMS calls); budget
+consumption per tenant.
 
 ---
 
