@@ -68,9 +68,10 @@ def build_r2(
 def weekly_metrics(metric_series: pl.DataFrame, k: int) -> pl.DataFrame:
     """The default series only: a sensitivity variant published next to it would let default
     minus variant `n_active` reveal groups smaller than k. Variants stay restricted and feed the
-    finding's robustness check."""
+    finding's robustness check. The same holds between the nested scopes (core within observed)."""
     default = metric_series.filter(pl.col("variant") == DEFAULT_VARIANT)
-    return kanon.suppress_below(default, "n_active", k, dependents=("value",))
+    published = kanon.suppress_below(default, "n_active", k, dependents=("value",))
+    return kanon.suppress_nested_scopes(published, k)
 
 
 def degree_distribution(edges: pl.DataFrame, k: int, floors: tuple[int, ...]) -> pl.DataFrame:

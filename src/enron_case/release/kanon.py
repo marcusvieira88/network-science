@@ -11,12 +11,16 @@ import polars as pl
 
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
-from enron_case.contracts.vocab import DEFAULT_VARIANT
+from enron_case.contracts.vocab import DEFAULT_VARIANT, SCOPES
 from enron_case.errors import PrivacyViolation
 
 # Tables whose partition total an attacker can learn elsewhere (the public corpus gives the
 # number of active persons per period), so one lone suppressed cell would be recoverable.
 DIFFERENCING_PARTITIONS: dict[str, str] = {"degree_distribution": "period"}
+# The core network is a subset of the observed one, so where both are published for a week and
+# metric, observed minus core `n_active` counts the active persons outside the core.
+CORE_SCOPE, OBSERVED_SCOPE = SCOPES
+SCOPE_KEYS = ("week", "metric", "variant")
 
 
 def suppress_below(
@@ -51,6 +55,32 @@ def suppress_partition(df: pl.DataFrame, count_col: str, partition: str, k: int)
     return df.with_columns(pl.when(hide).then(None).otherwise(true).alias(count_col))
 
 
+def _outside_core(df: pl.DataFrame) -> pl.DataFrame:
+    """Per week, metric and variant: observed minus core `n_active`, where both are published."""
+
+    def side(scope: str, alias: str) -> pl.DataFrame:
+        return df.filter(pl.col("scope") == scope).select(
+            *SCOPE_KEYS, pl.col("n_active").alias(alias)
+        )
+
+    both = side(OBSERVED_SCOPE, "observed").join(side(CORE_SCOPE, "core"), on=SCOPE_KEYS)
+    return both.select(*SCOPE_KEYS, (pl.col("observed") - pl.col("core")).alias("outside"))
+
+
+def suppress_nested_scopes(df: pl.DataFrame, k: int) -> pl.DataFrame:
+    """Suppress the core row (count and value) wherever the persons outside the core number
+    between 1 and k - 1, so observed minus core cannot describe them."""
+    outside = _outside_core(df).filter((pl.col("outside") > 0) & (pl.col("outside") < k))
+    hide = outside.select(
+        *SCOPE_KEYS, pl.lit(CORE_SCOPE).alias("scope"), pl.lit(True).alias("hide")
+    )
+    marked = df.join(hide, on=[*SCOPE_KEYS, "scope"], how="left")
+    hidden = pl.col("hide").fill_null(False)
+    return marked.with_columns(
+        pl.when(hidden).then(None).otherwise(pl.col(c)).alias(c) for c in ("n_active", "value")
+    ).drop("hide")
+
+
 def assert_no_identifiers(df: pl.DataFrame) -> None:
     hits = schemas.leak_count(df)
     if hits:
@@ -65,6 +95,7 @@ def check(name: str, df: pl.DataFrame, k: int) -> None:
         raise PrivacyViolation(f"{name}: {small} person counts below k")
     if name == "weekly_metrics":
         _check_metric_values(df)
+        _check_nested_scopes(df, k)
     partition = DIFFERENCING_PARTITIONS.get(name)
     if partition is not None:
         _check_differencing(df, schemas.PERSON_COUNT_COLUMNS[name][0], partition)
@@ -77,6 +108,12 @@ def _check_metric_values(df: pl.DataFrame) -> None:
     variants = df.filter(pl.col("variant") != DEFAULT_VARIANT)
     if variants.height:
         raise PrivacyViolation(f"weekly_metrics: {variants.height} rows of a non-default variant")
+
+
+def _check_nested_scopes(df: pl.DataFrame, k: int) -> None:
+    outside = _outside_core(df).filter((pl.col("outside") > 0) & (pl.col("outside") < k))
+    if outside.height:
+        raise PrivacyViolation(f"weekly_metrics: {outside.height} scope differences below k")
 
 
 def _check_differencing(df: pl.DataFrame, count_col: str, partition: str) -> None:
