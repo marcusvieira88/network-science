@@ -1,15 +1,16 @@
 import { FindingCard } from "@/components/FindingCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ReleaseData } from "@/lib/data";
-import { exploratoryLeads } from "@/lib/exploratory";
+import { allHypotheses, heldTrueLines } from "@/lib/hypotheses";
 import { keyNumbers } from "@/lib/overview";
 
 export function Overview({ data }: { data: ReleaseData }) {
-  const leads = exploratoryLeads(data.tables.exploratory);
+  const { hypotheses, exploratory, artifact_checks: checks } = data.tables;
+  const leads = heldTrueLines(allHypotheses(hypotheses, exploratory, checks));
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <FindingCard hypotheses={data.tables.hypotheses} artifactChecks={data.tables.artifact_checks} />
+        <FindingCard hypotheses={hypotheses} artifactChecks={checks} />
         {leads.map((lead) => (
           <p key={lead} className="px-1 text-sm text-primary">
             {lead}
