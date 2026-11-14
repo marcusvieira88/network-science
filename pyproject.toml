@@ -34,7 +34,7 @@ target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["enron_case", "helpers"]
+known-first-party = ["enron_case", "helpers", "network_toys", "risk_fakes"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "PL", "N"]
