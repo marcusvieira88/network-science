@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ClusterView } from "@/components/ClusterView";
 import { CommunityGraph } from "@/components/CommunityGraph";
+import { Glossary } from "@/components/Glossary";
 import { HypothesesTable } from "@/components/HypothesesTable";
 import { Limits } from "@/components/Limits";
 import { MetricChart } from "@/components/MetricChart";
+import { PlainHypotheses } from "@/components/PlainHypotheses";
 import { Overview } from "@/components/Overview";
 import { QualityPanel } from "@/components/QualityPanel";
 import { RiskPanel } from "@/components/RiskPanel";
@@ -27,7 +29,7 @@ export function View({ view, data, onSelect }: ViewProps) {
   const { tables } = data;
   switch (view) {
     case "overview":
-      return <Overview data={data} />;
+      return <Overview data={data} onSelect={onSelect} />;
     case "metrics": {
       const main = headline(tables.hypotheses);
       return (
@@ -76,29 +78,44 @@ export function View({ view, data, onSelect }: ViewProps) {
       const entries = allHypotheses(tables.hypotheses, tables.exploratory, tables.artifact_checks);
       const counts = countByKind(entries);
       return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Hypotheses</CardTitle>
-            <CardDescription className="space-y-2">
-              <span className="block">
-                One list, ordered by number. {counts.preregistered} were stated {STATED.preregistered} and{" "}
-                {counts.exploratory} {STATED.exploratory}; Holm&apos;s correction runs within each of those two sets.
-                Each hypothesis stated {STATED.exploratory} compares every custodian with themselves, crisis window
-                against the same weeks a year earlier.
-              </span>
-              <span className="block">
-                &ldquo;Held true&rdquo; marks what the analysis holds to be true: the headline among the hypotheses
-                stated {STATED.preregistered}, or a confident outcome among those stated {STATED.exploratory}. A
-                hypothesis stated {STATED.preregistered} carries its check against a known artifact of the data under
-                its row; a supported one whose check fails or cannot run is capped at low confidence and is not
-                claimed as a finding.
-              </span>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <HypothesesTable entries={entries} />
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">What we tested, in plain words</CardTitle>
+              <CardDescription>
+                Each hypothesis is a claim about how email behaviour changed, written down before its result was
+                computed. One sentence per hypothesis says what came of it; the full statistics are below.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <PlainHypotheses entries={entries} />
+              <Glossary />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Details for analysts</CardTitle>
+              <CardDescription className="space-y-2">
+                <span className="block">
+                  One list, ordered by number. {counts.preregistered} were stated {STATED.preregistered} and{" "}
+                  {counts.exploratory} {STATED.exploratory}; Holm&apos;s correction runs within each of those two sets.
+                  Each hypothesis stated {STATED.exploratory} compares every custodian with themselves, crisis window
+                  against the same weeks a year earlier.
+                </span>
+                <span className="block">
+                  &ldquo;Held true&rdquo; marks what the analysis holds to be true: the headline among the hypotheses
+                  stated {STATED.preregistered}, or a confident outcome among those stated {STATED.exploratory}. A
+                  hypothesis stated {STATED.preregistered} carries its check against a known artifact of the data under
+                  its row; a supported one whose check fails or cannot run is capped at low confidence and is not
+                  claimed as a finding.
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <HypothesesTable entries={entries} />
+            </CardContent>
+          </Card>
+        </div>
       );
     }
     case "quality":

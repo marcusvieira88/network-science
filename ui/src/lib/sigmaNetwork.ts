@@ -17,7 +17,7 @@ import { type Point, sortedGroups } from "@/lib/cells";
 import { themeHex, withAlpha } from "@/lib/color";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
 import { type GroupTie, MEMBRANE_OPACITY, groupColor, publishedTies } from "@/lib/network";
-import { OVERLAP_DISC_OPACITY, type Overlap } from "@/lib/overlap";
+import { OVERLAP_DISC_COLOR, type Overlap } from "@/lib/overlap";
 
 /** Disc radius = square root of group size times this, so disc area is proportional to size. */
 export const NODE_RADIUS_PER_SQRT_PERSON = 1;
@@ -168,20 +168,20 @@ export interface NetworkInput {
   palette: NetworkPalette;
   /** Anonymous points per group label, relative to the group's centre; null in the Groups mode. */
   points: ReadonlyMap<string, readonly Point[]> | null;
-  /** The week's overlapping pairs in the Overlap mode (discs drawn translucent); absent otherwise. */
+  /** The week's overlapping pairs in the Overlap mode (discs transparent under the contours); absent otherwise. */
   overlaps?: readonly Overlap[];
 }
 
 function discColor(color: string, points: boolean, overlap: boolean): string {
   if (points) return withAlpha(color, MEMBRANE_OPACITY);
-  return overlap ? withAlpha(color, OVERLAP_DISC_OPACITY) : color;
+  return overlap ? OVERLAP_DISC_COLOR : color;
 }
 
 /**
  * The graph for one week: a disc per published group, the week's ties between groups and, in the
  * Individuals mode, the group's anonymous points inside a translucent disc. Ties join groups only.
- * In the Overlap mode discs are translucent and each overlapping pair has a hidden edge instead of
- * a line.
+ * In the Overlap mode discs are transparent (the contour layer draws the groups) and each
+ * overlapping pair has a hidden edge instead of a line.
  */
 export function networkGraph({ groups, positions, ties, maxTie, palette, points, overlaps }: NetworkInput): NetworkGraph {
   const graph: NetworkGraph = new UndirectedGraph();

@@ -2,7 +2,7 @@
  * The WebGL group network (Sigma.js via React Sigma). Loaded on demand (React.lazy) so Sigma and
  * graphology stay out of the bundle the other views load. All data mapping lives in
  * lib/sigmaNetwork.ts; this file wires it to Sigma: loading the week's graph, hover and search
- * focus, zoom and fullscreen controls, and the legend.
+ * focus, the Overlap mode's contour layer, zoom and fullscreen controls, and the legend.
  */
 import "@react-sigma/core/lib/style.css";
 
@@ -24,10 +24,20 @@ import type { Settings } from "sigma/settings";
 import { animateNodes } from "sigma/utils";
 
 import { type NetworkMode, anonymousPoints } from "@/lib/cells";
+import { bindGroupContours } from "@/lib/contourLayer";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
 import { formatNumber } from "@/lib/format";
 import { type GroupTie, NETWORK_HEIGHT, publishedTies } from "@/lib/network";
-import { OVERLAP_PAIRS, type Overlap, type WeekOverlaps, overlapsOf, relaxPositions, weekOverlaps } from "@/lib/overlap";
+import {
+  OVERLAP_DISC_COLOR,
+  OVERLAP_PAIRS,
+  type Overlap,
+  type WeekOverlaps,
+  overlapsOf,
+  relaxPositions,
+  weekOverlaps,
+} from "@/lib/overlap";
+import { type ContourStyle, contourStyles } from "@/lib/overlapContours";
 import {
   type NetworkEdge,
   type NetworkGraph,
@@ -59,6 +69,7 @@ const LEGEND_LINE_LENGTH = 24;
 const WEEK_MOTION_MS = 400;
 const PERCENT = 100;
 const NO_OVERLAPS: WeekOverlaps = { overlaps: [], lines: [] };
+const NO_CONTOURS: readonly ContourStyle[] = [];
 /** Sizes are in layout units and grow with the zoom, so a group's points stay inside its disc. */
 const zoomWithPositions = (ratio: number): number => ratio;
 
@@ -157,6 +168,28 @@ function FocusHighlight({ graph, focusKey, onHover, dimmed }: FocusProps) {
       edgeReducer: (edge, data) => edgeAppearance(data, drawn.extremities(edge), focus),
     });
   }, [sigma, setSettings, graph, focusKey, dimmed]);
+  return null;
+}
+
+/**
+ * The Overlap mode's contour layer, one per view. It is bound once and removed on mode change and
+ * unmount; it is not rebound when the week or the focus changes: it reads the groups' drawn
+ * positions on every render (so it follows Sigma's week animation frame by frame) and the latest
+ * styles from a ref, and a rebind per frame would create a WebGL context per frame.
+ */
+function OverlapContours({ styles }: { styles: readonly ContourStyle[] }) {
+  // The layer reads only display data (position and size), so the untyped instance is enough.
+  const sigma = useSigma();
+  const latest = useRef(styles);
+  const groups = styles.length;
+  useEffect(() => {
+    latest.current = styles;
+    sigma.scheduleRender();
+  }, [sigma, styles]);
+  useEffect(() => {
+    if (groups === 0) return;
+    return bindGroupContours(sigma, groups, () => latest.current);
+  }, [sigma, groups]);
   return null;
 }
 
@@ -326,6 +359,12 @@ export default function SigmaNetwork({ groups, edges, week, maxTie, mode, seed }
   const [hovered, setHovered] = useState<string | null>(null);
   const [searched, setSearched] = useState<string | null>(null);
   const focusKey = hovered ?? searched;
+  const contours = useMemo(
+    () => (overlapMode ? contourStyles(labels, palette.groups, focusOn(graph, focusKey)) : NO_CONTOURS),
+    [overlapMode, labels, palette, graph, focusKey],
+  );
+  // In the Overlap mode the contours do the dimming; a dimmed disc stays as transparent as the rest.
+  const dimmed = overlapMode ? OVERLAP_DISC_COLOR : palette.dimmed;
 
   return (
     <div role="group" aria-label={`Group network for the week of ${week ?? "none"}`} data-mode={mode}>
@@ -336,7 +375,8 @@ export default function SigmaNetwork({ groups, edges, week, maxTie, mode, seed }
         style={{ height: NETWORK_HEIGHT }}
       >
         <GraphLoader graph={graph} animate={overlapMode} />
-        <FocusHighlight graph={graph} focusKey={focusKey} onHover={setHovered} dimmed={palette.dimmed} />
+        <FocusHighlight graph={graph} focusKey={focusKey} onHover={setHovered} dimmed={dimmed} />
+        {overlapMode && <OverlapContours styles={contours} />}
         <GroupSearch labels={labels} onSelect={setSearched} />
         <FocusSummary graph={graph} focusKey={focusKey} people={people} overlaps={overlapMode ? weekly.overlaps : null} />
         <ControlsContainer position="top-right">

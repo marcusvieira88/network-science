@@ -44,3 +44,14 @@ export function themeHex(name: string, raw: string): string {
 export function withAlpha(hex: string, opacity: number): string {
   return `${hex}${channelHex(Math.min(Math.max(opacity, 0), 1))}`;
 }
+
+const HEX_CHANNEL_WIDTH = 2;
+const HEX_RADIX = 16;
+
+/** "#rrggbb" as red, green and blue in [0, 1], for WebGL uniforms; anything else throws. */
+export function hexChannels(hex: string): [number, number, number] {
+  if (!HEX_PATTERN.test(hex)) throw new ThemeColorError(`not a #rrggbb colour: "${hex}"`);
+  const channel = (index: number): number =>
+    parseInt(hex.slice(1 + index * HEX_CHANNEL_WIDTH, 1 + (index + 1) * HEX_CHANNEL_WIDTH), HEX_RADIX) / CHANNEL_MAX;
+  return [channel(0), channel(1), channel(2)];
+}

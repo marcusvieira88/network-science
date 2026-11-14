@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { Overview } from "@/components/Overview";
 import { handBuilt } from "@/test/hypotheses";
@@ -27,5 +28,21 @@ describe("Overview", () => {
     const exploratory = rows.exploratory.map((row) => ({ ...row, outcome: "inconclusive" as const }));
     render(<Overview data={dataWith({ ...rows, exploratory })} />);
     expect(screen.queryByText(/^Held true:/)).not.toBeInTheDocument();
+  });
+
+  it("answers first, in plain words, with the reasons and the privacy result", () => {
+    render(<Overview data={dataWith()} />);
+    // handBuilt: H1 is the headline and H16 is confident; the other 22 show no reliable change.
+    expect(screen.getByText("2 of 24 hypotheses held up: H1, H16.")).toBeInTheDocument();
+    expect(screen.getByText("22 showed no reliable change.")).toBeInTheDocument();
+    expect(screen.getByText(/cuts the strongest attacker's re-identification rate from/)).toBeInTheDocument();
+  });
+
+  it("leads to the plain-language hypotheses and to the network", async () => {
+    const onSelect = vi.fn();
+    render(<Overview data={dataWith()} onSelect={onSelect} />);
+    await userEvent.click(screen.getByRole("button", { name: /Every hypothesis in plain words/ }));
+    await userEvent.click(screen.getByRole("button", { name: /See how the groups talk/ }));
+    expect(onSelect.mock.calls).toEqual([["hypotheses"], ["network"]]);
   });
 });

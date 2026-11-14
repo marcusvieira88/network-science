@@ -1,6 +1,6 @@
 /**
  * Pure mapping for the network's Overlap mode: the week's heaviest ties between two published
- * groups are drawn as intersecting discs instead of lines, and the group positions are relaxed so
+ * groups are drawn as intersecting contours instead of lines, and the group positions are relaxed so
  * each such pair overlaps by its depth while every other pair stays apart.
  *
  * An overlap means mail between two groups, never shared members: each person is in exactly one
@@ -21,8 +21,12 @@ export const OVERLAP_ITERATIONS = 200;
  * global layout's smallest gap apart even where overlaps pull against each other.
  */
 export const SEPARATION_PASSES = 100;
-/** Overlap discs are translucent so the lens shows both groups' colours blended. */
-export const OVERLAP_DISC_OPACITY = 0.5;
+/**
+ * In the Overlap mode the contour layer (lib/overlapContours.ts) draws each group; Sigma's disc is
+ * invisible and stays only for hover, search and the label. Transparent *black*: Sigma blends
+ * colours as if premultiplied, so a "#rrggbb00" disc would still add its colour.
+ */
+export const OVERLAP_DISC_COLOR = "#00000000";
 
 /** A pair of published groups drawn as overlapping discs this week. */
 export interface Overlap {

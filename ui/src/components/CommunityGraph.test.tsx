@@ -74,6 +74,13 @@ describe("CommunityGraph without WebGL (2D fallback)", () => {
     );
   }
 
+  it("explains how to read the chart and sums up the selected week in one sentence", () => {
+    renderGraph();
+    expect(screen.getByText("How to read this")).toBeInTheDocument();
+    const busiest = weekGraph(edges, weeks[0] ?? null).ties[0];
+    expect(screen.getByTestId("week-summary")).toHaveTextContent(`the busiest link between groups was ${busiest?.a} ↔ ${busiest?.b}`);
+  });
+
   it("draws one node per group and states that nodes are groups, not individuals", () => {
     const { container } = renderGraph();
     expect(screen.getAllByTestId("group-node")).toHaveLength(3);

@@ -236,7 +236,7 @@ flowchart LR
     S10 --> J[(ui/public/data/release.json<br/>the UI's only input)]
     J --> APP[React 18 + TypeScript · Vite<br/>shadcn/ui · dark theme]
     subgraph Views
-        V1[Overview<br/>finding statement, key numbers]
+        V1[Overview<br/>plain-language answer, finding statement, key numbers]
         V2["Metrics<br/>metric / scope / variant selectors<br/>(only the default variant is published),<br/>change point, public events, baseline band"]
         V3[Network<br/>Sigma.js WebGL graph of groups, ForceAtlas2,<br/>zoom, fullscreen, search, hover, week slider;<br/>anonymous Individuals mode; SVG fallback]
         V4[Clusters<br/>chord diagram of group-to-group weight,<br/>per-group table]
@@ -261,7 +261,7 @@ Rules for the UI:
    network laid out with `d3-force`. The Individuals mode draws, inside each group, as many points as the group has
    persons, at seeded random positions: decoration with no label, tooltip, hover text, tie or
    data (Sigma keys are opaque sequence numbers). The Overlap mode (WebGL only) draws the week's six
-   heaviest group pairs by message count as intersecting translucent discs; an overlap is mail
+   heaviest group pairs by message count as intersecting outlined contours (one `@sigma/layer-webgl` layer, drawn from group nodes only); an overlap is mail
    between groups, never shared members. There is
    no person-level node, tooltip or table anywhere (`ui/src/privacy.test.ts`).
 3. No outside requests: fonts and assets are bundled; no analytics, no CDN.

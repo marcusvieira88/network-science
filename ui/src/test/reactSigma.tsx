@@ -1,7 +1,8 @@
 /**
  * A stand-in for @react-sigma/core (Sigma needs WebGL, which jsdom lacks). It renders its children
  * and the control buttons, and keeps what the view hands to Sigma, so tests can inspect the loaded
- * graph, the settings (reducers, hover drawing) and the registered events.
+ * graph, the settings (reducers, hover drawing) and the registered events. The Sigma instance
+ * also answers what the Overlap mode's contour layer reads: display data, viewport and size.
  * Use with `vi.mock("@react-sigma/core", () => import("@/test/reactSigma"))`.
  */
 import { type ReactNode, useCallback } from "react";
@@ -18,14 +19,16 @@ type NodeEvent = { node: string };
 export const sigmaStub: {
   graph: NetworkGraph | null;
   loads: number;
+  renders: number;
   handlers: { enterNode?: (event: NodeEvent) => void; leaveNode?: (event: NodeEvent) => void };
   settings: NetworkSettings;
   gotoNode: ReturnType<typeof vi.fn>;
-} = { graph: null, loads: 0, handlers: {}, settings: {}, gotoNode: vi.fn() };
+} = { graph: null, loads: 0, renders: 0, handlers: {}, settings: {}, gotoNode: vi.fn() };
 
 export function resetSigmaStub(): void {
   sigmaStub.graph = null;
   sigmaStub.loads = 0;
+  sigmaStub.renders = 0;
   sigmaStub.handlers = {};
   sigmaStub.settings = {};
   sigmaStub.gotoNode = vi.fn();
@@ -71,10 +74,22 @@ export function useSetSettings() {
   }, []);
 }
 
+/** Pixels per layout unit in the stub: Sigma's `scaleSize` at the default camera. */
+export const STUB_PIXELS_PER_UNIT = 10;
+
+function loadedGraph(): NetworkGraph {
+  if (!sigmaStub.graph) throw new Error("no graph loaded");
+  return sigmaStub.graph;
+}
+
 const sigma = {
-  getGraph: (): NetworkGraph => {
-    if (!sigmaStub.graph) throw new Error("no graph loaded");
-    return sigmaStub.graph;
+  getGraph: loadedGraph,
+  getNodeDisplayData: (key: string): NetworkNode | undefined =>
+    loadedGraph().hasNode(key) ? loadedGraph().getNodeAttributes(key) : undefined,
+  framedGraphToViewport: ({ x, y }: { x: number; y: number }) => ({ x, y }),
+  scaleSize: (size: number): number => size * STUB_PIXELS_PER_UNIT,
+  scheduleRender: () => {
+    sigmaStub.renders += 1;
   },
 };
 
