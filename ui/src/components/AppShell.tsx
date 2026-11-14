@@ -40,6 +40,9 @@ interface AppShellProps {
   children: ReactNode;
 }
 
+/** The main region's id: the skip link's target, and where focus lands when a view opens from its content. */
+export const MAIN_ID = "main";
+
 function parameterText(value: unknown): string {
   return Array.isArray(value) ? value.join(", ") : String(value);
 }
@@ -49,7 +52,7 @@ export function AppShell({ active, onSelect, run, contractVersion, source, child
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <a
-        href="#main"
+        href={`#${MAIN_ID}`}
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
       >
         Skip to content
@@ -90,14 +93,14 @@ export function AppShell({ active, onSelect, run, contractVersion, source, child
         <header className="flex items-center justify-between gap-4 border-b px-6 py-4 print:px-0 print:py-1">
           <h1 className="text-lg font-semibold tracking-tight">{activeLabel}</h1>
           {source === "sample" ? (
-            <Badge variant="outline" className="border-amber-500/40 text-amber-300">
+            <Badge variant="outline" className="border-amber-500/40 text-amber-300 print:text-black">
               Sample data
             </Badge>
           ) : (
             <Badge variant="secondary">Release data</Badge>
           )}
         </header>
-        <main id="main" tabIndex={-1} className="flex-1 px-6 py-6 focus:outline-none print:px-0 print:py-1">
+        <main id={MAIN_ID} tabIndex={-1} className="flex-1 px-6 py-6 focus:outline-none print:px-0 print:py-1">
           {children}
         </main>
         <footer className="border-t px-6 py-4 text-xs text-muted-foreground print:px-0 print:py-1 print:text-[7pt]">

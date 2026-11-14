@@ -10,7 +10,7 @@ import { formatNumber, formatShare, metricLabel } from "@/lib/format";
 import { type HypothesisEntry, allHypotheses } from "@/lib/hypotheses";
 import { type Verdict, executiveSummary, plainVerdict, untestableReason } from "@/lib/plainLanguage";
 import { minimumGroupSize } from "@/lib/privacy";
-import { worstReidentification } from "@/lib/risk";
+import { PERSON_LEVEL, PUBLISHED, worstReidentification } from "@/lib/risk";
 import { type SeriesPoint, analysisWeeks } from "@/lib/series";
 import type { ViewId } from "@/lib/views";
 
@@ -26,10 +26,7 @@ const STEPS = {
 /** Header rulings, as in the header allowlist contract. */
 const RULING_USABLE = "usable";
 const RULING_CONTENT = "content";
-
-/** The release that is published, and the person-level one it is compared with. */
-const PUBLISHED = "R1";
-const PERSON_LEVEL = "R0";
+const RULING_IDENTIFIER = "identifier";
 
 /** Why the published release's re-identification rate is zero (release/report.md, privacy section). */
 const ZERO_BY_DESIGN = "That zero follows from the design: the published tables hold no person-level records for an attack to match";
@@ -51,8 +48,11 @@ export function joinList(items: readonly string[]): string {
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
+/** Counts are whole numbers: no decimals. */
+const COUNT_DECIMALS = 0;
+
 function count(value: number): string {
-  return value.toLocaleString("en-US");
+  return formatNumber(value, COUNT_DECIMALS);
 }
 
 function step(steps: DataQualityRow[], name: string): DataQualityRow | undefined {
@@ -99,7 +99,7 @@ export function studiedCard(data: ReleaseData): SummaryCard {
   const span = weeks.length ? `, over ${weeks.length} weeks (weeks of ${weeks[0]} to ${weeks[weeks.length - 1]})` : "";
   const content = contentFields(data.tables.header_fields);
   const contentText = content.length
-    ? ` ${joinList(content)} count${content.length === 1 ? "s" : ""} as content and ${content.length === 1 ? "was" : "were"} never stored;`
+    ? ` ${joinList(content)} count${content.length === 1 ? "s" : ""} as content and ${content.length === 1 ? "was" : "were"} never stored.`
     : "";
   const events = data.events;
   const eventSpan = events.length ? ` (${events[0]?.date} to ${events[events.length - 1]?.date})` : "";
@@ -109,7 +109,7 @@ export function studiedCard(data: ReleaseData): SummaryCard {
     title: "Who emailed whom, and when, never what was written",
     points: [
       `${messages}${span}.`,
-      `Only each message's envelope was analysed: sender, recipients and time.${contentText} bodies and attachments were never parsed or stored.`,
+      `Only each message's envelope was analysed: sender, recipients and time.${contentText} Bodies and attachments were never parsed or stored.`,
       `${entriesOf(data).length} hypotheses about how communication changed around ${events.length} public events${eventSpan}, each written down before its result was computed.`,
     ],
     view: "quality",
@@ -149,6 +149,12 @@ function artifactSentence(ids: string[]): string {
   );
 }
 
+/** Measures that moved against the prediction over the same two windows, so the record change may explain them. */
+function oppositeSentence(ids: string[]): string {
+  const one = ids.length === 1;
+  return `${joinList(ids)} moved the other way to the prediction over the same two windows, so the change in the record may explain ${one ? "it" : "them"} too.`;
+}
+
 function exploratoryRange(entries: HypothesisEntry[]): string {
   const ids = entries.filter((entry) => entry.kind === "exploratory").map((entry) => entry.id);
   return ids.length > 1 ? `${ids[0]}–${ids[ids.length - 1]}` : joinList(ids);
@@ -159,10 +165,12 @@ export function recordCard(data: ReleaseData): SummaryCard {
   const shifted = entries.filter(shiftedRecord);
   const artifacts = withVerdict(entries, "artifact").map((entry) => entry.id);
   const untestable = withVerdict(entries, "untestable").filter((entry) => !shiftedRecord(entry));
+  const opposite = withVerdict(entries, "opposite").map((entry) => entry.id);
   const points = [
     ...shifted.map((entry) => shiftSentence(entry, data)),
     ...(artifacts.length ? [artifactSentence(artifacts)] : []),
     ...untestable.map((entry) => `${entry.id}: ${plainVerdict(entry).sentence}`),
+    ...(shifted.length && opposite.length ? [oppositeSentence(opposite)] : []),
     ...(shifted.length
       ? [`Every within-custodian comparison (${exploratoryRange(entries)}) uses these same two windows, so each one compares two ways of keeping the record.`]
       : []),
@@ -223,7 +231,9 @@ export function privacyCard(data: ReleaseData): SummaryCard {
   const { risk } = data.tables;
   const personLevel = worstReidentification(risk, PERSON_LEVEL);
   const published = worstReidentification(risk, PUBLISHED);
-  const attackers = new Set(risk.filter((row) => row.release_variant === PERSON_LEVEL).map((row) => row.attacker)).size;
+  const attackers = new Set(
+    risk.filter((row) => row.release_variant === PERSON_LEVEL && row.reid_top1 !== null).map((row) => row.attacker),
+  ).size;
   const points: string[] = [];
   if (personLevel) {
     points.push(
@@ -350,8 +360,8 @@ export function riskHeadline(rows: RiskRow[]): string | null {
   const published = worstReidentification(rows, PUBLISHED);
   if (personLevel === null || published === null) return null;
   return (
-    `The strongest attacker re-identified ${formatShare(personLevel.rate)} of people from person-level data (${PERSON_LEVEL}) ` +
-    `and ${formatShare(published.rate)} from the published release (${PUBLISHED}).` +
+    `The strongest attack re-identified ${formatShare(personLevel.rate)} of people from person-level data (${PERSON_LEVEL}); ` +
+    `the strongest against the published release (${PUBLISHED}), ${formatShare(published.rate)}.` +
     (published.rate === 0 ? ` ${ZERO_BY_DESIGN}.` : "")
   );
 }
@@ -366,8 +376,14 @@ export function funnelHeadline(steps: DataQualityRow[]): string | null {
 /** The header ruling's headline: what is kept and what is never stored. */
 export function headerHeadline(fields: HeaderFieldRow[]): string {
   const usable = fields.filter((row) => row.ruling === RULING_USABLE).map((row) => row.field);
+  const identifiers = fields.filter((row) => row.ruling === RULING_IDENTIFIER).length;
   const content = contentFields(fields);
-  const kept = usable.length ? `only ${joinList(usable)} ${usable.length === 1 ? "is" : "are"} kept as metadata` : "none is kept as metadata";
-  const never = content.length ? `; ${joinList(content)} ${content.length === 1 ? "is" : "are"} content and never stored` : "";
-  return `Of ${fields.length} header fields, ${kept}${never}.`;
+  const parts = [
+    usable.length ? `${joinList(usable)} ${usable.length === 1 ? "is" : "are"} kept as metadata` : "none is kept as metadata",
+    ...(identifiers
+      ? [`${identifiers} identifier field${identifiers === 1 ? " is" : "s are"} replaced by pseudonyms or discarded at ingest`]
+      : []),
+    ...(content.length ? [`${joinList(content)} ${content.length === 1 ? "is" : "are"} content and never stored`] : []),
+  ];
+  return `Of ${fields.length} header fields, ${parts.join("; ")}.`;
 }

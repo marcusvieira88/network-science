@@ -8,6 +8,7 @@ import { allHypotheses } from "@/lib/hypotheses";
 import { worstReid } from "@/lib/overview";
 import { executiveSummary } from "@/lib/plainLanguage";
 import { minimumGroupSize } from "@/lib/privacy";
+import { PERSON_LEVEL, PUBLISHED } from "@/lib/risk";
 import type { ViewId } from "@/lib/views";
 
 /**
@@ -16,8 +17,8 @@ import type { ViewId } from "@/lib/views";
  * (docs/architecture.md), so the text says that rather than claiming a measured protection.
  */
 function privacyLine(data: ReleaseData): string | null {
-  const naive = worstReid(data, "R0");
-  const published = worstReid(data, "R1");
+  const naive = worstReid(data, PERSON_LEVEL);
+  const published = worstReid(data, PUBLISHED);
   if (naive === null || published === null) return null;
   const before = `On person-level pseudonymised data the strongest attack re-identifies ${formatShare(naive)} of people`;
   if (published > 0) return `${before}; on the published release, ${formatShare(published)}.`;

@@ -9,7 +9,9 @@ const DECLARATION = /^\s*(--[\w-]+):\s*([^;]+);/gm;
  */
 export function applyThemeVariables(): void {
   const css = readFileSync(join(import.meta.dirname, "..", "index.css"), "utf8");
-  for (const [, name, value] of css.matchAll(DECLARATION)) {
+  // The screen theme only: the print block redefines the same names for paper.
+  const screen = css.slice(0, css.indexOf("@media print"));
+  for (const [, name, value] of screen.matchAll(DECLARATION)) {
     if (name && value) document.documentElement.style.setProperty(name, value.trim());
   }
 }

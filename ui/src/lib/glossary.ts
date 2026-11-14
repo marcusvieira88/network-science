@@ -3,7 +3,7 @@
  * not data scientists. Shown on the Glossary and Hypotheses views and behind every "?" next to a
  * term; kept in one place so every view agrees.
  */
-export interface GlossaryTerm {
+interface GlossaryTerm {
   term: string;
   meaning: string;
 }

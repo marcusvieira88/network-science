@@ -12,6 +12,10 @@ export const ATTACKER_LABELS: Record<RiskRow["attacker"], string> = {
   A3: "A3 · every custodian known (public folder names)",
 };
 
+/** The person-level release under pseudonyms, and the published one it is compared with. */
+export const PERSON_LEVEL: RiskRow["release_variant"] = "R0";
+export const PUBLISHED: RiskRow["release_variant"] = "R1";
+
 type ReidByVariant = { variant: string } & Partial<Record<RiskRow["attacker"], number>>;
 
 /** One bar group per release variant, one bar per attacker: re-identification before and after. */

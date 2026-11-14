@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { AnalystDetails } from "@/components/AnalystDetails";
-import { AppShell } from "@/components/AppShell";
+import { AppShell, MAIN_ID } from "@/components/AppShell";
 import { ClusterView } from "@/components/ClusterView";
 import { CommunityGraph } from "@/components/CommunityGraph";
 import { Explain } from "@/components/Explain";
@@ -150,6 +150,16 @@ export function View({ view, data, onSelect }: ViewProps) {
   }
 }
 
+/**
+ * A link inside a view replaces the content under the reader, so start the new view at its top and
+ * put focus on it; otherwise focus is lost with the unmounted link and the headline sits above the fold.
+ */
+function openFromContent(setView: (view: ViewId) => void, view: ViewId): void {
+  setView(view);
+  window.scrollTo(0, 0);
+  document.getElementById(MAIN_ID)?.focus({ preventScroll: true });
+}
+
 export function App({ load = loadRelease }: { load?: () => Promise<LoadResult> }) {
   const [result, setResult] = useState<LoadResult | null>(null);
   const [view, setView] = useState<ViewId>(LANDING_VIEW);
@@ -183,7 +193,7 @@ export function App({ load = loadRelease }: { load?: () => Promise<LoadResult> }
       contractVersion={result.data.contract_version}
       source={result.source}
     >
-      <View view={view} data={result.data} onSelect={setView} />
+      <View view={view} data={result.data} onSelect={(next) => openFromContent(setView, next)} />
     </AppShell>
   );
 }
