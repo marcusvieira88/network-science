@@ -648,7 +648,7 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
 def check_no_identifiers(text: str) -> None:
     hits = len(IDENTIFIER.findall(text))
     if hits:
-        raise PrivacyViolation(f"report text holds {hits} identifier-shaped values")
+        raise PrivacyViolation(f"generated text holds {hits} identifier-shaped values")
 
 
 # ---- documents ----------------------------------------------------------------------------

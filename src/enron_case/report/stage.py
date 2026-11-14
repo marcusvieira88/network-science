@@ -24,7 +24,11 @@ def run(ctx: StageContext) -> None:
     if ctx.sample:
         return
     values = render.document_values(tables, ctx.config)
-    for name in DOCUMENTS:
-        text = render.inject(load_template(name), values)
+    # Every document is scanned before any is written, as the report is, so a template or an
+    # injected value holding an identifier stops the run with no document on disk.
+    documents = {name: render.inject(load_template(name), values) for name in DOCUMENTS}
+    for text in documents.values():
+        render.check_no_identifiers(text)
+    for name, text in documents.items():
         ctx.path(Zone.DOCS, name, "w").write_text(text, encoding="utf-8")
     ctx.log(f"[report] injected {len(values)} values into {len(DOCUMENTS)} documents")
