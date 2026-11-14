@@ -48,14 +48,6 @@ RELEASE_TABLES = (
     "community_groups",
 )
 
-# Release columns that count persons; each published value must be at least k_min.
-PERSON_COUNT_COLUMNS: dict[str, tuple[str, ...]] = {
-    "weekly_metrics": ("n_active",),
-    "risk": ("n_targets",),
-    "degree_distribution": ("persons",),
-    "community_groups": ("n_persons",),
-}
-
 MANIFEST_RUN_FIELDS = ("code_version", "sample", "seed", "parameters")
 
 _LEAK = re.compile("|".join(f"(?:{pattern})" for pattern in LEAK_PATTERNS))
@@ -65,11 +57,10 @@ Row = dict[str, Any]
 
 def check_person_counts(tables: dict[str, pl.DataFrame], k_min: int) -> None:
     """Raise PrivacyViolation if any published person count is below k_min."""
-    for name, columns in PERSON_COUNT_COLUMNS.items():
-        for column in columns:
-            small = tables[name].filter(pl.col(column) < k_min).height
-            if small:
-                raise PrivacyViolation(f"{name}.{column}: {small} person counts below k={k_min}")
+    for name, df in tables.items():
+        small = schemas.person_counts_below(name, df, k_min)
+        if small:
+            raise PrivacyViolation(f"{name}: {small} person counts below k={k_min}")
 
 
 def table_rows(df: pl.DataFrame) -> list[Row]:

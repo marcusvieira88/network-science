@@ -16,6 +16,7 @@ from enron_case.config import PUBLIC_EVENTS
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.errors import ContractViolation, PrivacyViolation
+from enron_case.release import kanon
 from enron_case.synth import SynthOutput
 from enron_case.uiexport import export
 from enron_case.uiexport.stage import run
@@ -198,6 +199,32 @@ def test_refuses_person_count_below_k(
     with pytest.raises(PrivacyViolation) as info:
         run(ctx)
     assert info.value.exit_code == 6
+
+
+def test_refuses_active_persons_value_below_k(synth: SynthOutput, tmp_path: Path) -> None:
+    ctx = release_ctx(synth, tmp_path)
+    df = synth.table("weekly_metrics")
+    first_active = (pl.col("metric") == "active_persons") & (
+        pl.col("metric") == "active_persons"
+    ).cum_sum().eq(1)
+    df = df.with_columns(
+        pl.when(first_active)
+        .then(float(ctx.config.k_min - 1))
+        .otherwise(pl.col("value"))
+        .alias("value")
+    )
+    assert df.filter(pl.col("metric") == "active_persons").height
+    replace_table(ctx, "weekly_metrics", df)
+    with pytest.raises(PrivacyViolation):
+        run(ctx)
+
+
+def test_person_count_columns_have_one_source() -> None:
+    assert export.check_person_counts.__module__ == "enron_case.uiexport.export"
+    assert not hasattr(export, "PERSON_COUNT_COLUMNS")
+    assert not hasattr(kanon, "PERSON_COUNT_COLUMNS")
+    assert schemas.PERSON_COUNT_COLUMNS["weekly_metrics"] == ("n_active",)
+    assert schemas.PERSON_COUNT_METRIC == "active_persons"
 
 
 def test_person_count_equal_to_k_is_published(synth: SynthOutput, tmp_path: Path) -> None:

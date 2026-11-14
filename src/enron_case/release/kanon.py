@@ -14,15 +14,6 @@ from enron_case.contracts import schemas
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import PrivacyViolation
 
-# Release columns that count persons; a published value must be at least k.
-PERSON_COUNT_COLUMNS: dict[str, tuple[str, ...]] = {
-    "weekly_metrics": ("n_active",),
-    "degree_distribution": ("persons",),
-    "community_groups": ("n_persons",),
-    "risk": ("n_targets",),
-}
-# The metric whose value is itself a person count.
-PERSON_COUNT_METRIC = "active_persons"
 # Tables whose partition total an attacker can learn elsewhere (the public corpus gives the
 # number of active persons per period), so one lone suppressed cell would be recoverable.
 DIFFERENCING_PARTITIONS: dict[str, str] = {"degree_distribution": "period"}
@@ -69,23 +60,20 @@ def assert_no_identifiers(df: pl.DataFrame) -> None:
 def check(name: str, df: pl.DataFrame, k: int) -> None:
     """Raise PrivacyViolation unless `df` is publishable as release table `name`."""
     assert_no_identifiers(df)
-    for col in PERSON_COUNT_COLUMNS.get(name, ()):
-        if (df.get_column(col).drop_nulls() < k).any():
-            raise PrivacyViolation(f"{name}.{col}: a person count below k")
+    small = schemas.person_counts_below(name, df, k)
+    if small:
+        raise PrivacyViolation(f"{name}: {small} person counts below k")
     if name == "weekly_metrics":
-        _check_metric_values(df, k)
+        _check_metric_values(df)
     partition = DIFFERENCING_PARTITIONS.get(name)
     if partition is not None:
-        _check_differencing(df, PERSON_COUNT_COLUMNS[name][0], partition)
+        _check_differencing(df, schemas.PERSON_COUNT_COLUMNS[name][0], partition)
 
 
-def _check_metric_values(df: pl.DataFrame, k: int) -> None:
+def _check_metric_values(df: pl.DataFrame) -> None:
     orphaned = df.filter(pl.col("value").is_not_null() & pl.col("n_active").is_null())
     if orphaned.height:
         raise PrivacyViolation(f"weekly_metrics: {orphaned.height} values from suppressed groups")
-    small = df.filter((pl.col("metric") == PERSON_COUNT_METRIC) & (pl.col("value") < k))
-    if small.height:
-        raise PrivacyViolation(f"weekly_metrics: {small.height} person counts below k")
     variants = df.filter(pl.col("variant") != DEFAULT_VARIANT)
     if variants.height:
         raise PrivacyViolation(f"weekly_metrics: {variants.height} rows of a non-default variant")

@@ -32,6 +32,15 @@ describe("privacy of the loaded data", () => {
     }
   });
 
+  it("counts an active_persons value below the minimum group size", () => {
+    const sample = sampleData();
+    const index = sample.tables.weekly_metrics.findIndex((r) => r.metric === "active_persons");
+    const row = sample.tables.weekly_metrics[index];
+    if (!row) throw new Error("sample has no active_persons rows");
+    const weekly = sample.tables.weekly_metrics.map((r, i) => (i === index ? { ...row, value: 4 } : r));
+    expect(smallPersonCounts({ ...sample, tables: { ...sample.tables, weekly_metrics: weekly } })).toBe(1);
+  });
+
   it("has no person-level column in any table", () => {
     for (const columns of Object.values(TABLE_COLUMNS)) {
       for (const column of Object.keys(columns)) {
