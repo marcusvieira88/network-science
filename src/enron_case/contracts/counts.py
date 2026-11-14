@@ -6,7 +6,22 @@ build `data_quality.csv` and `header_fields.csv`. Counts only: no address, name 
 
 from __future__ import annotations
 
+import json
 from typing import TypedDict
+
+from enron_case.errors import ContractViolation
+
+# A parsed JSON object (counts side outputs, the run manifest). Values stay `object` until a
+# typed accessor or `isinstance` narrows them.
+JsonObject = dict[str, object]
+
+
+def json_object(text: str, what: str) -> JsonObject:
+    """Parse JSON text that must hold an object; anything else is a ContractViolation."""
+    data: object = json.loads(text)
+    if not isinstance(data, dict):
+        raise ContractViolation(f"{what} is not a JSON object")
+    return data
 
 
 class IngestCounts(TypedDict):

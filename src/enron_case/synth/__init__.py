@@ -10,12 +10,13 @@ import json
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 
 from enron_case.config import SAMPLE_ARCHIVE
 from enron_case.contracts import schemas
+from enron_case.contracts.counts import JsonObject, json_object
+from enron_case.contracts.truth import GroundTruth
 from enron_case.synth.archive import build_files, write_archive
 from enron_case.synth.fixtures import FixtureBuilder
 from enron_case.synth.model import SynthSpec, build_organisation, generate_messages
@@ -39,8 +40,9 @@ class SynthOutput:
     def fixtures(self) -> Path:
         return self.root / "fixtures"
 
-    def truth(self) -> dict[str, Any]:
-        data: dict[str, Any] = json.loads(self.truth_path.read_text(encoding="utf-8"))
+    def truth(self) -> GroundTruth:
+        # Written by `FixtureBuilder.truth`, which mypy checks against `GroundTruth`.
+        data: GroundTruth = json.loads(self.truth_path.read_text(encoding="utf-8"))
         return data
 
     def table(self, name: str) -> pl.DataFrame:
@@ -50,11 +52,9 @@ class SynthOutput:
             return pl.read_csv(path, schema=spec.polars_schema)
         return pl.read_parquet(path)
 
-    def counts(self, name: str) -> dict[str, Any]:
-        data: dict[str, Any] = json.loads(
-            (self.fixtures / "counts" / f"{name}.json").read_text(encoding="utf-8")
-        )
-        return data
+    def counts(self, name: str) -> JsonObject:
+        path = self.fixtures / "counts" / f"{name}.json"
+        return json_object(path.read_text(encoding="utf-8"), f"counts fixture '{name}'")
 
 
 def generate(root: Path, spec: SynthSpec | None = None) -> SynthOutput:

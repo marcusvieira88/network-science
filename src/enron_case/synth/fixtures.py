@@ -14,13 +14,21 @@ import math
 import random
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import TypedDict
 
 import polars as pl
 
 from enron_case.config import Config
 from enron_case.contracts import schemas
 from enron_case.contracts import vocab as v
+from enron_case.contracts.counts import (
+    CleanCounts,
+    IdentityCounts,
+    IngestCounts,
+    JsonObject,
+    PseudoCounts,
+)
+from enron_case.contracts.truth import GroundTruth, TruthEntity
 from enron_case.release import tables as release_tables
 from enron_case.synth.archive import FileRecord
 from enron_case.synth.model import Entity, Message, Organisation, SynthSpec
@@ -48,6 +56,32 @@ HEADER_RULINGS = {
     "Content-Transfer-Encoding": "dropped",
 }
 EXCLUSION_FLAGS = {"date_out_of_range", "no_recipients", "self_only", "mass_mailing"}
+
+
+class MessageRow(TypedDict):
+    """One reference `messages` row plus the fixture's own bookkeeping (`_` keys, dropped)."""
+
+    msg_key: str
+    ts_utc: datetime | None
+    sender_addr: str
+    recipients: list[dict[str, str]]
+    n_recipients: int
+    n_copies: int
+    dedupe_rule: str
+    owner_copies: list[str]
+    sent_copy_owner: str | None
+    flags: list[str]
+    _truth: str
+    _distinct_sets: int
+
+
+class FixtureCounts(TypedDict):
+    """Reference counts side outputs, one per stage that writes them."""
+
+    ingest_counts: IngestCounts
+    clean_counts: CleanCounts
+    identity_counts: IdentityCounts
+    pseudo_counts: PseudoCounts
 
 
 def _digest(label: str, value: str) -> bytes:
@@ -137,8 +171,8 @@ class FixtureBuilder:
                     roles[addr] = role
         return [{"addr": a, "role": roles[a]} for a in sorted(roles)]
 
-    def message_rows(self) -> list[dict[str, Any]]:
-        rows = []
+    def message_rows(self) -> list[MessageRow]:
+        rows: list[MessageRow] = []
         for msg in self.messages:
             copies = self.copies[msg.truth_id]
             recipients = self._recipients(msg)
@@ -596,7 +630,7 @@ class FixtureBuilder:
         )
 
     # ---- counts side outputs ----------------------------------------------------------------
-    def counts(self) -> dict[str, dict[str, Any]]:
+    def counts(self) -> FixtureCounts:
         header = self.header_records()
         msgs = self.message_rows()
         flags: dict[str, int] = defaultdict(int)
@@ -788,9 +822,7 @@ class FixtureBuilder:
         }
         return {name: schemas.conform(df, name) for name, df in out.items()}
 
-    def _funnel_detail_rows(
-        self, c: dict[str, dict[str, Any]], first_order: int
-    ) -> list[dict[str, Any]]:
+    def _funnel_detail_rows(self, c: FixtureCounts, first_order: int) -> list[JsonObject]:
         """Reference funnel detail, counted from the fixture's own messages and events: no
         rejected files, the exact/subset split, the five flags and events in the network."""
         msgs = self.message_rows()
@@ -864,9 +896,9 @@ class FixtureBuilder:
         return tables
 
     # ---- ground truth ---------------------------------------------------------------------
-    def truth(self) -> dict[str, Any]:
+    def truth(self) -> GroundTruth:
         ids = self.entity_ids()
-        entities = []
+        entities: list[TruthEntity] = []
         for e in self.org.everyone:
             entities.append(
                 {

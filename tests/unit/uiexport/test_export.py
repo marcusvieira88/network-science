@@ -7,7 +7,6 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 import pytest
@@ -15,6 +14,7 @@ import pytest
 from enron_case.config import PUBLIC_EVENTS
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
+from enron_case.contracts.counts import JsonObject, json_object
 from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.release import kanon
 from enron_case.synth import SynthOutput
@@ -51,9 +51,19 @@ def release_ctx(synth: SynthOutput, root: Path) -> StageContext:
     return ctx
 
 
-def output(ctx: StageContext) -> dict[str, Any]:
-    data: dict[str, Any] = json.loads(ui_file(ctx).read_text(encoding="utf-8"))
-    return data
+def output(ctx: StageContext) -> JsonObject:
+    return json_object(ui_file(ctx).read_text(encoding="utf-8"), "release.json")
+
+
+def released(ctx: StageContext) -> dict[str, list[JsonObject]]:
+    """The `tables` block of release.json: table name -> rows."""
+    tables = output(ctx)["tables"]
+    assert isinstance(tables, dict)
+    out: dict[str, list[JsonObject]] = {}
+    for name, rows in tables.items():
+        assert isinstance(rows, list) and all(isinstance(row, dict) for row in rows), name
+        out[name] = rows
+    return out
 
 
 def ui_file(ctx: StageContext) -> Path:
@@ -102,9 +112,10 @@ def test_shape_matches_documented_layout(synth: SynthOutput, tmp_path: Path) -> 
     assert data["events"] == [
         {"date": day.isoformat(), "label": label} for day, label in PUBLIC_EVENTS
     ]
-    assert sorted(data["tables"]) == sorted(RELEASE_TABLES)
+    tables = released(ctx)
+    assert sorted(tables) == sorted(RELEASE_TABLES)
     for name in RELEASE_TABLES:
-        rows = data["tables"][name]
+        rows = tables[name]
         expected = synth.table(name)
         assert len(rows) == expected.height, name
         names = [c.name for c in schemas.table(name).cols]
@@ -124,7 +135,7 @@ def test_exploratory_windows_are_exported(synth: SynthOutput, tmp_path: Path) ->
 def test_values_round_trip_with_nulls_and_iso_dates(synth: SynthOutput, tmp_path: Path) -> None:
     ctx = release_ctx(synth, tmp_path)
     run(ctx)
-    tables = output(ctx)["tables"]
+    tables = released(ctx)
     h1 = tables["hypotheses"][0]
     assert h1["hypothesis"] == "H1"
     assert h1["change_week"] == "2001-08-13"
@@ -152,7 +163,7 @@ def test_values_round_trip_with_nulls_and_iso_dates(synth: SynthOutput, tmp_path
 def test_artifact_checks_are_exported(synth: SynthOutput, tmp_path: Path) -> None:
     ctx = release_ctx(synth, tmp_path)
     run(ctx)
-    checks = output(ctx)["tables"]["artifact_checks"]
+    checks = released(ctx)["artifact_checks"]
     assert [(r["hypothesis"], r["check"], r["passes"]) for r in checks] == [
         ("H2", "baseline_placebo", True),
         ("H3", "within_custodian", True),
@@ -163,15 +174,17 @@ def test_artifact_checks_are_exported(synth: SynthOutput, tmp_path: Path) -> Non
 def test_exploratory_hypotheses_are_exported(synth: SynthOutput, tmp_path: Path) -> None:
     ctx = release_ctx(synth, tmp_path)
     run(ctx)
-    rows = output(ctx)["tables"]["exploratory"]
+    rows = released(ctx)["exploratory"]
     assert [r["hypothesis"] for r in rows] == [f"H{i}" for i in range(5, 26)]
     assert not [r for r in rows if r["outcome"] == "confident"]
     h16 = next(r for r in rows if r["hypothesis"] == "H16")
     assert (h16["outcome"], h16["retention_passes"]) == ("inconclusive", False)
-    assert h16["caveat"].startswith("fails the retention check")
+    h16_caveat = h16["caveat"]
+    assert isinstance(h16_caveat, str) and h16_caveat.startswith("fails the retention check")
     e1 = rows[0]
     assert e1["equalised_median"] is None
-    assert e1["caveat"].startswith("invalid:")
+    e1_caveat = e1["caveat"]
+    assert isinstance(e1_caveat, str) and e1_caveat.startswith("invalid:")
 
 
 def test_same_input_gives_byte_identical_json(synth: SynthOutput, tmp_path: Path) -> None:
@@ -265,7 +278,7 @@ def test_person_count_equal_to_k_is_published(synth: SynthOutput, tmp_path: Path
     df = synth.table("community_groups").with_columns(pl.lit(ctx.config.k_min).alias("n_persons"))
     replace_table(ctx, "community_groups", df)
     run(ctx)
-    sizes = {r["n_persons"] for r in output(ctx)["tables"]["community_groups"]}
+    sizes = {r["n_persons"] for r in released(ctx)["community_groups"]}
     assert sizes == {ctx.config.k_min}
 
 
@@ -291,7 +304,7 @@ def test_non_finite_number_is_exported_as_null(
     df = synth.table("hypotheses").with_columns(pl.lit(value).alias("null_z"))
     replace_table(ctx, "hypotheses", df)
     run(ctx)
-    rows = output(ctx)["tables"]["hypotheses"]
+    rows = released(ctx)["hypotheses"]
     assert [row["null_z"] for row in rows] == [None] * df.height
     assert "NaN" not in ui_file(ctx).read_text(encoding="utf-8")
 

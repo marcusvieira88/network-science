@@ -9,16 +9,17 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 
 from enron_case import zones
 from enron_case.config import CORPUS_ARCHIVE, SAMPLE_ARCHIVE, Config
 from enron_case.contracts import schemas
+from enron_case.contracts.counts import JsonObject, json_object
+from enron_case.contracts.truth import GroundTruth
 from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.manifest import fingerprint, fingerprint_json
 from enron_case.zones import Paths, Zone
@@ -81,7 +82,7 @@ class StageContext:
             raise PrivacyViolation(f"{name}: {hits} identifier-shaped values in zone {zone.value}")
 
     # ---- counts side outputs (counts only; readable by release and report) ---------------
-    def write_counts(self, name: str, counts: dict[str, Any]) -> None:
+    def write_counts(self, name: str, counts: Mapping[str, object]) -> None:
         text = json.dumps(counts, indent=2, sort_keys=True, default=str)
         if "@" in text:
             raise PrivacyViolation(f"counts '{name}' contain an address")
@@ -89,14 +90,14 @@ class StageContext:
         path.write_text(text + "\n", encoding="utf-8")
         self.count_outputs[name] = fingerprint_json(counts)
 
-    def read_counts(self, name: str) -> dict[str, Any]:
+    def read_counts(self, name: str) -> JsonObject:
         """A counts side output; a missing one is an error naming it, never an empty mapping."""
         counts = self.read_optional_counts(name)
         if counts is None:
             raise ContractViolation(f"counts '{name}' have not been produced; run its stage first")
         return counts
 
-    def read_optional_counts(self, name: str) -> dict[str, Any] | None:
+    def read_optional_counts(self, name: str) -> JsonObject | None:
         """A counts side output that only some runs produce (the manual merge review), or None.
         On real runs a committed copy in the checks zone is used when this run has none, so a
         fresh clone publishes the same release."""
@@ -105,10 +106,9 @@ class StageContext:
             path = zones.path_for(self.paths, self.package, Zone.CHECKS, f"{name}.json", "r")
         if not path.exists():
             return None
-        data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-        return data
+        return json_object(path.read_text(encoding="utf-8"), f"counts '{name}'")
 
-    def write_check(self, name: str, counts: dict[str, Any]) -> None:
+    def write_check(self, name: str, counts: Mapping[str, object]) -> None:
         """Commit-safe copy of a check a person made (counts only) in the checks zone."""
         text = json.dumps(counts, indent=2, sort_keys=True, default=str)
         if "@" in text:
@@ -124,10 +124,11 @@ class StageContext:
     def has_truth(self) -> bool:
         return self.sample and (self.paths.dir(Zone.TRUTH) / "truth.json").exists()
 
-    def read_truth(self) -> dict[str, Any]:
-        """Synthetic ground truth. Only exists for the sample corpus."""
+    def read_truth(self) -> GroundTruth:
+        """Synthetic ground truth. Only exists for the sample corpus; written by the generator
+        from the same `GroundTruth` shape."""
         path = zones.path_for(self.paths, self.package, Zone.TRUTH, "truth.json", "r")
-        data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        data: GroundTruth = json.loads(path.read_text(encoding="utf-8"))
         return data
 
     @property

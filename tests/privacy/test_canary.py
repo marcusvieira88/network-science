@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from enron_case.contracts.truth import GroundTruth
 from enron_case.synth import SynthOutput
 from enron_case.zones import Zone
 from helpers import SampleRun, run_sample, scan
@@ -28,7 +29,7 @@ def _strings(value: object) -> list[str]:
     return [str(v) for v in value]
 
 
-def identifiers(truth: dict[str, object]) -> list[str]:
+def identifiers(truth: GroundTruth) -> list[str]:
     return ["@", *_strings(truth["display_names"]), *_strings(truth["owner_dirs"])]
 
 

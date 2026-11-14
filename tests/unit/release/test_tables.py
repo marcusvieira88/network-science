@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 import pytest
@@ -11,13 +10,14 @@ import pytest
 from enron_case.config import Config
 from enron_case.context import StageContext
 from enron_case.contracts import vocab
+from enron_case.contracts.counts import JsonObject
 from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.release import tables
 from enron_case.zones import Paths, Zone
 
 
 def test_typed_count_accessors_fail_loudly() -> None:
-    counts: dict[str, Any] = {"n": True, "rate": "high", "map": [1], "ok": 3, "none": None}
+    counts: JsonObject = {"n": True, "rate": "high", "map": [1], "ok": 3, "none": None}
     with pytest.raises(ContractViolation):
         tables.require_int(counts, "c", "n")  # a bool is not a count
     with pytest.raises(ContractViolation):
@@ -31,10 +31,13 @@ def test_typed_count_accessors_fail_loudly() -> None:
 
 
 def test_header_fields_reject_malformed_counts() -> None:
-    bad_count = {"header_fields": {"From": "many"}, "header_rulings": {"From": "identifier"}}
+    bad_count: JsonObject = {
+        "header_fields": {"From": "many"},
+        "header_rulings": {"From": "identifier"},
+    }
     with pytest.raises(ContractViolation):
         tables.header_fields(bad_count)
-    bad_ruling = {"header_fields": {"From": 3}, "header_rulings": {"From": 1}}
+    bad_ruling: JsonObject = {"header_fields": {"From": 3}, "header_rulings": {"From": 1}}
     with pytest.raises(ContractViolation):
         tables.header_fields(bad_ruling)
 
@@ -92,13 +95,13 @@ def test_exploratory_rows_below_k_hide_every_derived_value() -> None:
 CI = 0.95
 
 
-def _funnel_counts() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
-    ingest: dict[str, Any] = {
+def _funnel_counts() -> tuple[JsonObject, JsonObject, JsonObject, JsonObject]:
+    ingest: JsonObject = {
         "files_seen": 100,
         "files_parsed": 97,
         "rejected": {"outside_maildir": 1, "no_header_end": 2},
     }
-    clean: dict[str, Any] = {
+    clean: JsonObject = {
         "records_in": 97,
         "messages_out": 50,
         "removed_exact": 40,
@@ -107,8 +110,8 @@ def _funnel_counts() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], di
         "dedupe_precision": None,
         "dedupe_recall": None,
     }
-    identity: dict[str, Any] = {"addresses": 30, "entities": 25, "precision": None, "recall": None}
-    pseudo: dict[str, Any] = {"events": 120, "events_in_network": 110, "messages_without_time": 2}
+    identity: JsonObject = {"addresses": 30, "entities": 25, "precision": None, "recall": None}
+    pseudo: JsonObject = {"events": 120, "events_in_network": 110, "messages_without_time": 2}
     return ingest, clean, identity, pseudo
 
 

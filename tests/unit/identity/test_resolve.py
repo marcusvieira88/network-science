@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 import pytest
@@ -12,23 +12,41 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from enron_case.contracts import schemas
+from enron_case.contracts.counts import JsonObject
 from enron_case.identity import evaluate, rules, stage
 from enron_case.identity.resolve import resolve
+from enron_case.release.tables import require_mapping
 from enron_case.synth import SynthOutput
 from helpers import ctx_with_fixtures
 
 INPUTS = ("messages", "header_records")
 
 
+@dataclass(frozen=True)
+class Resolved:
+    entities: pl.DataFrame
+    address_map: pl.DataFrame
+    counts: JsonObject
+
+
 @pytest.fixture
-def ran(synth: SynthOutput, tmp_path: Path) -> dict[str, Any]:
+def ran(synth: SynthOutput, tmp_path: Path) -> Resolved:
     ctx = ctx_with_fixtures("identity", synth, tmp_path, tables=INPUTS)
     stage.run(ctx)
-    return {
-        "entities": ctx.read("entities"),
-        "address_map": ctx.read("address_map"),
-        "counts": ctx.read_counts("identity_counts"),
-    }
+    return Resolved(
+        entities=ctx.read("entities"),
+        address_map=ctx.read("address_map"),
+        counts=ctx.read_counts("identity_counts"),
+    )
+
+
+def int_map(counts: JsonObject, key: str) -> dict[str, int]:
+    """An `identity_counts` block whose values must all be integers."""
+    out: dict[str, int] = {}
+    for name, value in require_mapping(counts, "identity_counts", key).items():
+        assert isinstance(value, int), name
+        out[name] = value
+    return out
 
 
 # ---- union-find on hand-built cases ---------------------------------------------------------
@@ -81,9 +99,9 @@ def test_resolution_is_independent_of_input_order(rnd: random.Random) -> None:
 
 
 # ---- stage on the synthetic corpus ----------------------------------------------------------
-def test_every_address_maps_to_exactly_one_entity(ran: dict[str, Any], synth: SynthOutput) -> None:
-    amap: pl.DataFrame = ran["address_map"]
-    entities: pl.DataFrame = ran["entities"]
+def test_every_address_maps_to_exactly_one_entity(ran: Resolved, synth: SynthOutput) -> None:
+    amap = ran.address_map
+    entities = ran.entities
     occurrences = rules.address_occurrences(synth.table("messages"))
     assert amap.get_column("addr").is_unique().all()
     assert set(occurrences) <= set(amap.get_column("addr").to_list())
@@ -95,38 +113,38 @@ def test_every_address_maps_to_exactly_one_entity(ran: dict[str, Any], synth: Sy
     assert canonical.height == entities.height
 
 
-def test_outputs_validate_against_contract(ran: dict[str, Any]) -> None:
-    schemas.validate(ran["entities"], "entities")
-    schemas.validate(ran["address_map"], "address_map")
+def test_outputs_validate_against_contract(ran: Resolved) -> None:
+    schemas.validate(ran.entities, "entities")
+    schemas.validate(ran.address_map, "address_map")
 
 
-def test_output_matches_reference_fixture(ran: dict[str, Any], synth: SynthOutput) -> None:
-    assert ran["address_map"].equals(synth.table("address_map"))
-    assert ran["entities"].equals(synth.table("entities"))
+def test_output_matches_reference_fixture(ran: Resolved, synth: SynthOutput) -> None:
+    assert ran.address_map.equals(synth.table("address_map"))
+    assert ran.entities.equals(synth.table("entities"))
 
 
-def test_precision_on_ground_truth(ran: dict[str, Any], synth: SynthOutput) -> None:
-    entity_of = dict(ran["address_map"].select("addr", "entity_id").iter_rows())
+def test_precision_on_ground_truth(ran: Resolved, synth: SynthOutput) -> None:
+    entity_of = dict(ran.address_map.select("addr", "entity_id").iter_rows())
     precision, recall = evaluate.pairwise_scores(entity_of, synth.truth()["address_to_truth"])
     assert precision is not None and precision >= 0.95
     assert recall is not None and recall > 0
-    assert ran["counts"]["precision"] == precision
-    assert ran["counts"]["recall"] == recall
+    assert ran.counts["precision"] == precision
+    assert ran.counts["recall"] == recall
 
 
-def test_counts_shape(ran: dict[str, Any]) -> None:
-    counts = ran["counts"]
-    amap: pl.DataFrame = ran["address_map"]
+def test_counts_shape(ran: Resolved) -> None:
+    counts = ran.counts
+    amap = ran.address_map
     assert counts["addresses"] == amap.height
-    assert counts["entities"] == ran["entities"].height
-    assert sum(counts["merges_by_rule"].values()) == amap.drop_nulls("rule").height
-    assert sum(int(k) * v for k, v in counts["cluster_sizes"].items()) == amap.height
-    assert sum(counts["entities_by_type"].values()) == ran["entities"].height
+    assert counts["entities"] == ran.entities.height
+    assert sum(int_map(counts, "merges_by_rule").values()) == amap.drop_nulls("rule").height
+    assert sum(int(k) * v for k, v in int_map(counts, "cluster_sizes").items()) == amap.height
+    assert sum(int_map(counts, "entities_by_type").values()) == ran.entities.height
     assert counts["manual_checked"] is None and counts["manual_correct"] is None
 
 
 def test_stage_is_independent_of_input_row_order(synth: SynthOutput, tmp_path: Path) -> None:
-    def run(root: Path, shuffle: bool) -> tuple[pl.DataFrame, pl.DataFrame, dict[str, Any]]:
+    def run(root: Path, shuffle: bool) -> tuple[pl.DataFrame, pl.DataFrame, JsonObject]:
         ctx = ctx_with_fixtures("identity", synth, root, tables=INPUTS)
         if shuffle:
             for name in INPUTS:
@@ -168,8 +186,8 @@ def test_pairwise_scores_ignore_addresses_without_truth() -> None:
     assert evaluate.pairwise_scores({"a": "a", "b": "a", "z": "a"}, truth) == (1.0, 1.0)
 
 
-def test_sampler_is_seeded_and_returns_merges_only(ran: dict[str, Any]) -> None:
-    amap: pl.DataFrame = ran["address_map"]
+def test_sampler_is_seeded_and_returns_merges_only(ran: Resolved) -> None:
+    amap = ran.address_map
     first = evaluate.sample_merges(amap, 5, seed=1)
     assert first.equals(evaluate.sample_merges(amap, 5, seed=1))
     assert first.height == 5 and first["rule"].null_count() == 0
