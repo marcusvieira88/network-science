@@ -16,7 +16,7 @@ import numpy as np
 import polars as pl
 
 from enron_case.config import Config
-from enron_case.contracts.vocab import DEFAULT_VARIANT
+from enron_case.contracts.vocab import CORE_SCOPE, DEFAULT_VARIANT, OBSERVED_SCOPE
 from enron_case.errors import ContractViolation
 from enron_case.finding import nullmodel, stats
 from enron_case.finding.stats import FloatArray, InsufficientData
@@ -36,10 +36,10 @@ class Hypothesis:
 
 
 HYPOTHESES: tuple[Hypothesis, ...] = (
-    Hypothesis("H1", "indegree_gini", "core", UP),
-    Hypothesis("H2", "cross_community_share", "observed", UP),
-    Hypothesis("H3", "external_share", "observed", DOWN),
-    Hypothesis("H4", "tie_turnover", "core", UP),
+    Hypothesis("H1", "indegree_gini", CORE_SCOPE, UP),
+    Hypothesis("H2", "cross_community_share", OBSERVED_SCOPE, UP),
+    Hypothesis("H3", "external_share", OBSERVED_SCOPE, DOWN),
+    Hypothesis("H4", "tie_turnover", CORE_SCOPE, UP),
 )
 
 

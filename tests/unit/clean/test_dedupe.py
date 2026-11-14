@@ -6,6 +6,7 @@ import random
 from datetime import UTC, datetime
 
 import polars as pl
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -190,6 +191,11 @@ def test_pairwise_scores_hand_computed() -> None:
     assert precision == 2 / 4
     # true pairs: f1f2 f1f3 f2f3 f4f5 = 4, found 2
     assert recall == 2 / 4
+
+
+def test_pairwise_scores_fail_on_a_file_without_truth() -> None:
+    with pytest.raises(KeyError):
+        pairwise_scores([frozenset({"f1", "f2"})], {"f1": "m1"})
 
 
 def test_pairwise_scores_undefined_without_pairs() -> None:

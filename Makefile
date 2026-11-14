@@ -3,8 +3,6 @@
 
 UV ?= uv
 KEY_FILE ?= $(HOME)/.config/enron-case/key
-# Fixed key for the synthetic sample and tests only. Never used for real data.
-TEST_KEY := 7465737400000000000000000000000000000000000000000000000000000000
 # npm writes this file at the end of `npm ci`; rebuilding it only when the lockfile is newer
 # lets every target reuse installed UI dependencies.
 UI_DEPS := ui/node_modules/.package-lock.json
@@ -21,7 +19,7 @@ check:
 ## Full pipeline on the bundled synthetic corpus.
 sample:
 	@$(UV) sync --locked
-	@ENRON_CASE_KEY=$(TEST_KEY) $(UV) run enron-case run --sample
+	@$(UV) run enron-case run --sample
 
 ## Lint, types and all tests (no corpus needed).
 gate:
@@ -29,7 +27,7 @@ gate:
 	@$(UV) run ruff check src tests
 	@$(UV) run ruff format --check src tests
 	@$(UV) run mypy
-	@ENRON_CASE_KEY=$(TEST_KEY) $(UV) run pytest -q
+	@$(UV) run pytest -q
 
 ## Create a key outside the repository if none exists.
 key:
@@ -51,7 +49,7 @@ ui: $(UI_DEPS)
 	@cd ui && npm run build && npm run preview
 
 ui-sample: $(UI_DEPS)
-	@ENRON_CASE_KEY=$(TEST_KEY) $(UV) run enron-case stage ui-data --sample
+	@$(UV) run enron-case stage ui-data --sample
 	@cd ui && npm run build && npm run preview
 
 ui-gate: $(UI_DEPS)

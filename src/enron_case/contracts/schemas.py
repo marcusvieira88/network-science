@@ -30,8 +30,8 @@ HEX16 = r"^[0-9a-f]{16}$"
 HEX20 = r"^[0-9a-f]{20}$"
 PID = v.PSEUDONYM_PATTERN
 ORG = v.ORG_PSEUDONYM_PATTERN
-EVENT_ID = r"^e_[a-z2-7]{16}$"
-MSG_PID = r"^m_[a-z2-7]{16}$"
+EVENT_ID = v.EVENT_ID_PATTERN
+MSG_PID = v.MESSAGE_PSEUDONYM_PATTERN
 
 
 @dataclass(frozen=True)

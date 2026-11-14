@@ -5,7 +5,7 @@
  */
 import { assertReleasePrivacy } from "@/lib/privacy";
 
-export const FORMAT_VERSION = 2;
+const FORMAT_VERSION = 2;
 export const RELEASE_URL = "data/release.json";
 export const SAMPLE_URL = "data/release.sample.json";
 
@@ -41,14 +41,14 @@ export const METRICS = [
   "tie_turnover",
 ] as const;
 export const SCOPES = ["core", "observed"] as const;
-export const HYPOTHESES = ["H1", "H2", "H3", "H4"] as const;
-export const SUPPORT = ["yes", "no", "inconclusive"] as const;
-export const CONFIDENCE = ["high", "moderate", "low"] as const;
+const HYPOTHESES = ["H1", "H2", "H3", "H4"] as const;
+const SUPPORT = ["yes", "no", "inconclusive"] as const;
+const CONFIDENCE = ["high", "moderate", "low"] as const;
 export const RELEASE_VARIANTS = ["R0", "R1", "R2"] as const;
 export const ATTACKERS = ["A1", "A2", "A3"] as const;
-export const EXPLORATORY_FAMILIES = ["first", "second", "post hoc"] as const;
-export const DIRECTIONS = ["up", "down"] as const;
-export const EXPLORATORY_OUTCOMES = ["confident", "inconclusive", "not supported"] as const;
+const EXPLORATORY_FAMILIES = ["first", "second", "post hoc"] as const;
+const DIRECTIONS = ["up", "down"] as const;
+const EXPLORATORY_OUTCOMES = ["confident", "inconclusive", "not supported"] as const;
 
 export type Metric = (typeof METRICS)[number];
 export type Scope = (typeof SCOPES)[number];

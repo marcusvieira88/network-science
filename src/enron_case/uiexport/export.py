@@ -36,7 +36,7 @@ import polars as pl
 from enron_case.config import CRISIS_WINDOW, PUBLIC_EVENTS, REFERENCE_WINDOW
 from enron_case.contracts import schemas
 from enron_case.contracts.counts import JsonObject
-from enron_case.contracts.vocab import LEAK_PATTERNS
+from enron_case.contracts.vocab import LEAK_PATTERN
 from enron_case.errors import ContractViolation, PrivacyViolation
 
 FORMAT_VERSION = 2
@@ -56,7 +56,7 @@ RELEASE_TABLES = (
 
 MANIFEST_RUN_FIELDS = ("code_version", "sample", "seed", "parameters")
 
-_LEAK = re.compile("|".join(f"(?:{pattern})" for pattern in LEAK_PATTERNS))
+_LEAK = re.compile(LEAK_PATTERN)
 
 
 def check_person_counts(tables: dict[str, pl.DataFrame], k_min: int) -> None:

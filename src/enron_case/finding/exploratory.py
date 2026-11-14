@@ -472,8 +472,14 @@ def compare(d: np.ndarray, config: Config, stream: int) -> Comparison:
     return Comparison(len(d), float(np.median(d)), low, high, p)
 
 
+# A placebo comparison's random stream sits this far after its crisis comparison's stream.
+PLACEBO_STREAM_OFFSET = 50
+MIN_PLACEBO_CUSTODIANS = 2  # a median change needs at least two paired custodians
+MIN_LOO_CUSTODIANS = 3  # leaving one out must still leave a median of at least two
+
+
 def _placebo_passes(direction: int, crisis: Comparison, placebo: Comparison) -> bool:
-    if placebo.n < 2 or np.isnan(placebo.median):
+    if placebo.n < MIN_PLACEBO_CUSTODIANS or np.isnan(placebo.median):
         return False
     if placebo.ci_low <= 0 <= placebo.ci_high:
         return True
@@ -481,7 +487,7 @@ def _placebo_passes(direction: int, crisis: Comparison, placebo: Comparison) -> 
 
 
 def _loo_stable(direction: int, d: np.ndarray) -> bool:
-    if len(d) < 3:
+    if len(d) < MIN_LOO_CUSTODIANS:
         return False
     return all(direction * float(np.median(np.delete(d, i))) > 0 for i in range(len(d)))
 
@@ -595,7 +601,7 @@ def retention_check(
     placebo = compare(
         paired_differences(tables, measure, PLACEBO_AFTER_WINDOW, PLACEBO_BEFORE_WINDOW, minimum),
         config,
-        RETENTION_STREAM + 50 + order,
+        RETENTION_STREAM + PLACEBO_STREAM_OFFSET + order,
     )
     passes = (
         crisis.n >= config.k_min
@@ -621,6 +627,13 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
     return run_family_on(custodian_tables(events, entities_p), config)
 
 
+def _outcome(*, significant: bool, on_side: bool, checks_pass: bool) -> str:
+    """Confident only when significant, on the stated side and every check passes."""
+    if significant and on_side:
+        return CONFIDENT if checks_pass else INCONCLUSIVE
+    return NOT_SUPPORTED
+
+
 def run_family_on(tables: Tables, config: Config) -> pl.DataFrame:
     """The `exploratory_results` table for H5–H25."""
     rows = []
@@ -634,23 +647,20 @@ def run_family_on(tables: Tables, config: Config) -> pl.DataFrame:
                 tables, measure, PLACEBO_AFTER_WINDOW, PLACEBO_BEFORE_WINDOW, minimum
             ),
             config,
-            50 + index,
+            PLACEBO_STREAM_OFFSET + index,
         )
         rows.append((hyp, d, crisis, placebo))
     p_holm = stats.holm([crisis.p for _h, _d, crisis, _pl in rows])
     out = []
     for order, ((hyp, d, crisis, placebo), ph) in enumerate(zip(rows, p_holm, strict=True)):
-        on_side = stats.on_side(hyp.direction, crisis.ci_low, crisis.ci_high)
         placebo_ok = _placebo_passes(hyp.direction, crisis, placebo)
         loo_ok = _loo_stable(hyp.direction, d)
-        significant = ph < config.alpha
         valid = hyp.id not in CAVEATS
-        if significant and on_side and placebo_ok and loo_ok and valid:
-            outcome = CONFIDENT
-        elif significant and on_side:
-            outcome = INCONCLUSIVE
-        else:
-            outcome = NOT_SUPPORTED
+        outcome = _outcome(
+            significant=ph < config.alpha,
+            on_side=stats.on_side(hyp.direction, crisis.ci_low, crisis.ci_high),
+            checks_pass=placebo_ok and loo_ok and valid,
+        )
         equalised = (
             volume_equalised(
                 tables,

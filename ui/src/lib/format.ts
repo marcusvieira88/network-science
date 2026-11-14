@@ -27,7 +27,7 @@ export function formatInterval(low: number | null, high: number | null): string 
   return `[${formatNumber(low)}, ${formatNumber(high)}]`;
 }
 
-export const METRIC_LABELS: Record<string, string> = {
+const METRIC_LABELS: Record<string, string> = {
   volume: "Message volume",
   active_persons: "Active persons",
   density: "Density",
