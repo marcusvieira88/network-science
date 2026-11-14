@@ -194,7 +194,7 @@ flowchart TB
 H5–H24 were stated in `docs/hypotheses-exploratory.md` (as E1–E20) before they were computed,
 after H1–H4 had been run; H25 (E21), a replication test of a published "denser network in the
 crisis" result, was stated post hoc, after every other result was known, and before it was
-computed. They are reported as one list H1–H25 everywhere. In the real-corpus run **no
+computed. H26, custodian departures, was stated post hoc in the same way. They are reported as one list H1–H26 everywhere. In the real-corpus run **no
 hypothesis is held true**: H2 and H3 pass the pre-registered rule but fail their artifact checks
 (baseline drift; a change in which mailboxes hold mail), H1 and H4 are not supported, and of
 H5–H25 none is confident. H16, the strongest lead, fails its retention check and is capped at

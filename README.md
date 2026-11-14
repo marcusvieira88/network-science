@@ -97,7 +97,7 @@ flowchart TB
     I["identity: resolve aliases, rules N1–N5"]
     P["pseudo: keyed HMAC pseudonyms"]
     N["network: weekly snapshots,<br/>Louvain groups"]
-    F["finding: H1–H25,<br/>record profile"]
+    F["finding: H1–H26,<br/>record profile"]
     R["risk: attackers A1–A3"]
     K["release: suppress groups under 5"]
     T[("release/*.csv + report.md")]

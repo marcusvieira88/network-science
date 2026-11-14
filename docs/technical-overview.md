@@ -10,7 +10,7 @@ the published results, opening on a plain-language executive summary for non-spe
 
 The corpus is public; the pipeline is built as if it were not.
 
-**Results in brief.** One list of 25 hypotheses (H1–H25), each committed before it was computed,
+**Results in brief.** One list of 26 hypotheses (H1–H26), each committed before it was computed,
 and one descriptive profile of the record.
 
 - **The finding: the record changed under the analysis.** Within the same custodians, the share
@@ -179,7 +179,7 @@ flowchart TB
     subgraph Z2["Zone 2 · restricted — pseudonyms only (git-ignored)"]
         PS["pseudo<br/>keyed HMAC per person"]
         N["network<br/>weekly snapshots,<br/>communities, 8 metrics"]
-        F["finding<br/>H1–H25, artifact checks,<br/>record profile"]
+        F["finding<br/>H1–H26, artifact checks,<br/>record profile"]
         RK["risk<br/>attack our own output"]
     end
     subgraph Z3["Zone 3 · release — aggregates, every group ≥ 5 (committed)"]
