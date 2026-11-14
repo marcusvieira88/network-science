@@ -4,6 +4,7 @@ pinned SHA-256."""
 from __future__ import annotations
 
 import shutil
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 from http import HTTPStatus
@@ -58,6 +59,11 @@ def fetch_archive(target: Path, url: str, sha256: str, download: Downloader) -> 
     offset = partial.stat().st_size if partial.exists() else 0
     try:
         download(url, partial, offset)
+    except urllib.error.HTTPError as exc:
+        if exc.code == HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE:
+            # The partial cannot be resumed (longer than the file, or not a prefix of it).
+            partial.unlink(missing_ok=True)
+        raise CorpusError("corpus download failed; rerun to resume") from exc
     except OSError as exc:
         raise CorpusError("corpus download failed; rerun to resume") from exc
     if file_sha256(partial) != sha256:

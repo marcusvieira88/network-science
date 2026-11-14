@@ -23,8 +23,9 @@ def fetch(ctx: StageContext) -> None:
 def parse(ctx: StageContext) -> None:
     # Recorded here too, not only by fetch: a run started at parse skips fetch, and the manifest
     # must still name the archive that was read.
-    ctx.corpus_sha256 = file_sha256(ctx.archive)
-    records, counts = parse_archive(ctx.archive, ctx.config.batch_rows)
+    archive = ctx.archive
+    ctx.corpus_sha256 = file_sha256(archive)
+    records, counts = parse_archive(archive, ctx.config.batch_rows)
     ctx.write(TABLE, records)
     ctx.write_counts(COUNTS_NAME, dict(counts))
     ctx.log(

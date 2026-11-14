@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import urllib.error
+from email.message import Message
+from http import HTTPStatus
 from pathlib import Path
 
 import pytest
@@ -91,3 +94,21 @@ def test_complete_partial_is_finished_without_a_request(tmp_path: Path) -> None:
     assert download.offsets == []
     assert target.read_bytes() == PAYLOAD
     assert not partial_path(target).exists()
+
+
+def test_partial_the_server_cannot_resume_is_discarded(tmp_path: Path) -> None:
+    """A partial longer than the file (or otherwise unresumable) gets HTTP 416 on every retry;
+    it is deleted so the next run starts over instead of failing forever."""
+    target = tmp_path / "corpus.tar.gz"
+    partial_path(target).write_bytes(PAYLOAD + b"extra")
+
+    def refuse_range(url: str, target: Path, offset: int) -> None:
+        status = HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE
+        raise urllib.error.HTTPError(url, status, "", Message(), None)
+
+    with pytest.raises(CorpusError) as failed:
+        fetch_archive(target, URL, SHA, refuse_range)
+    assert failed.value.exit_code == 4
+    assert not partial_path(target).exists()
+    fetch_archive(target, URL, SHA, FakeDownloader())
+    assert target.read_bytes() == PAYLOAD

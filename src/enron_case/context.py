@@ -16,12 +16,12 @@ from pathlib import Path
 import polars as pl
 
 from enron_case import zones
-from enron_case.config import CORPUS_ARCHIVE, SAMPLE_ARCHIVE, Config
+from enron_case.config import CORPUS_ARCHIVE, CORPUS_SHA256, SAMPLE_ARCHIVE, Config
 from enron_case.contracts import schemas
 from enron_case.contracts.counts import JsonObject, json_object
 from enron_case.contracts.truth import GroundTruth
-from enron_case.errors import ContractViolation, PrivacyViolation
-from enron_case.manifest import fingerprint, fingerprint_json
+from enron_case.errors import ContractViolation, CorpusError, PrivacyViolation
+from enron_case.manifest import file_sha256, fingerprint, fingerprint_json
 from enron_case.zones import Paths, Zone
 
 LogFn = Callable[[str], None]
@@ -133,5 +133,14 @@ class StageContext:
 
     @property
     def archive(self) -> Path:
-        name = SAMPLE_ARCHIVE if self.sample else CORPUS_ARCHIVE
-        return self.path(Zone.RAW, name, "r")
+        """The corpus archive. On real runs it must match the pinned SHA-256 before anything
+        reads it: a run started after fetch (`--from parse`) would otherwise parse whatever
+        file sits in the raw zone. The sample archive is generated locally and has no pin."""
+        if self.sample:
+            return self.path(Zone.RAW, SAMPLE_ARCHIVE, "r")
+        archive = self.path(Zone.RAW, CORPUS_ARCHIVE, "r")
+        if not archive.is_file():
+            raise CorpusError("corpus archive not found; run the fetch stage first")
+        if file_sha256(archive) != CORPUS_SHA256:
+            raise CorpusError("corpus archive on disk does not match the pinned SHA-256")
+        return archive
