@@ -250,3 +250,41 @@ def test_volume_equalised_with_too_few_custodians_is_not_computed() -> None:
     )
     assert result.n < Config().k_min
     assert np.isnan(result.median)
+
+
+def test_reciprocity_between_custodians_ignores_non_custodian_contacts() -> None:
+    rows = [
+        _event("m1", 4, A, B),  # to custodian B
+        _event("m2", 5, A, C),  # to non-custodian C
+        _event("m3", 6, C, A),  # C writes back: does not count here
+    ]
+    events = pl.DataFrame(rows)
+    tables = ex.Tables(
+        ex.sent_messages(events, CUSTODIANS),
+        ex.received_messages(events, CUSTODIANS),
+        frozenset(CUSTODIANS.to_list()),
+    )
+    result = ex._reciprocity_between_custodians(tables, WINDOW)
+    assert _value(result, A) == 0.0  # B did not write back
+    assert (
+        int(result.filter(pl.col("pid") == A).get_column("n").item()) == 1
+    )  # min(sent 2, received 1)
+
+
+def test_a_failed_retention_check_caps_the_outcome() -> None:
+    """A planted crisis rise in direct mail (H15) that a retention measure contradicts must not be
+    held true: the check fails and the outcome becomes inconclusive with the caveat."""
+    events = _family_events(planted=True)
+    flat = ex.MEASURES["H6"]
+    checks = dict(ex.RETENTION_CHECKS)
+    ex.RETENTION_CHECKS.clear()
+    ex.RETENTION_CHECKS["H15"] = flat  # weekend share: flat in this world, so the check fails
+    try:
+        table = ex.run_family(events, _entities(events), Config(exploratory_bootstrap_reps=500))
+    finally:
+        ex.RETENTION_CHECKS.clear()
+        ex.RETENTION_CHECKS.update(checks)
+    h15 = table.filter(pl.col("hypothesis") == "H15").row(0, named=True)
+    assert h15["retention_passes"] is False
+    assert h15["outcome"] == ex.INCONCLUSIVE
+    assert h15["caveat"] == ex.RETENTION_FAILED

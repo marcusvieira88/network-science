@@ -15,7 +15,7 @@ from enron_case.contracts import vocab as v
 from enron_case.errors import ContractViolation
 from enron_case.zones import Zone
 
-CONTRACT_VERSION = "1.3"
+CONTRACT_VERSION = "1.4"
 
 STR = pl.String()
 INT = pl.Int64()
@@ -114,6 +114,11 @@ def _artifact_cols(n_units_nullable: bool) -> tuple[Col, ...]:
 EXPLORATORY_OUTCOMES = ("confident", "inconclusive", "not supported")
 EXPLORATORY_CONFIDENT, EXPLORATORY_INCONCLUSIVE, EXPLORATORY_NOT_SUPPORTED = EXPLORATORY_OUTCOMES
 EXPLORATORY_FAMILIES = ("first", "second")
+# Caveat recorded when a hypothesis fails its retention check (finding/exploratory.py).
+RETENTION_FAILED = (
+    "fails the retention check: among custodian-to-custodian contacts, whose replies are "
+    "visible whatever an inbox kept, the change is not established"
+)
 # Why a hypothesis cannot be confident whatever its numbers (docs/hypotheses-exploratory.md).
 EXPLORATORY_CAVEATS = {
     "H5": "invalid: timestamps in the reference year of the corpus are shifted by several hours",
@@ -148,6 +153,12 @@ def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
         Col("equalised_ci_low", FLOAT, nullable=True),
         Col("equalised_ci_high", FLOAT, nullable=True),
         Col("equalised_p", FLOAT, nullable=True),
+        # Retention check (added after the data-science review): the hypothesis on a measure
+        # that inbox retention cannot move; null where no such check applies.
+        Col("retention_median", FLOAT, nullable=True),
+        Col("retention_ci_low", FLOAT, nullable=True),
+        Col("retention_ci_high", FLOAT, nullable=True),
+        Col("retention_passes", BOOL, nullable=True),
     )
 
 

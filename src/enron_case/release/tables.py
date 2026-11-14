@@ -178,6 +178,10 @@ def exploratory(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
         "equalised_ci_low",
         "equalised_ci_high",
         "equalised_p",
+        "retention_median",
+        "retention_ci_low",
+        "retention_ci_high",
+        "retention_passes",
     )
     placebo = ("placebo_custodians", "placebo_median", "placebo_ci_low", "placebo_ci_high")
     # The outcome and the leave-one-out flag are derived from the crisis comparison, and the

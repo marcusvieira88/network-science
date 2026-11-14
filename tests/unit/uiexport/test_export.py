@@ -163,10 +163,10 @@ def test_exploratory_hypotheses_are_exported(synth: SynthOutput, tmp_path: Path)
     run(ctx)
     rows = output(ctx)["tables"]["exploratory"]
     assert [r["hypothesis"] for r in rows] == [f"H{i}" for i in range(5, 25)]
-    confident = [r for r in rows if r["outcome"] == "confident"]
-    assert [(r["hypothesis"], r["family"], r["equalised_median"]) for r in confident] == [
-        ("H16", "second", 0.1)
-    ]
+    assert not [r for r in rows if r["outcome"] == "confident"]
+    h16 = next(r for r in rows if r["hypothesis"] == "H16")
+    assert (h16["outcome"], h16["retention_passes"]) == ("inconclusive", False)
+    assert h16["caveat"].startswith("fails the retention check")
     e1 = rows[0]
     assert e1["equalised_median"] is None
     assert e1["caveat"].startswith("invalid:")

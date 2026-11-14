@@ -501,7 +501,7 @@ class FixtureBuilder:
         rows = []
         for i in range(1, 21):
             hid = f"H{i + 4}"
-            outcome = {"H16": "confident", "H20": "inconclusive"}.get(hid, "not supported")
+            outcome = {"H16": "inconclusive", "H20": "inconclusive"}.get(hid, "not supported")
             strong = outcome != "not supported"
             rows.append(
                 {
@@ -523,11 +523,15 @@ class FixtureBuilder:
                     "placebo_passes": hid != "H20",
                     "loo_stable": strong,
                     "outcome": outcome,
-                    "caveat": caveats.get(hid, ""),
+                    "caveat": schemas.RETENTION_FAILED if hid == "H16" else caveats.get(hid, ""),
                     "equalised_median": 0.1 if strong else None,
                     "equalised_ci_low": 0.06 if strong else None,
                     "equalised_ci_high": 0.17 if strong else None,
                     "equalised_p": 0.001 if strong else None,
+                    "retention_median": 0.11 if hid == "H16" else None,
+                    "retention_ci_low": -0.1 if hid == "H16" else None,
+                    "retention_ci_high": 0.3 if hid == "H16" else None,
+                    "retention_passes": False if hid == "H16" else None,
                 }
             )
         spec = schemas.table("exploratory_results")

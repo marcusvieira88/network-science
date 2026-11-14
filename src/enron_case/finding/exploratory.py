@@ -207,6 +207,8 @@ def _top_recipient_share(df: pl.DataFrame) -> pl.DataFrame:
 class Tables:
     sent: pl.DataFrame
     received: pl.DataFrame
+    # Custodian pseudonyms; the retention check keeps only contacts who are custodians.
+    custodians: frozenset[str] = frozenset()
 
 
 def _in(df: pl.DataFrame, window: Window) -> pl.DataFrame:
@@ -271,6 +273,41 @@ def _reciprocity(tables: Tables, window: Window) -> pl.DataFrame:
         pl.col("back").fill_null(False).cast(pl.Float64).mean().alias("value")
     )
     return shares.join(sent.group_by("pid").agg(pl.len().alias("n")), on="pid")
+
+
+def _reciprocity_between_custodians(tables: Tables, window: Window) -> pl.DataFrame:
+    """Reciprocity counting only contacts who are themselves custodians. Their mail is collected
+    from both sides (a reply survives in the replier's own sent folder even if the custodian's
+    inbox lost it), so how much inbox mail was kept cannot move this measure. `n` is the
+    smaller of the custodian's sent and received counts, so both must meet the minimum."""
+    sent = _in(tables.sent, window)
+    received = _in(tables.received, window)
+    custodians = list(tables.custodians)
+    contacts = _sent_contacts(sent).filter(pl.col("contact").is_in(custodians))
+    wrote_back = (
+        received.select("pid", pl.col("sender_pid").alias("contact"))
+        .unique()
+        .with_columns(pl.lit(True).alias("back"))
+    )
+    shares = (
+        contacts.join(wrote_back, on=["pid", "contact"], how="left")
+        .group_by("pid")
+        .agg(pl.col("back").fill_null(False).cast(pl.Float64).mean().alias("value"))
+    )
+    counts = (
+        sent.group_by("pid")
+        .len()
+        .join(received.group_by("pid").len(), on="pid", suffix="_received")
+    )
+    n = counts.select("pid", pl.min_horizontal("len", "len_received").alias("n"))
+    return shares.join(n, on="pid")
+
+
+# Artifact checks for H5–H24, added after the data-science review: the hypothesis id, the
+# measure that removes the threat, and a short name of the threat. A hypothesis that fails its
+# check cannot be held true.
+RETENTION_CHECKS: dict[str, Measure] = {"H16": _reciprocity_between_custodians}
+RETENTION_FAILED = schemas.RETENTION_FAILED
 
 
 def _new_contact_share(tables: Tables, window: Window) -> pl.DataFrame:
@@ -441,6 +478,7 @@ def volume_equalised(
                     _subsample(recv_b, limits, "recv_cap", seed),
                 ]
             ),
+            tables.custodians,
         )
         minimum = config.exploratory_min_messages
         a = measure(sampled, after).filter(pl.col("n") >= minimum)
@@ -458,11 +496,47 @@ def volume_equalised(
     return compare(d, config, stream)
 
 
+RETENTION_STREAM = 300
+
+
+@dataclass(frozen=True)
+class RetentionCheck:
+    crisis: Comparison
+    placebo: Comparison
+    passes: bool
+
+
+def retention_check(
+    tables: Tables, direction: int, measure: Measure, config: Config, order: int
+) -> RetentionCheck:
+    """The hypothesis recomputed on a measure that inbox retention cannot move. Passes only if
+    the crisis change is on the hypothesised side over at least k custodians and the same
+    subset shows no comparable pre-crisis change."""
+    minimum = config.exploratory_min_messages
+    d = paired_differences(tables, measure, CRISIS_WINDOW, REFERENCE_WINDOW, minimum)
+    crisis = compare(d, config, RETENTION_STREAM + order)
+    placebo = compare(
+        paired_differences(tables, measure, PLACEBO_AFTER_WINDOW, PLACEBO_BEFORE_WINDOW, minimum),
+        config,
+        RETENTION_STREAM + 50 + order,
+    )
+    passes = (
+        crisis.n >= config.k_min
+        and stats.on_side(direction, crisis.ci_low, crisis.ci_high)
+        and _placebo_passes(direction, crisis, placebo)
+    )
+    return RetentionCheck(crisis, placebo, passes)
+
+
 def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -> pl.DataFrame:
     custodians = entities_p.filter(
         pl.col("is_custodian") & (pl.col("type") == vocab.PERSON) & pl.col("is_internal")
     ).get_column("pid")
-    tables = Tables(sent_messages(events, custodians), received_messages(events, custodians))
+    tables = Tables(
+        sent_messages(events, custodians),
+        received_messages(events, custodians),
+        frozenset(custodians.to_list()),
+    )
     rows = []
     for index, hyp in enumerate(FAMILY):
         measure = MEASURES[hyp.id]
@@ -503,6 +577,15 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
             if outcome != NOT_SUPPORTED and valid and hyp.id not in LOOKBACK_MEASURES
             else None
         )
+        retention = (
+            retention_check(tables, hyp.direction, RETENTION_CHECKS[hyp.id], config, order)
+            if hyp.id in RETENTION_CHECKS and outcome != NOT_SUPPORTED
+            else None
+        )
+        caveat = CAVEATS.get(hyp.id, "")
+        if retention is not None and not retention.passes:
+            outcome = INCONCLUSIVE  # an artifact check failed: cannot be held true
+            caveat = RETENTION_FAILED
         out.append(
             {
                 "order": FIRST_ID + order,
@@ -523,11 +606,15 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
                 "placebo_passes": placebo_ok,
                 "loo_stable": loo_ok,
                 "outcome": outcome,
-                "caveat": CAVEATS.get(hyp.id, ""),
+                "caveat": caveat,
                 "equalised_median": equalised.median if equalised else None,
                 "equalised_ci_low": equalised.ci_low if equalised else None,
                 "equalised_ci_high": equalised.ci_high if equalised else None,
                 "equalised_p": equalised.p if equalised else None,
+                "retention_median": retention.crisis.median if retention else None,
+                "retention_ci_low": retention.crisis.ci_low if retention else None,
+                "retention_ci_high": retention.crisis.ci_high if retention else None,
+                "retention_passes": retention.passes if retention else None,
             }
         )
     return schemas.conform(

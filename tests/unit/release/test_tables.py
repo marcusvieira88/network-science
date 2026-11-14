@@ -60,6 +60,10 @@ def test_exploratory_rows_below_k_hide_every_derived_value() -> None:
         "equalised_ci_low": 0.05,
         "equalised_ci_high": 0.2,
         "equalised_p": 0.01,
+        "retention_median": 0.1,
+        "retention_ci_low": -0.1,
+        "retention_ci_high": 0.3,
+        "retention_passes": False,
     }
     out = tables.exploratory(pl.DataFrame([row]), k).row(0, named=True)
     for column in (
@@ -69,6 +73,8 @@ def test_exploratory_rows_below_k_hide_every_derived_value() -> None:
         "outcome",
         "loo_stable",
         "equalised_median",
+        "retention_median",
+        "retention_passes",
         "placebo_custodians",
         "placebo_passes",
     ):
