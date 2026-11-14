@@ -23,7 +23,7 @@ describe("CommunityGraph when the 3D view fails", () => {
   it("falls back to the 2D network and switches the wording to circles", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { container } = render(
-      <CommunityGraph groups={groups} edges={edges} weeks={["2000-01-03"]} events={[]} minGroupSize={5} webgl />,
+      <CommunityGraph groups={groups} edges={edges} weeks={["2000-01-03"]} events={[]} minGroupSize={5} seed={1} webgl />,
     );
     expect(await screen.findAllByTestId("group-node")).toHaveLength(2);
     expect(container).toHaveTextContent("Each circle is a group of at least 5 people, never an individual.");

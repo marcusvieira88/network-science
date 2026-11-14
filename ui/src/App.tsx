@@ -50,6 +50,7 @@ export function View({ view, data, onSelect }: ViewProps) {
           weeks={analysisWeeks(tables.weekly_metrics)}
           events={data.events}
           minGroupSize={minimumGroupSize(data)}
+          seed={data.run.seed}
         />
       );
     case "clusters": {

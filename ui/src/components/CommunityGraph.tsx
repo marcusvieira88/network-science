@@ -4,10 +4,20 @@ import { RenderFallback } from "@/components/RenderFallback";
 import { TimeSlider } from "@/components/TimeSlider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { type NetworkMode, type Point, NETWORK_MODES, anonymousPoints, cellRadius } from "@/lib/cells";
 import type { CommunityEdgeRow, CommunityGroupRow, PublicEvent } from "@/lib/data";
 import { formatNumber } from "@/lib/format";
-import { type PlacedGroup, type WeekGraph, groupColor, layoutGroups, maxWeeklyTie, weekGraph } from "@/lib/network";
+import {
+  type PlacedGroup,
+  type WeekGraph,
+  groupColor,
+  groupRadius,
+  layoutGroups,
+  maxWeeklyTie,
+  weekGraph,
+} from "@/lib/network";
 import { graphNodes, layoutLinks, weekLinks } from "@/lib/network3d";
 import { supportsWebGL } from "@/lib/webgl";
 
@@ -17,6 +27,15 @@ const WIDTH = 640;
 const HEIGHT = 420;
 const MAX_EDGE_WIDTH = 14;
 const TOP_TIES = 8;
+const POINT_RADIUS = 1.6;
+/** In the Individuals mode the group circle fades to a membrane around its points. */
+const MEMBRANE_OPACITY = 0.25;
+
+const MODE_LABELS: Record<NetworkMode, string> = { groups: "Groups", individuals: "Individuals (anonymous)" };
+
+function isNetworkMode(value: string): value is NetworkMode {
+  return (NETWORK_MODES as readonly string[]).includes(value);
+}
 
 interface CommunityGraphProps {
   groups: CommunityGroupRow[];
@@ -24,6 +43,8 @@ interface CommunityGraphProps {
   weeks: string[];
   events: PublicEvent[];
   minGroupSize: number;
+  /** The run seed: scatters the illustrative points of the Individuals mode. */
+  seed: number;
   /** Draw the 3D view; defaults to whether the browser has WebGL. */
   webgl?: boolean;
 }
@@ -33,10 +54,34 @@ interface Network2DProps {
   graph: WeekGraph;
   week: string | null;
   maxTie: number;
+  /** Anonymous points per group label, relative to the group's centre; null in the Groups mode. */
+  points: Map<string, Point[]> | null;
+}
+
+/**
+ * Every anonymous point as a bare circle: no key in the DOM, no label, no title, no tooltip and no
+ * pointer events, so nothing can be learned from or attached to a single point.
+ */
+function AnonymousPoints({ placed, points }: { placed: PlacedGroup[]; points: Map<string, Point[]> }) {
+  return (
+    <g data-testid="anonymous-points" aria-hidden="true" pointerEvents="none">
+      {placed.flatMap((node) =>
+        (points.get(node.group) ?? []).map(([dx = 0, dy = 0], index) => (
+          <circle
+            key={`${node.group}-${index}`}
+            cx={node.x + dx}
+            cy={node.y + dy}
+            r={POINT_RADIUS}
+            fill="hsl(var(--foreground))"
+          />
+        )),
+      )}
+    </g>
+  );
 }
 
 /** The flat network: the fallback where WebGL is unavailable. */
-function Network2D({ placed, graph, week, maxTie }: Network2DProps) {
+function Network2D({ placed, graph, week, maxTie, points }: Network2DProps) {
   const order = placed.map((g) => g.group);
   const position = new Map(placed.map((g) => [g.group, g]));
   const edgeScale = MAX_EDGE_WIDTH / maxTie;
@@ -76,18 +121,21 @@ function Network2D({ placed, graph, week, maxTie }: Network2DProps) {
                   cy={node.y}
                   r={node.radius}
                   fill={groupColor(node.group, order)}
+                  fillOpacity={points ? MEMBRANE_OPACITY : 1}
                   stroke="hsl(var(--background))"
                   strokeWidth={2}
                 />
-                <text
-                  x={node.x}
-                  y={node.y}
-                  dy="0.35em"
-                  textAnchor="middle"
-                  className="pointer-events-none fill-foreground text-[11px] font-semibold"
-                >
-                  {node.group}
-                </text>
+                {!points && (
+                  <text
+                    x={node.x}
+                    y={node.y}
+                    dy="0.35em"
+                    textAnchor="middle"
+                    className="pointer-events-none fill-foreground text-[11px] font-semibold"
+                  >
+                    {node.group}
+                  </text>
+                )}
               </g>
             </TooltipTrigger>
             <TooltipContent>
@@ -97,6 +145,7 @@ function Network2D({ placed, graph, week, maxTie }: Network2DProps) {
             </TooltipContent>
           </Tooltip>
         ))}
+        {points && <AnonymousPoints placed={placed} points={points} />}
       </svg>
     </TooltipProvider>
   );
@@ -110,9 +159,10 @@ function Loading3D() {
   );
 }
 
-export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, webgl }: CommunityGraphProps) {
+export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, seed, webgl }: CommunityGraphProps) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [mode, setMode] = useState<NetworkMode>("groups");
   // Starts from WebGL support; turns false if the 3D view fails, so legend and wording follow.
   const [use3D, setUse3D] = useState(() => webgl ?? supportsWebGL());
   const placed = useMemo(() => layoutGroups(groups, edges, WIDTH, HEIGHT), [groups, edges]);
@@ -128,9 +178,14 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, web
     const accent = new Map(nodes.map((n) => [n.id, n.color]));
     return (group: string) => (use3D ? (accent.get(group) ?? "") : groupColor(group, order));
   }, [placed, nodes, use3D]);
-  const shape = use3D ? "sphere" : "circle";
-  const sizeRule = use3D ? "sphere volume" : "circle area";
-  const flat = <Network2D placed={placed} graph={graph} week={week} maxTie={maxTie} />;
+  const individuals = mode === "individuals";
+  const points2D = useMemo(() => anonymousPoints(groups, 2, seed, groupRadius), [groups, seed]);
+  const points3D = useMemo(() => anonymousPoints(groups, 3, seed, cellRadius), [groups, seed]);
+  const shape = use3D ? "cell" : "circle";
+  const sizeRule = use3D ? "cell volume" : "circle area";
+  const flat = (
+    <Network2D placed={placed} graph={graph} week={week} maxTie={maxTie} points={individuals ? points2D : null} />
+  );
 
   return (
     <Card>
@@ -143,15 +198,40 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, web
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Tabs value={mode} onValueChange={(value) => isNetworkMode(value) && setMode(value)}>
+            <TabsList aria-label="Draw">
+              {NETWORK_MODES.map((value) => (
+                <TabsTrigger key={value} value={value}>
+                  {MODE_LABELS[value]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          {individuals && (
+            <p className="text-sm text-muted-foreground">
+              Each point stands for one person in a group of at least {minGroupSize}; points are anonymous and their
+              positions and links are illustrative, not individual data. Ties are measured between groups only.
+            </p>
+          )}
+        </div>
         {use3D ? (
           <div className="space-y-2">
             <RenderFallback fallback={flat} onFailure={() => setUse3D(false)}>
               <Suspense fallback={<Loading3D />}>
-                <CommunityGraph3D nodes={nodes} links={links} layout={allTies} week={week} />
+                <CommunityGraph3D
+                  nodes={nodes}
+                  links={links}
+                  layout={allTies}
+                  week={week}
+                  mode={mode}
+                  points={points3D}
+                />
               </Suspense>
             </RenderFallback>
             <p className="text-xs text-muted-foreground">
-              Drag to rotate, scroll to zoom, right-drag to pan. Hover a sphere for its group label and size.
+              Drag to rotate, scroll to zoom, right-drag to pan. Signals travel along each tie, more and faster
+              the heavier its weight this week.{individuals ? "" : " Hover a cell for its group label and size."}
             </p>
           </div>
         ) : (

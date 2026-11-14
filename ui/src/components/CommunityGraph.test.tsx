@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CommunityGraph } from "@/components/CommunityGraph";
@@ -64,7 +65,7 @@ describe("CommunityGraph without WebGL (2D fallback)", () => {
   });
 
   function renderGraph() {
-    return render(<CommunityGraph groups={groups} edges={edges} weeks={weeks} events={[]} minGroupSize={5} webgl={false} />);
+    return render(<CommunityGraph groups={groups} edges={edges} weeks={weeks} events={[]} minGroupSize={5} seed={1} webgl={false} />);
   }
 
   function nodePositions(container: HTMLElement): string[] {
@@ -105,6 +106,31 @@ describe("CommunityGraph without WebGL (2D fallback)", () => {
     });
     expect(screen.getByRole("status")).toHaveTextContent("2000-01-17");
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+  });
+
+  it("in the Individuals mode draws one bare point per person inside each group's circle", async () => {
+    const user = userEvent.setup();
+    const { container } = renderGraph();
+    expect(screen.queryByTestId("anonymous-points")).not.toBeInTheDocument();
+    const before = nodePositions(container);
+    await user.click(screen.getByRole("tab", { name: "Individuals (anonymous)" }));
+    const layer = screen.getByTestId("anonymous-points");
+    const points = [...layer.querySelectorAll("circle")];
+    expect(points).toHaveLength(14 + 9 + 5);
+    // Every point lies inside a group circle; the groups have not moved.
+    expect(nodePositions(container)).toEqual(before);
+    const circles = [...container.querySelectorAll("[data-testid=group-node] circle")].map((c) => ({
+      x: Number(c.getAttribute("cx")),
+      y: Number(c.getAttribute("cy")),
+      r: Number(c.getAttribute("r")),
+    }));
+    for (const point of points) {
+      const x = Number(point.getAttribute("cx"));
+      const y = Number(point.getAttribute("cy"));
+      expect(circles.some((c) => Math.hypot(x - c.x, y - c.y) < c.r)).toBe(true);
+    }
+    expect(screen.getAllByTestId("group-node")).toHaveLength(3);
+    expect(container).toHaveTextContent("Each point stands for one person in a group of at least 5;");
   });
 
   it("shows only group label, size and weights", () => {
