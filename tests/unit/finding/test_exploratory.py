@@ -224,8 +224,8 @@ def test_family_finds_a_planted_change_and_nothing_else() -> None:
     e11 = table.filter(pl.col("hypothesis") == "H15").row(0, named=True)
     assert e11["outcome"] == ex.CONFIDENT
     assert e11["placebo_passes"] and e11["loo_stable"]
-    # Family-adjusted equalised p: twenty hypotheses, so p times 20, capped at 1.
-    assert e11["equalised_p_holm"] == pytest.approx(min(1.0, 20 * e11["equalised_p"]))
+    # Family-adjusted equalised p: p times the family size, capped at 1.
+    assert e11["equalised_p_holm"] == pytest.approx(min(1.0, len(ex.FAMILY) * e11["equalised_p"]))
     assert table.filter(pl.col("equalised_p").is_null())["equalised_p_holm"].null_count() == (
         table.filter(pl.col("equalised_p").is_null()).height
     )
@@ -289,7 +289,8 @@ def test_a_failed_retention_check_caps_the_outcome() -> None:
     flat = ex.MEASURES["H6"]
     checks = dict(ex.RETENTION_CHECKS)
     ex.RETENTION_CHECKS.clear()
-    ex.RETENTION_CHECKS["H15"] = flat  # weekend share: flat in this world, so the check fails
+    # Weekend share: flat in this world, so the check fails.
+    ex.RETENTION_CHECKS["H15"] = ex.RetentionRule(flat, "planted caveat")
     try:
         table = ex.run_family(events, _entities(events), Config(exploratory_bootstrap_reps=500))
     finally:
@@ -298,4 +299,49 @@ def test_a_failed_retention_check_caps_the_outcome() -> None:
     h15 = table.filter(pl.col("hypothesis") == "H15").row(0, named=True)
     assert h15["retention_passes"] is False
     assert h15["outcome"] == ex.INCONCLUSIVE
-    assert h15["caveat"] == ex.RETENTION_FAILED
+    assert h15["caveat"] == "planted caveat"
+
+
+THREE_CUSTODIANS = pl.Series([A, B, D])
+
+
+def _three_custodian_tables(rows: list[dict[str, object]]) -> ex.Tables:
+    events = pl.DataFrame(rows)
+    return ex.Tables(
+        ex.sent_messages(events, THREE_CUSTODIANS),
+        ex.received_messages(events, THREE_CUSTODIANS),
+        frozenset(THREE_CUSTODIANS.to_list()),
+    )
+
+
+def test_core_ego_density_counts_custodians_in_either_direction() -> None:
+    """H25: A wrote to custodian B, custodian D wrote to A, A wrote to non-custodian C. A is in
+    contact with both other custodians (2 of 2); B and D each with one of two."""
+    tables = _three_custodian_tables(
+        [_event("m1", 4, A, B), _event("m2", 5, D, A), _event("m3", 6, A, C)]
+    )
+    result = ex._core_ego_density(tables, WINDOW)
+    assert _value(result, A) == pytest.approx(1.0)
+    assert _value(result, B) == pytest.approx(0.5)
+    assert _value(result, D) == pytest.approx(0.5)
+    n = dict(result.select("pid", "n").iter_rows())
+    assert n == {A: 1, B: 0, D: 0}  # min(sent, received): A sent 2, received 1
+
+
+def test_core_out_density_ignores_every_inbox() -> None:
+    """The H25 retention measure counts only the custodians written to: A wrote to B only."""
+    tables = _three_custodian_tables(
+        [_event("m1", 4, A, B), _event("m2", 5, D, A), _event("m3", 6, A, C)]
+    )
+    result = ex._core_out_density(tables, WINDOW)
+    assert _value(result, A) == pytest.approx(0.5)
+    assert _value(result, B) == pytest.approx(0.0)  # B received but wrote to no custodian
+    assert _value(result, D) == pytest.approx(0.5)
+
+
+def test_h25_is_post_hoc_and_has_a_retention_check() -> None:
+    h25 = [h for h in ex.FAMILY if h.id == "H25"]
+    assert len(h25) == 1 and h25[0].direction == ex.UP
+    assert set(ex.RETENTION_CHECKS) == {"H16", "H25"}
+    assert ex.family_of(len(ex.FAMILY) - 1) == ex.POST_HOC_FAMILY
+    assert ex.family_of(0) == ex.FIRST_FAMILY

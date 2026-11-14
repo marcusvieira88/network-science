@@ -113,12 +113,15 @@ def _artifact_cols(n_units_nullable: bool) -> tuple[Col, ...]:
 
 EXPLORATORY_OUTCOMES = ("confident", "inconclusive", "not supported")
 EXPLORATORY_CONFIDENT, EXPLORATORY_INCONCLUSIVE, EXPLORATORY_NOT_SUPPORTED = EXPLORATORY_OUTCOMES
-EXPLORATORY_FAMILIES = ("first", "second")
+# H5–H14, H15–H24, and H25 (stated after every other result and after reading prior work).
+EXPLORATORY_FAMILIES = ("first", "second", "post hoc")
 # Caveat recorded when a hypothesis fails its retention check (finding/exploratory.py).
-RETENTION_FAILED = (
-    "fails the retention check: among custodian-to-custodian contacts, whose messages are "
-    "visible whatever an inbox kept, the change is not established"
-)
+RETENTION_FAILED = {
+    "H16": "fails the retention check: among custodian-to-custodian contacts, whose messages "
+    "are visible whatever an inbox kept, the change is not established",
+    "H25": "fails the retention check: counting only the custodians written to, which no inbox "
+    "can move, the change is not established",
+}
 # Why a hypothesis cannot be confident whatever its numbers (docs/hypotheses-exploratory.md).
 EXPLORATORY_CAVEATS = {
     "H5": "invalid: timestamps in the reference year of the corpus are shifted by several hours",

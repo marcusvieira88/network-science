@@ -499,11 +499,12 @@ class FixtureBuilder:
         return schemas.conform(df, "risk_results")
 
     def exploratory_results_table(self) -> pl.DataFrame:
-        """Reference shape only: twenty rows, E12 confident with its volume-equalised check,
-        E16 inconclusive, the caveated three marked, the rest not supported."""
+        """Reference shape only: twenty-one rows (H5–H25), H16 and H20 inconclusive with their
+        volume-equalised check, H16 failing its retention check, the caveated three marked, the
+        rest not supported."""
         caveats = schemas.EXPLORATORY_CAVEATS
         rows = []
-        for i in range(1, 21):
+        for i in range(1, 22):
             hid = f"H{i + 4}"
             outcome = {"H16": "inconclusive", "H20": "inconclusive"}.get(hid, "not supported")
             strong = outcome != "not supported"
@@ -511,7 +512,7 @@ class FixtureBuilder:
                 {
                     "order": i + 4,
                     "hypothesis": hid,
-                    "family": schemas.EXPLORATORY_FAMILIES[0 if i < 11 else 1],
+                    "family": schemas.EXPLORATORY_FAMILIES[0 if i < 11 else 1 if i < 21 else 2],
                     "measure": f"measure {hid}",
                     "direction": "down" if i in (7, 15, 18, 20) else "up",
                     "custodians": 32,
@@ -527,7 +528,9 @@ class FixtureBuilder:
                     "placebo_passes": hid != "H20",
                     "loo_stable": strong,
                     "outcome": outcome,
-                    "caveat": schemas.RETENTION_FAILED if hid == "H16" else caveats.get(hid, ""),
+                    "caveat": schemas.RETENTION_FAILED["H16"]
+                    if hid == "H16"
+                    else caveats.get(hid, ""),
                     "equalised_median": 0.1 if strong else None,
                     "equalised_ci_low": 0.06 if strong else None,
                     "equalised_ci_high": 0.17 if strong else None,

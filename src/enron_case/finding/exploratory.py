@@ -1,4 +1,4 @@
-"""Hypotheses H5–H24 (recorded as E1–E20 in docs/hypotheses-exploratory.md).
+"""Hypotheses H5–H25 (recorded as E1–E21 in docs/hypotheses-exploratory.md; H25 post hoc).
 
 Every hypothesis is a paired, within-custodian difference of a ratio between fixed windows, so
 neither a change in which mailboxes hold mail nor a change in how much mail was kept can
@@ -53,7 +53,7 @@ Window = tuple[date, date]
 
 _, CC, BCC = vocab.RECIPIENT_ROLES
 CONFIDENT, INCONCLUSIVE, NOT_SUPPORTED = schemas.EXPLORATORY_OUTCOMES
-FIRST_FAMILY, SECOND_FAMILY = schemas.EXPLORATORY_FAMILIES
+FIRST_FAMILY, SECOND_FAMILY, POST_HOC_FAMILY = schemas.EXPLORATORY_FAMILIES
 
 WindowMeasure = Callable[[pl.DataFrame], pl.DataFrame]  # rows of one window -> pid, value, n
 # A measure sees the full message tables and the window, because some measures (E12, E15) need
@@ -90,6 +90,7 @@ FAMILY: tuple[Exploratory, ...] = (
     Exploratory("H22", DOWN, "share of received messages from external senders"),
     Exploratory("H23", UP, "share of weeks with at least one sent message"),
     Exploratory("H24", DOWN, "share of sent messages to a list, role or system address"),
+    Exploratory("H25", UP, "share of the other custodians exchanged mail with (post hoc)"),
 )
 
 
@@ -305,11 +306,61 @@ def _reciprocity_between_custodians(tables: Tables, window: Window) -> pl.DataFr
     return shares.join(n, on="pid")
 
 
-# Artifact checks for H5–H24, added after the data-science review: the hypothesis id, the
-# measure that removes the threat, and a short name of the threat. A hypothesis that fails its
-# check cannot be held true.
-RETENTION_CHECKS: dict[str, Measure] = {"H16": _reciprocity_between_custodians}
-RETENTION_FAILED = schemas.RETENTION_FAILED
+def _core_density(tables: Tables, window: Window, *, received: bool) -> pl.DataFrame:
+    """Share of the other custodians each custodian is in contact with in the window: written
+    to, and with `received` also heard from (any surviving copy counts). `n` is the smaller of
+    the custodian's sent and received counts, so both must meet the minimum."""
+    custodians = sorted(tables.custodians)
+    if len(custodians) < 2:
+        return pl.DataFrame(schema={"pid": pl.String, "value": pl.Float64, "n": pl.UInt32})
+    sent, inbox = _in(tables.sent, window), _in(tables.received, window)
+    frames = [_sent_contacts(sent)]
+    if received:
+        frames.append(inbox.select("pid", pl.col("sender_pid").alias("contact")))
+    contacts = (
+        pl.concat(frames)
+        .filter(pl.col("contact").is_in(custodians) & (pl.col("contact") != pl.col("pid")))
+        .unique()
+        .group_by("pid")
+        .agg(pl.len().alias("contacts"))
+    )
+    counts = (
+        sent.group_by("pid")
+        .len()
+        .join(inbox.group_by("pid").len(), on="pid", how="full", coalesce=True, suffix="_in")
+        .fill_null(0)
+    )
+    return counts.join(contacts, on="pid", how="left").select(
+        "pid",
+        (pl.col("contacts").fill_null(0) / (len(custodians) - 1)).cast(pl.Float64).alias("value"),
+        pl.min_horizontal("len", "len_in").alias("n"),
+    )
+
+
+def _core_ego_density(tables: Tables, window: Window) -> pl.DataFrame:
+    """H25: contact in either direction (the per-custodian form of core density)."""
+    return _core_density(tables, window, received=True)
+
+
+def _core_out_density(tables: Tables, window: Window) -> pl.DataFrame:
+    """H25's retention measure: only the custodians written to, which no inbox can move."""
+    return _core_density(tables, window, received=False)
+
+
+@dataclass(frozen=True)
+class RetentionRule:
+    """A measure that inbox retention cannot move, and the caveat recorded when it fails."""
+
+    measure: Measure
+    caveat: str
+
+
+# Artifact checks for H5–H25, added after the data-science review (H16) and with H25. A
+# hypothesis that fails its check cannot be held true.
+RETENTION_CHECKS: dict[str, RetentionRule] = {
+    "H16": RetentionRule(_reciprocity_between_custodians, schemas.RETENTION_FAILED["H16"]),
+    "H25": RetentionRule(_core_out_density, schemas.RETENTION_FAILED["H25"]),
+}
 
 
 def _new_contact_share(tables: Tables, window: Window) -> pl.DataFrame:
@@ -378,6 +429,7 @@ MEASURES: dict[str, Measure] = {
     "H22": _windowed("received", _share(~pl.col("sender_internal"))),
     "H23": _active_week_share,
     "H24": _windowed("sent", _share(pl.col("has_nonperson"))),
+    "H25": _core_ego_density,
 }
 
 
@@ -430,7 +482,17 @@ def _loo_stable(direction: int, d: np.ndarray) -> bool:
 
 
 SECOND_FAMILY_FROM = 11  # H15 (11th) onwards was stated after H5–H14 were computed
+POST_HOC_FROM = 21  # H25 (21st) was stated after every other result and after prior work
 FIRST_ID = 5  # H1–H4 are the pre-registered hypotheses; this family continues the numbering
+
+
+def family_of(order: int) -> str:
+    """When the hypothesis at 0-based position `order` was stated."""
+    if order + 1 >= POST_HOC_FROM:
+        return POST_HOC_FAMILY
+    return FIRST_FAMILY if order + 1 < SECOND_FAMILY_FROM else SECOND_FAMILY
+
+
 EQUALISED_STREAM = 200
 
 
@@ -588,19 +650,19 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
             else None
         )
         retention = (
-            retention_check(tables, hyp.direction, RETENTION_CHECKS[hyp.id], config, order)
+            retention_check(tables, hyp.direction, RETENTION_CHECKS[hyp.id].measure, config, order)
             if hyp.id in RETENTION_CHECKS and outcome != NOT_SUPPORTED
             else None
         )
         caveat = CAVEATS.get(hyp.id, "")
         if retention is not None and not retention.passes:
             outcome = INCONCLUSIVE  # an artifact check failed: cannot be held true
-            caveat = RETENTION_FAILED
+            caveat = RETENTION_CHECKS[hyp.id].caveat
         out.append(
             {
                 "order": FIRST_ID + order,
                 "hypothesis": hyp.id,
-                "family": FIRST_FAMILY if order + 1 < SECOND_FAMILY_FROM else SECOND_FAMILY,
+                "family": family_of(order),
                 "measure": hyp.description,
                 "direction": "up" if hyp.direction == UP else "down",
                 "custodians": crisis.n,

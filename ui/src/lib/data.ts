@@ -46,7 +46,7 @@ export const SUPPORT = ["yes", "no", "inconclusive"] as const;
 export const CONFIDENCE = ["high", "moderate", "low"] as const;
 export const RELEASE_VARIANTS = ["R0", "R1", "R2"] as const;
 export const ATTACKERS = ["A1", "A2"] as const;
-export const EXPLORATORY_FAMILIES = ["first", "second"] as const;
+export const EXPLORATORY_FAMILIES = ["first", "second", "post hoc"] as const;
 export const DIRECTIONS = ["up", "down"] as const;
 export const EXPLORATORY_OUTCOMES = ["confident", "inconclusive", "not supported"] as const;
 
