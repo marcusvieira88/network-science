@@ -122,8 +122,8 @@ class Config:
     # Subsamples per custodian when equalising mail volume between two windows (a check added
     # after E12 was computed: more mail kept means more chances to observe a reply).
     exploratory_equalise_reps: int = 40
-    # Release mitigations. Lowest weighted degree of each published degree bucket; scale of the
-    # Laplace noise in release R2 (a sketch, not a calibrated privacy budget; research R12).
+    # Release mitigations. Lowest degree (distinct contacts) of each published degree bucket;
+    # scale of the Laplace noise in release R2 (a sketch, not a calibrated privacy budget; R12).
     degree_bucket_floors: tuple[int, ...] = field(default=(1, 2, 5, 10))
     r2_noise_scale: float = 1.0
     # Risk (research R12). Custodians whose identity attacker A2 knows; (week, mapped person)
