@@ -150,3 +150,103 @@ def test_switch_month_must_leave_the_whole_earlier_range() -> None:
 def test_record_statement_names_h1_to_h4_as_crossing_the_change_too() -> None:
     text = record.record_statement(_profile(SWITCHED), _h5(-0.44))
     assert "H1–H4 compare the weeks after their change week with the baseline year" in text
+
+
+TOO_FEW = "Too few months are published to compare the record between the two windows."
+# SWITCHED with December 2001 back above the reference minimum: no month from which every
+# later month stays below it, so no switch month is named.
+NO_SWITCH: list[float] = [*SWITCHED[:-1], 0.6]
+NO_H5 = pl.DataFrame({"hypothesis": ["H6"], "custodians": [32], "median_change": [0.0]})
+RANGES = (
+    "The share of the custodians' weekday sent mail stamped outside working hours is between "
+    "0.45 and 0.55 in the reference months and between 0.06 and 0.1 in the crisis months"
+)
+
+
+def _months_suppressed(shares: list[float | None], first: date, last: date) -> pl.DataFrame:
+    """The profile with the after-hours share suppressed in months first..last (inclusive)."""
+    hidden = pl.col("month").is_between(first, last)
+    return _profile(shares).with_columns(
+        pl.when(hidden).then(None).otherwise(pl.col(record.SHARE)).alias(record.SHARE)
+    )
+
+
+def test_suppressed_crisis_months_leave_too_few_to_compare() -> None:
+    profile = _months_suppressed(list(SWITCHED), date(2001, 8, 1), date(2001, 11, 1))
+    assert record.record_statement(profile, _h5(-0.44)) == TOO_FEW
+    assert record.record_summary(profile, _h5(-0.44)) == TOO_FEW
+
+
+def test_suppressed_reference_months_leave_too_few_to_compare() -> None:
+    profile = _months_suppressed(list(SWITCHED), date(2000, 8, 1), date(2000, 11, 1))
+    assert record.record_statement(profile, _h5(-0.44)) == TOO_FEW
+    assert record.record_summary(profile, _h5(-0.44)) == TOO_FEW
+
+
+def test_summary_without_h5_says_not_measured_and_names_no_switch() -> None:
+    text = record.record_summary(_profile(NO_SWITCH), NO_H5)
+    assert text == (
+        "The share of weekday sent mail stamped outside working hours is between 0.45 and 0.55 "
+        "in the reference months and between 0.06 and 0.1 in the crisis months; the `Date` "
+        "convention changed in between, within the same people (not measured). Every "
+        "within-custodian comparison crosses that change; confidence that it happened: high, "
+        "its cause not established."
+    )
+
+
+def test_summary_with_suppressed_h5_says_not_measured() -> None:
+    suppressed = _h5(-0.44).with_columns(pl.lit(None, pl.Float64).alias("median_change"))
+    assert "within the same people (not measured)" in record.record_summary(
+        _profile(SWITCHED), suppressed
+    )
+
+
+def test_statement_without_switch_h5_or_volumes_keeps_only_the_ranges_and_caveat() -> None:
+    """No switch month, no H5 row and no published mail volume in either window: the
+    statement goes straight from the ranges to the caveat and ends without a volume part."""
+    profile = _profile(NO_SWITCH).with_columns(
+        pl.lit(None, pl.Int64).alias("sent_messages"),
+        pl.lit(None, pl.Int64).alias("received_messages"),
+    )
+    text = record.record_statement(profile, NO_H5)
+    assert text.startswith(
+        f"{RANGES}: the ranges do not overlap. Working days do not move by hours within a year:"
+    )
+    assert text.endswith("folder names would show it, and we do not read them.")
+    assert "From " not in text and "Within the same people" not in text
+
+
+def test_volume_sentence_skips_a_side_suppressed_in_one_window() -> None:
+    """Sent mail suppressed in the crisis months: only received mail is compared. Received is
+    300 + month index: Aug-Nov 2000 are indices 0-3, Aug-Nov 2001 are indices 12-15."""
+    profile = _profile(SWITCHED).with_columns(
+        pl.when(pl.col("month") >= date(2001, 8, 1))
+        .then(None)
+        .otherwise(pl.col("sent_messages"))
+        .alias("sent_messages")
+    )
+    text = record.record_statement(profile, _h5(-0.44))
+    assert text.endswith(
+        " Mail kept: received messages per month between 300 and 303 in the reference months "
+        "and between 312 and 315 in the crisis months."
+    )
+
+
+def test_switch_month_needs_a_published_month_before_the_reference_end() -> None:
+    """Every month before December 2000 suppressed: there is nothing to lie beyond."""
+    profile = _months_suppressed(list(SWITCHED), date(2000, 8, 1), date(2000, 11, 1))
+    assert record._switch_month(profile, lower=True) is None
+
+
+def test_replication_statement_when_h25_was_not_run() -> None:
+    assert record.replication_statement(NO_H5) == (
+        "The replication test of prior work was not run."
+    )
+
+
+def test_replication_statement_when_h25_is_suppressed() -> None:
+    suppressed = _h25(None).with_columns(pl.lit(None, pl.Float64).alias("median_change"))
+    assert record.replication_statement(suppressed) == (
+        "H25 (the replication test of prior work) is suppressed: fewer than k custodians "
+        "could be compared."
+    )
