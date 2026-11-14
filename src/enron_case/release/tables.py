@@ -20,6 +20,26 @@ RULE_DEDUPE = "exact+subset"
 RULE_IDENTITY = "N1-N4"
 STEP_MANUAL = "manual merge check"
 RULE_MANUAL = "seeded sample, judged by a person"
+STEP_REJECTED = "rejected files: {reason}"
+RULE_REJECTED = "file not parsed: no clean end of the header, or outside a mailbox folder"
+STEP_EXACT = "deduplicate: exact copies"
+RULE_EXACT = "copies merged by the exact key alone (sender, second, recipient set)"
+STEP_SUBSET = "deduplicate: subset copies"
+RULE_SUBSET = "copies of messages that needed a subset merge, with any exact copies they had"
+STEP_FLAG = "flag: {flag}"
+FLAG_NAMES = {
+    "bad_address": "bad address",
+    "date_out_of_range": "date out of range",
+    "mass_mailing": "mass mailing",
+    "no_recipients": "no recipients",
+    "self_only": "self-only",
+}
+RULE_FLAG_EXCLUDED = "messages flagged; kept, but left out of the network"
+RULE_FLAG_KEPT = "messages flagged; kept in the network"
+STEP_EVENTS = "events in the network"
+RULE_EVENTS = "sender-recipient events of messages without an exclusion flag"
+
+Row = tuple[int, str, int, int, str | None, float | None, float | None]
 
 
 def require(counts: dict[str, Any], file: str, key: str) -> object:
@@ -49,7 +69,7 @@ def require_rate(counts: dict[str, Any], file: str, key: str) -> float | None:
 
 def _count(value: object, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ContractViolation(f"ingest_counts: occurrences of '{field}' is not an integer")
+        raise ContractViolation(f"counts: the count of '{field}' is not an integer")
     return value
 
 
@@ -70,17 +90,23 @@ def data_quality(
     ingest: dict[str, Any],
     clean: dict[str, Any],
     identity: dict[str, Any],
+    pseudo: dict[str, Any],
     manual: dict[str, Any] | None = None,
 ) -> pl.DataFrame:
     """One row per pipeline step: what went in, what came out, the rule and its measured
-    precision and recall where ground truth exists."""
+    precision and recall where ground truth exists. The main steps come first, then the
+    detail of the funnel: rejected files by reason, the exact/subset dedupe split, the five
+    message flags and events in and out of the network.
+
+    Every count is of files, messages or events, never of persons, so no k-suppression
+    applies: a count of messages does not describe a group of people."""
     files_seen = require_int(ingest, "ingest_counts", "files_seen")
     files_parsed = require_int(ingest, "ingest_counts", "files_parsed")
     records = require_int(clean, "clean_counts", "records_in")
     messages = require_int(clean, "clean_counts", "messages_out")
     addresses = require_int(identity, "identity_counts", "addresses")
     entities = require_int(identity, "identity_counts", "entities")
-    rows = [
+    rows: list[Row] = [
         (1, STEP_PARSE, files_seen, files_parsed, None, None, None),
         (
             2,
@@ -107,6 +133,13 @@ def data_quality(
         rows.append(
             (4, STEP_MANUAL, int(checked), correct, RULE_MANUAL, correct / int(checked), None)
         )
+    detail = [
+        *_rejected_rows(ingest, files_seen, files_parsed),
+        *_dedupe_rows(clean, records, messages),
+        *_flag_rows(clean, messages),
+        _events_row(pseudo),
+    ]
+    rows += [(len(rows) + i, *row) for i, row in enumerate(detail, start=1)]
     return pl.DataFrame(
         [
             {
@@ -123,6 +156,69 @@ def data_quality(
         ],
         schema=schemas.table("data_quality").polars_schema,
     )
+
+
+DetailRow = tuple[str, int, int, str | None, float | None, float | None]
+
+
+def _rejected_rows(ingest: dict[str, Any], files_seen: int, files_parsed: int) -> list[DetailRow]:
+    """One row per rejection reason; the reasons must account for every unparsed file."""
+    rejected = {
+        reason: _count(n, reason)
+        for reason, n in require_mapping(ingest, "ingest_counts", "rejected").items()
+    }
+    if sum(rejected.values()) != files_seen - files_parsed:
+        raise ContractViolation("ingest_counts: rejected files do not reconcile with parsed")
+    return [
+        (
+            STEP_REJECTED.format(reason=reason.replace("_", " ")),
+            files_seen,
+            files_seen - n,
+            RULE_REJECTED,
+            None,
+            None,
+        )
+        for reason, n in sorted(rejected.items())
+    ]
+
+
+def _dedupe_rows(clean: dict[str, Any], records: int, messages: int) -> list[DetailRow]:
+    exact = require_int(clean, "clean_counts", "removed_exact")
+    subset = require_int(clean, "clean_counts", "removed_subset")
+    if records - exact - subset != messages:
+        raise ContractViolation("clean_counts: exact and subset removals do not reconcile")
+    after_exact = records - exact
+    return [
+        (STEP_EXACT, records, after_exact, RULE_EXACT, None, None),
+        (STEP_SUBSET, after_exact, messages, RULE_SUBSET, None, None),
+    ]
+
+
+def _flag_rows(clean: dict[str, Any], messages: int) -> list[DetailRow]:
+    """The five message flags, zero when absent. Flagged messages are kept in `messages`."""
+    flags = {
+        flag: _count(n, flag) for flag, n in require_mapping(clean, "clean_counts", "flags").items()
+    }
+    unknown = sorted(set(flags) - set(FLAG_NAMES))
+    if unknown:
+        raise ContractViolation(f"clean_counts: {len(unknown)} unknown message flags")
+    return [
+        (
+            STEP_FLAG.format(flag=name),
+            messages,
+            messages - flags.get(flag, 0),
+            RULE_FLAG_EXCLUDED if flag in vocab.NETWORK_EXCLUSION_FLAGS else RULE_FLAG_KEPT,
+            None,
+            None,
+        )
+        for flag, name in FLAG_NAMES.items()
+    ]
+
+
+def _events_row(pseudo: dict[str, Any]) -> DetailRow:
+    events = require_int(pseudo, "pseudo_counts", "events")
+    in_network = require_int(pseudo, "pseudo_counts", "events_in_network")
+    return (STEP_EVENTS, events, in_network, RULE_EVENTS, None, None)
 
 
 def header_fields(ingest: dict[str, Any]) -> pl.DataFrame:

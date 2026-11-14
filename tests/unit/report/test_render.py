@@ -108,6 +108,20 @@ def test_report_has_every_section(synth: SynthOutput, tmp_path: Path) -> None:
         assert f"| {field} |" in text
 
 
+def test_quality_section_shows_the_funnel_detail(synth: SynthOutput, tmp_path: Path) -> None:
+    quality = render_report(synth, tmp_path).split("## The finding", 1)[0]
+    for step in (
+        "deduplicate: exact copies",
+        "deduplicate: subset copies",
+        "flag: bad address",
+        "flag: self-only",
+        "events in the network",
+    ):
+        assert f"| {step} |" in quality, step
+    assert "files, messages or events, not persons" in quality
+    assert "addresses" in quality.split("mass mailing", 1)[1]  # the flag's unit is stated
+
+
 def test_limits_section_has_at_least_three_items(synth: SynthOutput, tmp_path: Path) -> None:
     text = render_report(synth, tmp_path)
     limits = text.split("## Limits", 1)[1]

@@ -53,7 +53,15 @@ def quality_section(data_quality: pl.DataFrame, header_fields: pl.DataFrame) -> 
             "## What we found in the data",
             "### Cleaning funnel",
             "Counts before and after each cleaning step. Precision and recall are measured "
-            "against ground truth where it exists; a dash means not measured.",
+            "against ground truth where it exists; a dash means not measured. The main steps "
+            "come first, then their detail: rejected files by reason, the exact and subset "
+            "parts of deduplication, each message flag, and events in and out of the network. "
+            "Every count is of files, messages or events, not persons, so no minimum group "
+            "size applies. Flagged messages are kept; all flags except a bad address take the "
+            "message out of the network. The mass mailing flag counts distinct recipient "
+            "addresses above the recipient cap, before identity resolution; the recipient-cap "
+            "network variant counts recipient entities after it, so one person's aliases count "
+            "once there.",
             funnel_table(data_quality),
             "### Header fields and where the line is",
             "Every header field name seen in the corpus, how often, and how it was ruled. "
