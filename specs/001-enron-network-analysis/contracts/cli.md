@@ -81,8 +81,8 @@ enron-case review-merges     # a person judges a seeded sample of identity merge
 2. file at `ENRON_CASE_KEY_FILE`, else
 3. `~/.config/enron-case/key`.
 
-The run aborts if the key is missing, shorter than 32 bytes, or resolves to a path inside the
-repository. The key is never printed; the manifest records only a key *fingerprint for
+The run aborts if the key is missing, shorter than 32 bytes, resolves to a path inside the
+repository, or (key file) grants any permission to group or others (anything but mode 600 or 400). The key is never printed; the manifest records only a key *fingerprint for
 comparison between runs* computed as HMAC(key, "fingerprint-v1") truncated to 8 hex characters.
 
 ## Exit codes

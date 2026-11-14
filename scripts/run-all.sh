@@ -51,6 +51,8 @@ port_is_free() {
 }
 
 check_prerequisites() {
+    # UI_PORT ends up inside node -e code below: accept digits only.
+    [[ $UI_PORT =~ ^[0-9]{1,5}$ ]] || missing "a numeric UI_PORT (got a non-numeric value)"
     command -v "$UV" >/dev/null || missing "uv (https://docs.astral.sh/uv/)"
     "$UV" python find 3.12 >/dev/null 2>&1 || missing "Python 3.12 (uv python install 3.12)"
     command -v node >/dev/null || missing "Node.js >= $MIN_NODE_MAJOR"

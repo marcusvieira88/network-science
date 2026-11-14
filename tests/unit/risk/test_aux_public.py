@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 from datetime import date
 
+from enron_case.config import MAX_HEADER_BYTES
 from enron_case.risk import aux_public
 from enron_case.synth import SynthOutput
 
@@ -28,6 +29,14 @@ def test_reads_only_the_attacker_fields_and_stops_at_the_blank_line() -> None:
     assert set(fields) == {"date", "from", "to", "cc"}
     assert fields["to"] == "bob@example.org, cat@example.org"
     assert stream.read() == b"CANARYBODY From: mallory@example.org\r\n"  # never consumed
+
+
+def test_reading_stops_at_the_header_byte_cap() -> None:
+    """A crafted member with an endless header line is not read into memory whole."""
+    stream = io.BytesIO(b"From: a@x.org\nTo: " + b"b" * (2 * MAX_HEADER_BYTES) + b"\n\n")
+    fields = aux_public.read_headers(stream)
+    assert stream.tell() <= MAX_HEADER_BYTES
+    assert "to" not in fields
 
 
 def test_message_key_and_week() -> None:

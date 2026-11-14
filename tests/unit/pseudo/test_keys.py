@@ -39,6 +39,7 @@ def repo(tmp_path: Path) -> Path:
 def write_key(path: Path, hex_text: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(hex_text + "\n", encoding="utf-8")
+    path.chmod(0o600)  # as scripts/create-key.sh writes it
     return path
 
 
@@ -195,3 +196,25 @@ def test_real_run_accepts_a_private_key(
 ) -> None:
     monkeypatch.setenv(config.KEY_ENV, OTHER_KEY_HEX)
     assert keys.load_run_key(sample=False, repo_root=repo) == bytes.fromhex(OTHER_KEY_HEX)
+
+
+@pytest.mark.parametrize("mode", [0o640, 0o604, 0o644, 0o660])
+def test_key_file_readable_by_others_exits_3(
+    no_key: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repo: Path, mode: int
+) -> None:
+    key_file = write_key(tmp_path / "k", OTHER_KEY_HEX)
+    key_file.chmod(mode)
+    monkeypatch.setenv(config.KEY_FILE_ENV, str(key_file))
+    with pytest.raises(KeyProblem) as info:
+        keys.load_key(repo)
+    assert info.value.exit_code == 3
+    assert OTHER_KEY_HEX not in str(info.value)
+
+
+def test_owner_only_key_file_is_accepted(
+    no_key: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repo: Path
+) -> None:
+    key_file = write_key(tmp_path / "k", OTHER_KEY_HEX)
+    key_file.chmod(0o400)
+    monkeypatch.setenv(config.KEY_FILE_ENV, str(key_file))
+    assert keys.load_key(repo) == bytes.fromhex(OTHER_KEY_HEX)

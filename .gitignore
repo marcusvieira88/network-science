@@ -25,3 +25,8 @@ ui/public/data/release.json
 
 # Agent worktrees created inside the repository
 .claude/worktrees/
+
+# Environment files and private keys
+.env
+.env.*
+*.pem
