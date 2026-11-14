@@ -18,8 +18,9 @@ a published total minus published parts must not reveal a suppressed cell.
 ## variants.py (public interface used by WP-G)
 
 ```python
-def build_r0(events: pl.DataFrame, entities_p: pl.DataFrame) -> pl.DataFrame
-    # node-level weekly person edges: week, src_pid, dst_pid, weight (never written to release)
+def build_r0(snapshots: pl.DataFrame) -> pl.DataFrame
+    # observed-scope snapshots without scope: week, src_pid, dst_pid, weight, n_messages
+    # (never written to release)
 def build_r1(...) -> dict[str, pl.DataFrame]   # the aggregate release tables
 def build_r2(..., seed: int) -> dict[str, pl.DataFrame]   # R1 + seeded Laplace noise on counts and weights
 ```

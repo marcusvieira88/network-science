@@ -10,12 +10,22 @@ import pytest
 import risk_fakes
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
+from enron_case.pseudo import keys, pseudonymize
+from enron_case.release import variants
 from enron_case.risk import attack, aux_public, score, stage
 from enron_case.synth import SynthOutput
 from enron_case.synth.fixtures import fixture_pid
-from helpers import ctx_with_fixtures
+from enron_case.zones import Zone
+from helpers import TEST_KEY_HEX, ctx_with_fixtures
 
-INPUTS = ("events", "entities_p", "metric_series", "hypothesis_results", "address_map")
+INPUTS = (
+    "snapshots",
+    "events",
+    "entities_p",
+    "metric_series",
+    "hypothesis_results",
+    "address_map",
+)
 
 
 def fixture_context(synth: SynthOutput, root: Path, logs: list[str]) -> StageContext:
@@ -65,7 +75,7 @@ def test_writes_one_valid_row_per_variant_and_attacker(outcome: tuple) -> None:
 def test_reported_rates_equal_rates_from_ground_truth(outcome: tuple, synth: SynthOutput) -> None:
     ctx, results, _ = outcome
     deps = risk_fakes.fixture_dependencies()
-    r0 = deps.build_r0(ctx.read("events"), ctx.read("entities_p"))
+    r0 = deps.build_r0(ctx.read("snapshots"))
     aux = aux_public.load_aux_edges(ctx)
     pid_of_address, custodians = truth_pids(synth)
     targets = stage.node_level_persons(r0)
@@ -82,7 +92,7 @@ def test_reported_rates_equal_rates_from_ground_truth(outcome: tuple, synth: Syn
 
 def test_a1_reidentifies_most_active_custodians_in_r0(outcome: tuple, synth: SynthOutput) -> None:
     ctx, results, _ = outcome
-    r0 = risk_fakes.build_r0(ctx.read("events"), ctx.read("entities_p"))
+    r0 = variants.build_r0(ctx.read("snapshots"))
     guesses = attack.attack_a1(r0, aux_public.load_aux_edges(ctx))
     pid_of_address, custodians = truth_pids(synth)
     hits = sum(pid_of_address.get(guesses.get(p, "")) == p for p in custodians)
@@ -128,3 +138,37 @@ def test_logs_counts_only_and_writes_nothing_else(outcome: tuple, synth: SynthOu
         assert "@" not in line and "p_" not in line
         assert not any(name.lower() in line.lower() for name in names)
     assert set(ctx.outputs) == {"risk_results"}
+
+
+def test_r0_is_the_observed_snapshot_edges(synth: SynthOutput, tmp_path: Path) -> None:
+    """R0 is attacked as published: persons absent from the observed-scope snapshots (for
+    example, active only outside the analysis window) are not targets, even with events."""
+    logs: list[str] = []
+    ctx = fixture_context(synth, tmp_path, logs)
+    snapshots = synth.table("snapshots")
+    observed = snapshots.filter(pl.col("scope") == "observed")
+    everyone = sorted(set(observed.get_column("src_pid")) | set(observed.get_column("dst_pid")))
+    removed = everyone[:5]
+    kept = snapshots.filter(~pl.col("src_pid").is_in(removed) & ~pl.col("dst_pid").is_in(removed))
+    kept.write_parquet(ctx.path(Zone.RESTRICTED, schemas.table("snapshots").filename, "r"))
+    kept_observed = kept.filter(pl.col("scope") == "observed")
+    expected = set(kept_observed.get_column("src_pid")) | set(kept_observed.get_column("dst_pid"))
+    assert expected.isdisjoint(removed)
+    stage.run_with(ctx, risk_fakes.fixture_dependencies())
+    assert row(ctx.read("risk_results"), "R0", "A1")["n_targets"] == len(expected)
+
+
+def test_scorer_builds_the_keyed_pseudonym_function_itself(
+    synth: SynthOutput, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without an injected pid function, the scorer loads the run key and maps an address to
+    `person_pid(key, entity_id)`: a seed's address must belong to its own pseudonym."""
+    monkeypatch.setenv(keys.KEY_ENV, TEST_KEY_HEX)
+    ctx = fixture_context(synth, tmp_path, [])
+    amap = ctx.read("address_map")
+    key = bytes.fromhex(TEST_KEY_HEX)
+    entity = {a: e for a, e in amap.select("addr", "entity_id").iter_rows()}
+    pids = {pseudonymize.person_pid(key, e) for e in entity.values()}
+    seeds = score.Scorer.from_context(ctx).seeds(pids, 3)
+    assert len(seeds) == 3
+    assert all(pseudonymize.person_pid(key, entity[addr]) == pid for pid, addr in seeds.items())

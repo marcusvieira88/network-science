@@ -10,13 +10,16 @@ export const LEAK_PATTERN = /@|p_[a-z2-7]{16}|o_[a-z2-7]{16}/;
 /** The release's smallest publishable group; never trust a data file to lower it. */
 export const K_FLOOR = 5;
 
-/** Release columns that count persons (PERSON_COUNT_COLUMNS in uiexport/export.py). */
+/** Release columns that count persons (PERSON_COUNT_COLUMNS in contracts/schemas.py). */
 export const PERSON_COUNT_COLUMNS = {
   weekly_metrics: ["n_active"],
   risk: ["n_targets"],
   degree_distribution: ["persons"],
   community_groups: ["n_persons"],
 } as const;
+
+/** The weekly metric whose value is itself a person count (PERSON_COUNT_METRIC in schemas.py). */
+export const PERSON_COUNT_METRIC = "active_persons";
 
 export class PrivacyError extends Error {
   override name = "PrivacyError";
@@ -57,6 +60,9 @@ export function smallPersonCounts(data: ReleaseData): number {
         if (typeof count === "number" && count < k) small += 1;
       }
     }
+  }
+  for (const row of data.tables.weekly_metrics) {
+    if (row.metric === PERSON_COUNT_METRIC && row.value !== null && row.value < k) small += 1;
   }
   return small;
 }

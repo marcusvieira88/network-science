@@ -77,8 +77,8 @@ def results_table(
 ) -> pl.DataFrame:
     """The `hypothesis_results` table: one row per hypothesis, at most one headline.
 
-    A hypothesis in `failed_artifacts` failed its check against a known artifact
-    (artifacts.py) and is capped at low confidence, so it cannot be the headline."""
+    A hypothesis in `failed_artifacts` failed, or could not run, its check against a known
+    artifact (artifacts.py) and is capped at low confidence, so it cannot be the headline."""
     p_holm = stats.holm([e.p_perm for e in evidence])
     supported = [
         support(e.hypothesis.direction, p, e.ci_low, e.ci_high)

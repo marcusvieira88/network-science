@@ -16,13 +16,15 @@ import polars as pl
 from enron_case.config import Config
 from enron_case.context import StageContext
 from enron_case.contracts import vocab
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import ContractViolation, PrivacyViolation
+from enron_case.release.tables import STEP_MANUAL
 from enron_case.report import quality
 from enron_case.report.markdown import bullets, format_value, table
 
 PLACEHOLDER = re.compile(r"\{\{([a-z0-9_]+)\}\}")
 IDENTIFIER = re.compile("|".join(f"(?:{p})" for p in vocab.LEAK_PATTERNS))
-DEFAULT_VARIANT = "default"  # metric variant label for the main analysis (data contracts)
+NO_CHECK = "no check"  # a hypothesis without an artifact check (docs/hypotheses.md)
 MITIGATION_TARGET = 0.5  # SC-007: a mitigated release should at least halve the rate
 
 HYPOTHESIS_CLAIMS = {
@@ -32,15 +34,18 @@ HYPOTHESIS_CLAIMS = {
     "H4": "working relationships were rewired faster",
 }
 CONFIDENCE_WORDS = {
-    "high": "high: the change passes every check we defined in advance",
-    "moderate": "moderate: the change is significant but fails at least one robustness check",
-    "low": "low: the evidence is weak or inconsistent across checks",
+    "high": "high: the change is supported and passes all three robustness checks",
+    "moderate": "moderate: the change is supported but exactly one of the three robustness "
+    "checks (null model, leave-one-mailbox-out, sensitivity variants) fails",
+    "low": "low: the change is not supported, two or more robustness checks fail, or its check "
+    "against a known artifact failed or could not run",
 }
 RELEASE_VARIANTS = {
     "R0": "pseudonymized person-level weekly edge list (the naive output; never published)",
     "R1": "aggregates only, every cell meeting the minimum group size, bucketed degrees, "
-    "weekly resolution, pseudonyms re-keyed per release",
-    "R2": "R1 plus calibrated noise on counts (a sketch, not a formal privacy budget)",
+    "weekly resolution; it contains no pseudonyms, and groups carry size-ordered labels",
+    "R2": "R1 plus seeded Laplace noise of a fixed scale on degree counts and group tie weights; "
+    "the noise is not calibrated to any privacy budget (a sketch, not differential privacy)",
 }
 ATTACKERS = {
     "A1": "outsider who holds the public corpus and matches per-address activity features",
@@ -78,6 +83,12 @@ LIMITS = (
     "is a sketch, not a formal privacy budget.",
     "Observational design: a structural change near public events does not show what people "
     "knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.",
+    "No group-level attack on the community graph was run: an attacker who knows some group "
+    "members could try to infer ties or membership from group-to-group weights, and that risk "
+    "is bounded only by the minimum of k distinct senders per published tie, not measured.",
+    "The effect interval is computed at a change week chosen from the same data (the week that "
+    "maximises the change statistic), so it is optimistic: it ignores the uncertainty of where "
+    "the change happened.",
     "The artifact checks were added after the first real-data run, because two hypotheses "
     "passed every pre-registered check yet looked implausibly strong. They are documented as a "
     "post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.",
@@ -177,32 +188,57 @@ def change_phrase(row: Mapping[str, Any]) -> str:
     return f"the change point is the week of {_f(row, 'change_week')}"
 
 
-def headline_statement(
-    row: Mapping[str, Any] | None, artifact_checks: pl.DataFrame | None = None
-) -> str:
-    if row is None:
-        failed = (
-            []
-            if artifact_checks is None
-            else artifact_checks.filter(pl.col("passes").eq(False))
-            .get_column("hypothesis")
-            .to_list()
-        )
-        if failed:
-            names = ", ".join(sorted(failed))
-            return (
-                f"No finding about the crisis year is claimed. {names} passed every pre-registered "
-                "test, "
-                "but each failed its check against a known artifact of the data "
-                "(release/artifact_checks.csv): "
-                "the apparent change is explained by how the data was collected and analysed, "
-                "not by a detectable change in how people communicated. Every outcome is "
-                "listed in the report."
-            )
+def _artifact_result(checks: pl.DataFrame, hypothesis: str) -> bool | str | None:
+    """The hypothesis's artifact check result: True, False, None (could not run), or
+    NO_CHECK when it has no artifact check."""
+    rows = checks.filter(pl.col("hypothesis") == hypothesis).get_column("passes").to_list()
+    return rows[0] if rows else NO_CHECK
+
+
+def _names(hypotheses: list[str]) -> str:
+    return ", ".join(sorted(hypotheses))
+
+
+def no_headline_statement(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
+    """Why no finding is claimed. Only hypotheses with `supported = yes` are named; a hypothesis
+    that is not supported is never said to have passed anything."""
+    supported = hypotheses.filter(pl.col("supported") == "yes").rows(named=True)
+    if not supported:
         return (
             "No hypothesis is supported. Every outcome is listed below; a null result is a "
             "valid answer to the question."
         )
+    result = {row["hypothesis"]: _artifact_result(checks, row["hypothesis"]) for row in supported}
+    failed = [h for h, r in result.items() if r is False]
+    not_run = [h for h, r in result.items() if r is None]
+    sentences = ["No finding about the crisis year is claimed."]
+    if failed:
+        sentences.append(
+            f"{_names(failed)} passed the pre-registered statistical tests but failed its check "
+            "against a known artifact of the data (release/artifact_checks.csv): the apparent "
+            "change is explained by how the data was collected and analysed, not by a "
+            "detectable change in how people communicated."
+        )
+    if not_run:
+        sentences.append(
+            f"{_names(not_run)} passed the pre-registered statistical tests but its check "
+            "against a known artifact of the data could not run, so that artifact is not ruled "
+            "out."
+        )
+    for row in supported:
+        if result[row["hypothesis"]] in (True, NO_CHECK):
+            sentences.append(
+                f"{row['hypothesis']} is supported but does not pass every robustness check "
+                f"(confidence {row['confidence']}), so it is not the headline."
+            )
+    sentences.append("Every outcome is listed in the report.")
+    return " ".join(sentences)
+
+
+def headline_statement(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
+    row = headline(hypotheses)
+    if row is None:
+        return no_headline_statement(hypotheses, checks)
     return (
         f"{row['hypothesis']} is supported: {claim(row['hypothesis'])}. "
         f"Metric `{row['metric']}` in the {row['scope']} network; {change_phrase(row)}; "
@@ -250,7 +286,7 @@ def artifact_section(checks: pl.DataFrame) -> str:
             "measure the jump into the calm second half; a jump above the threshold in "
             "docs/hypotheses.md fails), and a change in which mailboxes hold mail (H3: median "
             "change in each custodian's own share; the interval must lie below zero). "
-            "A failed check caps confidence at low.",
+            "A check that fails or cannot run caps confidence at low.",
             table(
                 ["Hypothesis", "Check", "Statistic", "Interval", "Units", "Result", "Reading"],
                 rows,
@@ -261,7 +297,7 @@ def artifact_section(checks: pl.DataFrame) -> str:
 
 def finding_section(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
     row = headline(hypotheses)
-    parts = ["## The finding", headline_statement(row, checks), artifact_section(checks)]
+    parts = ["## The finding", headline_statement(hypotheses, checks), artifact_section(checks)]
     if row is not None:
         parts += [
             "### Evidence",
@@ -386,8 +422,11 @@ def risk_section(risk: pl.DataFrame, k_min: int) -> str:
     return "\n\n".join(
         (
             "## Privacy and re-identification risk",
-            f"Every published table meets a minimum group size of k = {k_min}. The risk was "
-            "measured by attacking the pipeline's own output, not asserted.",
+            f"Every published table meets a minimum group size of k = {k_min}. The risk of "
+            "the person-level output R0 was tested by attacking it, not asserted. R1 and R2 "
+            "hold no person-level records, so both person-level attacks return no guesses by "
+            "construction: their re-identification rate of zero restates that design, it is "
+            "not a measurement of their risk.",
             "Releases attacked:",
             variants,
             "Attackers:",
@@ -402,8 +441,30 @@ def risk_section(risk: pl.DataFrame, k_min: int) -> str:
 # ---- report -------------------------------------------------------------------------------
 
 
-def limits_section() -> str:
-    return "\n\n".join(("## Limits", bullets(LIMITS)))
+def n2_limit(data_quality: pl.DataFrame) -> str:
+    """The rule N2 risk, with the manual merge check from `data_quality` when one was run."""
+    risk = (
+        "Rule N2 merges addresses with the same local part under one registered domain, so it "
+        "can merge two different people who share a local part across an ISP's regional "
+        "subdomains"
+    )
+    manual = data_quality.filter(pl.col("step") == STEP_MANUAL).rows(named=True)
+    if not manual:
+        return f"{risk}; no manual check of merges was run."
+    row = manual[0]
+    wrong = row["count_in"] - row["count_out"]
+    return (
+        f"{risk}; a manual check of {format_value(row['count_in'])} sampled real merges found "
+        f"{format_value(wrong)} wrong merges."
+    )
+
+
+def limits(data_quality: pl.DataFrame) -> list[str]:
+    return [*LIMITS, n2_limit(data_quality)]
+
+
+def limits_section(data_quality: pl.DataFrame) -> str:
+    return "\n\n".join(("## Limits", bullets(limits(data_quality))))
 
 
 def render_report(tables: ReleaseTables, config: Config) -> str:
@@ -415,7 +476,7 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
         finding_section(tables.hypotheses, tables.artifact_checks),
         hypotheses_section(tables.hypotheses),
         risk_section(tables.risk, config.k_min),
-        limits_section(),
+        limits_section(tables.data_quality),
     )
     text = "\n\n".join(sections) + "\n"
     check_no_identifiers(text)
@@ -504,7 +565,7 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
         values["headline_claim"] = claim(top["hypothesis"])
     values.update(
         {
-            "headline_statement": headline_statement(top, tables.artifact_checks),
+            "headline_statement": headline_statement(tables.hypotheses, tables.artifact_checks),
             "utility_phrase": utility_phrase(tables.risk, top),
             "headline_chart": headline_chart(tables),
             "artifact_table": artifact_section(tables.artifact_checks).split("\n\n", 2)[2],
@@ -515,7 +576,7 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
             "risk_table": risk_table(tables.risk),
             "risk_summary": risk_summary(tables.risk),
             "risk_verdicts": bullets(risk_verdicts(tables.risk)),
-            "limits": bullets(LIMITS),
+            "limits": bullets(limits(tables.data_quality)),
         }
     )
     return values

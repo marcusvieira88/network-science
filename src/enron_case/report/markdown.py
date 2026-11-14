@@ -6,16 +6,15 @@ import math
 from collections.abc import Iterable, Sequence
 from datetime import date
 
-from enron_case.errors import ContractViolation
-
 SIGNIFICANT_DIGITS = 3
-MISSING = "—"  # shown for a null cell: suppressed or not measured
+MISSING = "—"  # shown for a null or non-finite cell: suppressed, not measured or undefined
 
 
 def format_float(value: float) -> str:
-    """Fixed notation with three significant digits and no trailing zeros (0.002, 1.8, 12)."""
+    """Fixed notation with three significant digits and no trailing zeros (0.002, 1.8, 12).
+    NaN and ±inf (an effect that could not be computed) show as MISSING."""
     if not math.isfinite(value):
-        raise ContractViolation("release table holds a non-finite number")
+        return MISSING
     if value == 0:
         return "0"
     magnitude = math.floor(math.log10(abs(value)))

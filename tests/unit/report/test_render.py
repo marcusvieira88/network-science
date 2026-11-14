@@ -245,3 +245,107 @@ def test_stage_writes_documents_only_on_real_runs(synth: SynthOutput, tmp_path: 
     for name in DOCUMENTS:
         text = (real_ctx.paths.dir(Zone.DOCS) / name).read_text(encoding="utf-8")
         assert "{{" not in text
+
+
+# ---- review-2 wording ---------------------------------------------------------------------
+
+
+def test_risk_section_says_aggregate_releases_were_not_attacked_at_person_level(
+    synth: SynthOutput, tmp_path: Path
+) -> None:
+    text = render_report(synth, tmp_path)
+    risk = text.split("## Privacy and re-identification risk", 1)[1].split("## Limits", 1)[0]
+    assert "measured by attacking" not in risk
+    assert "R1 and R2 hold no person-level records" in risk
+    assert "return no guesses by construction" in risk
+    limits = text.split("## Limits", 1)[1]
+    assert "No group-level attack on the community graph was run" in limits
+
+
+def _no_headline(synth: SynthOutput, supported: dict[str, str]) -> pl.DataFrame:
+    return synth.table("hypotheses").with_columns(
+        pl.lit(False).alias("is_headline"),
+        pl.col("hypothesis").replace_strict(supported, default="no").alias("supported"),
+        pl.lit("low").alias("confidence"),
+    )
+
+
+def _checks(synth: SynthOutput, passes: dict[str, bool | None]) -> pl.DataFrame:
+    return synth.table("artifact_checks").with_columns(
+        pl.col("hypothesis")
+        .replace_strict(passes, return_dtype=pl.Boolean, default=None)
+        .alias("passes")
+    )
+
+
+def test_headline_statement_never_says_an_unsupported_hypothesis_passed(
+    synth: SynthOutput,
+) -> None:
+    hypotheses = _no_headline(synth, {})
+    text = render.headline_statement(hypotheses, _checks(synth, {"H2": False, "H3": False}))
+    assert "passed" not in text
+    assert "H2" not in text and "H3" not in text
+    assert "No hypothesis is supported" in text
+
+
+def test_headline_statement_names_supported_hypotheses_with_failed_or_unrun_checks(
+    synth: SynthOutput,
+) -> None:
+    hypotheses = _no_headline(synth, {"H2": "yes", "H3": "yes"})
+    text = render.headline_statement(hypotheses, _checks(synth, {"H2": False, "H3": None}))
+    assert "H2 passed the pre-registered statistical tests but failed its check" in text
+    assert "H3 passed the pre-registered statistical tests but its check" in text
+    assert "could not run" in text
+    assert "H1" not in text and "H4" not in text
+
+
+def test_headline_statement_ignores_unsupported_hypothesis_with_failed_check(
+    synth: SynthOutput,
+) -> None:
+    hypotheses = _no_headline(synth, {"H3": "yes"})
+    text = render.headline_statement(hypotheses, _checks(synth, {"H2": False, "H3": False}))
+    assert "H3 passed" in text
+    assert "H2" not in text
+
+
+def test_confidence_words_match_the_rule_in_docs_hypotheses() -> None:
+    assert "exactly one" in render.CONFIDENCE_WORDS["moderate"]
+    assert "two or more" in render.CONFIDENCE_WORDS["low"]
+
+
+def test_release_descriptions_do_not_overclaim() -> None:
+    assert "re-keyed" not in render.RELEASE_VARIANTS["R1"]
+    assert "no pseudonyms" in render.RELEASE_VARIANTS["R1"]
+    r2 = render.RELEASE_VARIANTS["R2"]
+    assert "not calibrated" in r2
+    assert "calibrated noise" not in r2
+
+
+def test_limits_name_the_optimistic_interval_and_the_n2_risk(
+    synth: SynthOutput, tmp_path: Path
+) -> None:
+    text = render_report(synth, tmp_path)
+    limits = text.split("## Limits", 1)[1]
+    assert "change week chosen from the same data" in limits
+    assert "optimistic" in limits
+    assert "regional subdomains" in limits
+    assert "no manual check of merges was run" in limits  # the fixture has no manual step
+
+
+def test_n2_limit_reports_the_manual_check_from_data_quality(synth: SynthOutput) -> None:
+    manual = pl.DataFrame(
+        {
+            "order": [4],
+            "step": ["manual merge check"],
+            "count_in": [50],
+            "count_out": [50],
+            "removed": [0],
+            "rule": ["seeded sample, judged by a person"],
+            "precision": [1.0],
+            "recall": [None],
+        },
+        schema=synth.table("data_quality").schema,
+    )
+    quality = pl.concat([synth.table("data_quality"), manual])
+    text = " ".join(render.limits(quality))
+    assert "a manual check of 50 sampled real merges found 0 wrong merges" in text

@@ -5,8 +5,9 @@ from __future__ import annotations
 import polars as pl
 
 from enron_case.context import StageContext
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.network.communities import UNASSIGNED, baseline_communities
-from enron_case.network.metrics import DEFAULT_VARIANT, compute_series
+from enron_case.network.metrics import compute_series
 from enron_case.network.snapshots import build_snapshots
 
 

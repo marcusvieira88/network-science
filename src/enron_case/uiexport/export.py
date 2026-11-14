@@ -10,9 +10,12 @@ Shape of `release.json` (format_version 1); `ui/src/lib/data.ts` mirrors it:
       "tables": {"<release table>": [{"<column>": value, ...}, ...], ...}
     }
 
+The tables are `RELEASE_TABLES`, among them `artifact_checks` (hypothesis, check, statistic,
+ci_low, ci_high, n_units, passes, note; `passes` is null when the check could not run).
+
 Rows keep the contract's column order and sort order; dates are ISO strings; suppressed cells
-are null. The run block is the run manifest without wall-clock time, timings or fingerprints,
-so the same release gives byte-identical JSON.
+and non-finite numbers (NaN, ±inf: not computable) are null. The run block is the run manifest
+without wall-clock time, timings or fingerprints, so the same release gives byte-identical JSON.
 """
 
 from __future__ import annotations
@@ -38,19 +41,12 @@ RELEASE_TABLES = (
     "header_fields",
     "weekly_metrics",
     "hypotheses",
+    "artifact_checks",
     "risk",
     "degree_distribution",
     "community_graph",
     "community_groups",
 )
-
-# Release columns that count persons; each published value must be at least k_min.
-PERSON_COUNT_COLUMNS: dict[str, tuple[str, ...]] = {
-    "weekly_metrics": ("n_active",),
-    "risk": ("n_targets",),
-    "degree_distribution": ("persons",),
-    "community_groups": ("n_persons",),
-}
 
 MANIFEST_RUN_FIELDS = ("code_version", "sample", "seed", "parameters")
 
@@ -61,11 +57,10 @@ Row = dict[str, Any]
 
 def check_person_counts(tables: dict[str, pl.DataFrame], k_min: int) -> None:
     """Raise PrivacyViolation if any published person count is below k_min."""
-    for name, columns in PERSON_COUNT_COLUMNS.items():
-        for column in columns:
-            small = tables[name].filter(pl.col(column) < k_min).height
-            if small:
-                raise PrivacyViolation(f"{name}.{column}: {small} person counts below k={k_min}")
+    for name, df in tables.items():
+        small = schemas.person_counts_below(name, df, k_min)
+        if small:
+            raise PrivacyViolation(f"{name}: {small} person counts below k={k_min}")
 
 
 def table_rows(df: pl.DataFrame) -> list[Row]:
@@ -78,7 +73,7 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, float) and not math.isfinite(value):
-        raise ContractViolation("non-finite number in a release table")
+        return None  # NaN or ±inf: not computable; JSON has no such number
     return value
 
 

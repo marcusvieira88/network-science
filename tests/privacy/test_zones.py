@@ -72,10 +72,11 @@ def test_counts_reject_addresses(tmp_path: Path) -> None:
     [
         (r"Zone\.RAW|\.archive\b", {"aux_public.py"}),
         (r"Zone\.INGEST|Zone\.TRUTH|read_truth|has_truth|address_map", {"score.py"}),
+        (r"pseudo\.keys|load_key|import_module\(\s*\"enron_case\.pseudo", {"score.py"}),
     ],
 )
 def test_risk_zone_exceptions_are_confined(zone_ref: str, allowed_modules: set[str]) -> None:
-    """Only the documented risk modules may touch raw / ingest / truth."""
+    """Only the documented risk modules may touch raw / ingest / truth, or the key."""
     for path in (SRC / "risk").rglob("*.py"):
         if path.name in allowed_modules:
             continue

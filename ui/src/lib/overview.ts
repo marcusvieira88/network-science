@@ -10,7 +10,7 @@ export interface KeyNumber {
 }
 
 function worstReid(data: ReleaseData, variant: "R0" | "R1"): number | null {
-  const rates = data.tables.risk.filter((row) => row.release_variant === variant).map((row) => row.reid_top1);
+  const rates = data.tables.risk.filter((row) => row.release_variant === variant).flatMap((row) => (row.reid_top1 === null ? [] : [row.reid_top1]));
   return rates.length ? Math.max(...rates) : null;
 }
 

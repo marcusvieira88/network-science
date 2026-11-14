@@ -16,11 +16,11 @@ import numpy as np
 import polars as pl
 
 from enron_case.config import Config
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import ContractViolation
 from enron_case.finding import nullmodel, stats
 from enron_case.finding.stats import FloatArray, InsufficientData
 
-DEFAULT_VARIANT = "default"
 # Recomputing the whole series per replicate is costly on the real corpus; see the WP-F report.
 NULL_REPLICATES = 20
 UP, DOWN = 1, -1

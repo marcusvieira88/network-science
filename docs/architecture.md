@@ -122,7 +122,7 @@ flowchart LR
         ATT[matching / seed propagation]
     end
     R0[(R0 node-level<br/>pseudonymized edges)] --> ATT
-    R1[(R1 aggregates, k ≥ 5,<br/>bucketed, re-keyed)] --> ATT
+    R1[(R1 aggregates, k ≥ 5,<br/>bucketed, no pseudonyms)] --> ATT
     R2[(R2 = R1 + noise)] --> ATT
     AUX1 --> ATT
     AUX2 --> ATT

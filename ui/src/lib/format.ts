@@ -5,16 +5,25 @@ export function formatNumber(value: number | null, decimals: number = DECIMALS):
   return value.toLocaleString("en-US", { maximumFractionDigits: decimals, minimumFractionDigits: 0 });
 }
 
+/** Text for a float that may be null because it could not be computed (NaN or ±inf upstream). */
+export const NOT_COMPUTABLE = "—";
+
+export function formatFloat(value: number | null, decimals: number = DECIMALS): string {
+  return value === null ? NOT_COMPUTABLE : formatNumber(value, decimals);
+}
+
 export function formatShare(value: number | null): string {
   if (value === null) return "n/a";
   return `${(value * 100).toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
 }
 
-export function formatP(value: number): string {
+export function formatP(value: number | null): string {
+  if (value === null) return NOT_COMPUTABLE;
   return value < 0.001 ? "< 0.001" : value.toFixed(3);
 }
 
-export function formatInterval(low: number, high: number): string {
+export function formatInterval(low: number | null, high: number | null): string {
+  if (low === null || high === null) return NOT_COMPUTABLE;
   return `[${formatNumber(low)}, ${formatNumber(high)}]`;
 }
 

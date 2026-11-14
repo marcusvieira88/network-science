@@ -63,13 +63,18 @@ def observed_snapshots(synth: SynthOutput) -> pl.DataFrame:
 
 
 # ---- R0 ---------------------------------------------------------------------------------
-def test_r0_equals_observed_person_edges(synth: SynthOutput) -> None:
-    r0 = variants.build_r0(synth.table("events"), synth.table("entities_p"))
-    assert_frame_equal(r0, observed_snapshots(synth), check_exact=False)
+def test_r0_is_the_observed_snapshot_edges_without_scope(synth: SynthOutput) -> None:
+    snapshots = synth.table("snapshots")
+    r0 = variants.build_r0(snapshots)
+    assert r0.columns == list(EDGE_SCHEMA)
+    observed_rows = snapshots.filter(pl.col("scope") == "observed").height
+    assert 0 < observed_rows < snapshots.height
+    assert r0.height == observed_rows
+    assert_frame_equal(r0, observed_snapshots(synth))
 
 
 def test_r0_is_node_level_and_cannot_pass_kanon(synth: SynthOutput) -> None:
-    r0 = variants.build_r0(synth.table("events"), synth.table("entities_p"))
+    r0 = variants.build_r0(synth.table("snapshots"))
     with pytest.raises(PrivacyViolation):
         kanon.assert_no_identifiers(r0)
 
@@ -106,9 +111,10 @@ def test_degree_buckets_per_half_year() -> None:
         for p, b, n in r1["degree_distribution"].select("period", "degree_bucket", "persons").rows()
     }
     # 2000H1: six leaves of degree 2, two hubs of degree 6. 2000H2: ten persons of degree 1.
+    # In 2000H1 the hubs are the only hidden non-zero cell, so the 6 is suppressed as well.
     assert got == {
         ("2000H1", "1"): None,
-        ("2000H1", "2-4"): 6,
+        ("2000H1", "2-4"): None,
         ("2000H1", "5-9"): None,
         ("2000H1", "10+"): None,
         ("2000H2", "1"): 10,
@@ -202,3 +208,34 @@ def test_laplace_noise_is_unbiased_on_weights() -> None:
     true = pl.Series([2.5] * 20_000)
     noisy = mitigate.add_laplace(true, scale=1.0, rng=rng)
     assert abs(float(noisy.mean()) - 2.5) < 0.05
+
+
+def test_weekly_metrics_publishes_default_variant_only() -> None:
+    # A variant next to the default lets default minus variant n_active reveal small groups.
+    metrics = pl.DataFrame(
+        {
+            "scope": ["core"] * 3,
+            "week": [H1_WEEK] * 3,
+            "metric": ["density"] * 3,
+            "value": [0.2, 0.3, 0.4],
+            "n_active": [9, 7, 6],
+            "variant": ["default", "cap=20", "window=month"],
+        }
+    )
+    out = variants.build_r1(edges([]), metrics, communities({0: 5}), K)["weekly_metrics"]
+    assert out.select("variant", "n_active").rows() == [("default", 9)]
+
+
+def test_kanon_rejects_a_non_default_variant_in_weekly_metrics() -> None:
+    metrics = pl.DataFrame(
+        {
+            "scope": ["core"],
+            "week": [H1_WEEK],
+            "metric": ["density"],
+            "value": [0.3],
+            "n_active": [7],
+            "variant": ["cap=20"],
+        }
+    )
+    with pytest.raises(PrivacyViolation):
+        kanon.enforce("weekly_metrics", metrics, K)

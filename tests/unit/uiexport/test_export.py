@@ -16,6 +16,7 @@ from enron_case.config import PUBLIC_EVENTS
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.errors import ContractViolation, PrivacyViolation
+from enron_case.release import kanon
 from enron_case.synth import SynthOutput
 from enron_case.uiexport import export
 from enron_case.uiexport.stage import run
@@ -30,7 +31,6 @@ FIXTURE_CODE_VERSION = "fixture"
 def write_manifest(ctx: StageContext, code_version: str = FIXTURE_CODE_VERSION) -> None:
     """A run manifest as the orchestrator writes it, including fields the export must drop."""
     manifest = {
-        "written_utc": "2026-11-14T12:00:00Z",
         "code_version": code_version,
         "sample": True,
         "seed": ctx.config.seed,
@@ -130,6 +130,17 @@ def test_values_round_trip_with_nulls_and_iso_dates(synth: SynthOutput, tmp_path
     }
 
 
+def test_artifact_checks_are_exported(synth: SynthOutput, tmp_path: Path) -> None:
+    ctx = release_ctx(synth, tmp_path)
+    run(ctx)
+    checks = output(ctx)["tables"]["artifact_checks"]
+    assert [(r["hypothesis"], r["check"], r["passes"]) for r in checks] == [
+        ("H2", "baseline_placebo", True),
+        ("H3", "within_custodian", True),
+    ]
+    assert checks[1]["statistic"] == -0.05
+
+
 def test_same_input_gives_byte_identical_json(synth: SynthOutput, tmp_path: Path) -> None:
     first = release_ctx(synth, tmp_path / "a")
     second = release_ctx(synth, tmp_path / "b")
@@ -190,6 +201,32 @@ def test_refuses_person_count_below_k(
     assert info.value.exit_code == 6
 
 
+def test_refuses_active_persons_value_below_k(synth: SynthOutput, tmp_path: Path) -> None:
+    ctx = release_ctx(synth, tmp_path)
+    df = synth.table("weekly_metrics")
+    first_active = (pl.col("metric") == "active_persons") & (
+        pl.col("metric") == "active_persons"
+    ).cum_sum().eq(1)
+    df = df.with_columns(
+        pl.when(first_active)
+        .then(float(ctx.config.k_min - 1))
+        .otherwise(pl.col("value"))
+        .alias("value")
+    )
+    assert df.filter(pl.col("metric") == "active_persons").height
+    replace_table(ctx, "weekly_metrics", df)
+    with pytest.raises(PrivacyViolation):
+        run(ctx)
+
+
+def test_person_count_columns_have_one_source() -> None:
+    assert export.check_person_counts.__module__ == "enron_case.uiexport.export"
+    assert not hasattr(export, "PERSON_COUNT_COLUMNS")
+    assert not hasattr(kanon, "PERSON_COUNT_COLUMNS")
+    assert schemas.PERSON_COUNT_COLUMNS["weekly_metrics"] == ("n_active",)
+    assert schemas.PERSON_COUNT_METRIC == "active_persons"
+
+
 def test_person_count_equal_to_k_is_published(synth: SynthOutput, tmp_path: Path) -> None:
     ctx = release_ctx(synth, tmp_path)
     df = synth.table("community_groups").with_columns(pl.lit(ctx.config.k_min).alias("n_persons"))
@@ -213,12 +250,25 @@ def test_missing_manifest_is_a_contract_violation(synth: SynthOutput, tmp_path: 
         run(ctx)
 
 
-def test_non_finite_number_is_a_contract_violation(synth: SynthOutput, tmp_path: Path) -> None:
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_number_is_exported_as_null(
+    synth: SynthOutput, tmp_path: Path, value: float
+) -> None:
     ctx = release_ctx(synth, tmp_path)
-    df = synth.table("risk").with_columns(pl.lit(float("inf")).alias("reid_top1"))
-    replace_table(ctx, "risk", df)
-    with pytest.raises(ContractViolation):
-        run(ctx)
+    df = synth.table("hypotheses").with_columns(pl.lit(value).alias("null_z"))
+    replace_table(ctx, "hypotheses", df)
+    run(ctx)
+    rows = output(ctx)["tables"]["hypotheses"]
+    assert [row["null_z"] for row in rows] == [None] * df.height
+    assert "NaN" not in ui_file(ctx).read_text(encoding="utf-8")
+
+
+def test_jsonable_maps_non_finite_to_none() -> None:
+    assert export.table_rows(pl.DataFrame({"x": [1.5, float("nan"), float("-inf")]})) == [
+        {"x": 1.5},
+        {"x": None},
+        {"x": None},
+    ]
 
 
 def test_committed_ui_sample_matches_release_fixtures(synth: SynthOutput, tmp_path: Path) -> None:

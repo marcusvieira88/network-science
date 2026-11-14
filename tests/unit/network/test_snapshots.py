@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import polars as pl
-from network_toys import WEEK_1, WEEK_2, Mailbag, Person, entities, people, toy_config
 
 from enron_case.config import Config
 from enron_case.contracts import schemas
 from enron_case.network.snapshots import build_snapshots
 from enron_case.synth import SynthOutput
+from network_toys import WEEK_1, WEEK_2, Mailbag, Person, entities, people, toy_config
 
 SAMPLE_CONFIG = Config(internal_domain="acme-energy.com")
 

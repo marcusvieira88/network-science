@@ -1,15 +1,17 @@
 """Scoring attacker guesses against the truth (research R12).
 
-This is the only risk module that reads the ingest zone. It resolves a guessed address to the
-pseudonym our pipeline gave that person (via `address_map` and the keyed pseudonym function)
-and reports counts and rates only. No identity leaves this module except the seed identities
-attacker A2 is defined to know.
+This is the only risk module that reads the ingest zone or loads the key. It resolves a guessed
+address to the pseudonym our pipeline gave that person (via `address_map` and the keyed
+pseudonym function it builds) and reports counts and rates only. No identity and no key leaves
+this module except the seed identities attacker A2 is defined to know.
 """
 
 from __future__ import annotations
 
+import importlib
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -21,6 +23,20 @@ CI_LOW_PERCENTILE = 2.5
 CI_HIGH_PERCENTILE = 97.5
 
 PidOf = Callable[[str], str]
+
+
+def keyed_pid_of() -> PidOf:
+    """The pipeline's person pseudonym function (WP-D `person_pid`) bound to the run key. The
+    key stays inside the returned closure."""
+    keys: Any = importlib.import_module("enron_case.pseudo.keys")
+    pseudonymize: Any = importlib.import_module("enron_case.pseudo.pseudonymize")
+    key: bytes = keys.load_key()
+
+    def pid_of(entity_id: str) -> str:
+        pid: str = pseudonymize.person_pid(key, entity_id)
+        return pid
+
+    return pid_of
 
 
 @dataclass(frozen=True)
@@ -73,9 +89,12 @@ class Scorer:
         self._seed = seed
 
     @classmethod
-    def from_context(cls, ctx: StageContext, pid_of: PidOf) -> Scorer:
-        """Build from the ingest-zone address map; `pid_of` maps an entity id to the pipeline's
-        pseudonym (WP-D `person_pid` with the run key)."""
+    def from_context(cls, ctx: StageContext, pid_of: PidOf | None = None) -> Scorer:
+        """Build from the ingest-zone address map. Entity ids map to pseudonyms through the
+        keyed function built here, or through `pid_of` when a test injects one (the synthetic
+        fixtures use their own pseudonym function)."""
+        if pid_of is None:
+            pid_of = keyed_pid_of()
         amap = ctx.read("address_map")
         entity_pid = {e: pid_of(e) for e in amap.get_column("entity_id").unique().to_list()}
         pid_of_address: dict[str, str] = {}

@@ -1,6 +1,7 @@
 """Release variants attacked by the risk stage (research R12) and published by this stage.
 
-R0: node-level weekly person edges. Personal data; held in memory, never written to release.
+R0: node-level weekly person edges (observed-scope snapshots). Personal data; held in memory,
+    never written to release.
 R1: the aggregate release tables, k-thresholded through `kanon`.
 R2: R1 with seeded Laplace noise on counts and weights.
 """
@@ -10,38 +11,17 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.release import kanon, mitigate
 
-PERSON_TYPE = "person"
-R0_SORT = ("week", "src_pid", "dst_pid")
+# The scope the release publishes and the risk stage attacks: every internal person.
+PUBLISHED_SCOPE = "observed"
 
 
-def build_r0(events: pl.DataFrame, entities_p: pl.DataFrame) -> pl.DataFrame:
-    """Weekly edges between internal persons from in-network events: week, src_pid, dst_pid,
-    weight (sum of event weights), n_messages (distinct messages)."""
-    persons = entities_p.filter((pl.col("type") == PERSON_TYPE) & pl.col("is_internal"))
-    person_pids = persons.get_column("pid")
-    return (
-        events.filter(
-            pl.col("in_network")
-            & pl.col("sender_pid").is_in(person_pids.implode())
-            & pl.col("recipient_pid").is_in(person_pids.implode())
-        )
-        .with_columns(pl.col("ts_hour").dt.date().dt.truncate("1w").alias("week"))
-        .group_by("week", "sender_pid", "recipient_pid")
-        .agg(
-            pl.col("weight").sum(),
-            pl.col("msg_pid").n_unique().cast(pl.Int64).alias("n_messages"),
-        )
-        .select(
-            "week",
-            pl.col("sender_pid").alias("src_pid"),
-            pl.col("recipient_pid").alias("dst_pid"),
-            "weight",
-            "n_messages",
-        )
-        .sort(R0_SORT)
-    )
+def build_r0(snapshots: pl.DataFrame) -> pl.DataFrame:
+    """The node-level weekly person edges every release is built from: the observed-scope
+    `snapshots` (analysis window only), without the scope column."""
+    return snapshots.filter(pl.col("scope") == PUBLISHED_SCOPE).drop("scope")
 
 
 def build_r1(
@@ -72,9 +52,7 @@ def build_r2(
     scale = mitigate.R2_NOISE_SCALE
     degree = r1["degree_distribution"]
     degree = degree.with_columns(mitigate.add_laplace(degree.get_column("persons"), scale, rng))
-    degree = kanon.complementary_suppress(
-        kanon.suppress_below(degree, "persons", k_min), "persons", "period"
-    )
+    degree = kanon.suppress_partition(degree, "persons", "period", k_min)
     graph = r1["community_graph"]
     graph = graph.with_columns(
         mitigate.add_laplace(graph.get_column("weight"), scale, rng),
@@ -85,7 +63,11 @@ def build_r2(
 
 
 def weekly_metrics(metric_series: pl.DataFrame, k: int) -> pl.DataFrame:
-    return kanon.suppress_below(metric_series, "n_active", k, dependents=("value",))
+    """The default series only: a sensitivity variant published next to it would let default
+    minus variant `n_active` reveal groups smaller than k. Variants stay restricted and feed the
+    finding's robustness check."""
+    default = metric_series.filter(pl.col("variant") == DEFAULT_VARIANT)
+    return kanon.suppress_below(default, "n_active", k, dependents=("value",))
 
 
 def degree_distribution(edges: pl.DataFrame, k: int) -> pl.DataFrame:
@@ -111,9 +93,7 @@ def degree_distribution(edges: pl.DataFrame, k: int) -> pl.DataFrame:
         pl.col("persons").fill_null(0)
     )
     full = full.sort("period", "degree_bucket")
-    return kanon.complementary_suppress(
-        kanon.suppress_below(full, "persons", k), "persons", "period"
-    )
+    return kanon.suppress_partition(full, "persons", "period", k)
 
 
 def group_sizes(communities: pl.DataFrame, k: int) -> pl.DataFrame:

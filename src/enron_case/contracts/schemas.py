@@ -304,6 +304,29 @@ TABLES: dict[str, Table] = {
 }
 
 
+# Release columns that count persons; a published value must be at least k (or null).
+PERSON_COUNT_COLUMNS: dict[str, tuple[str, ...]] = {
+    "weekly_metrics": ("n_active",),
+    "degree_distribution": ("persons",),
+    "community_groups": ("n_persons",),
+    "risk": ("n_targets",),
+}
+# The weekly metric whose value is itself a person count.
+PERSON_COUNT_METRIC = "active_persons"
+
+
+def person_counts_below(name: str, df: pl.DataFrame, k: int) -> int:
+    """Published person counts below k in release table `name`: the person-count columns and
+    the values of the person-count metric."""
+    small = sum(
+        int((df.get_column(col).drop_nulls() < k).sum())
+        for col in PERSON_COUNT_COLUMNS.get(name, ())
+    )
+    if name == "weekly_metrics":
+        small += df.filter((pl.col("metric") == PERSON_COUNT_METRIC) & (pl.col("value") < k)).height
+    return small
+
+
 def table(name: str) -> Table:
     try:
         return TABLES[name]

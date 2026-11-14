@@ -16,11 +16,11 @@ import numpy as np
 import polars as pl
 
 from enron_case.config import Config
+from enron_case.contracts.vocab import DEFAULT_VARIANT
+from enron_case.finding.stats import InsufficientData
 
 EffectFn = Callable[[np.ndarray, np.ndarray], float]
 
-# metric_series / weekly_metrics label of the main (non-sensitivity) series.
-DEFAULT_VARIANT = "default"
 CI_LOW_PERCENTILE = 2.5
 CI_HIGH_PERCENTILE = 97.5
 
@@ -80,22 +80,29 @@ def split_series(
 def effect_with_interval(
     before: np.ndarray, after: np.ndarray, effect_size: EffectFn, reps: int, seed: int
 ) -> Effect | None:
-    """Effect and bootstrap interval, or None when either side has too few weeks."""
+    """Effect and bootstrap interval, or None when the effect is not defined on the data (too
+    few weeks, a constant baseline) or on any bootstrap draw. A draw on which it is not defined
+    (for example, every resampled baseline week equal) is skipped, not fatal."""
     if before.size < 2 or after.size < 1:
         return None
+    try:
+        value = effect_size(before, after)
+    except InsufficientData:
+        return None
     rng = np.random.default_rng(seed)
-    draws = [
-        effect_size(
-            rng.choice(before, size=before.size, replace=True),
-            rng.choice(after, size=after.size, replace=True),
-        )
-        for _ in range(reps)
-    ]
+    draws = []
+    for _ in range(reps):
+        resampled_before = rng.choice(before, size=before.size, replace=True)
+        resampled_after = rng.choice(after, size=after.size, replace=True)
+        try:
+            draws.append(effect_size(resampled_before, resampled_after))
+        except InsufficientData:
+            continue
     finite = np.asarray([d for d in draws if np.isfinite(d)], dtype=np.float64)
     if finite.size == 0:
         return None
     return Effect(
-        value=effect_size(before, after),
+        value=value,
         ci_low=float(np.percentile(finite, CI_LOW_PERCENTILE)),
         ci_high=float(np.percentile(finite, CI_HIGH_PERCENTILE)),
     )

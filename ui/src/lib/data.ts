@@ -24,6 +24,8 @@ const nullable =
   <T>(guard: Guard<T>): Guard<T | null> =>
   (v): v is T | null =>
     v === null || guard(v);
+/** A float cell: null where the release table holds NaN or ±inf (not computable). */
+const isFloat = nullable(isNumber);
 
 export const METRICS = [
   "volume",
@@ -50,14 +52,14 @@ const HYPOTHESIS_COLUMNS = {
   metric: oneOf(METRICS),
   scope: oneOf(SCOPES),
   change_week: nullable(isIsoDate),
-  p_perm: isNumber,
-  p_holm: isNumber,
-  effect: isNumber,
-  ci_low: isNumber,
-  ci_high: isNumber,
-  null_z: isNumber,
-  loo_min_effect: isNumber,
-  loo_max_effect: isNumber,
+  p_perm: isFloat,
+  p_holm: isFloat,
+  effect: isFloat,
+  ci_low: isFloat,
+  ci_high: isFloat,
+  null_z: isFloat,
+  loo_min_effect: isFloat,
+  loo_max_effect: isFloat,
   robust_variants_passed: isInt,
   robust_variants_total: isInt,
   supported: oneOf(SUPPORT),
@@ -87,16 +89,26 @@ export const TABLE_COLUMNS = {
     variant: isString,
   },
   hypotheses: HYPOTHESIS_COLUMNS,
+  artifact_checks: {
+    hypothesis: oneOf(HYPOTHESES),
+    check: isString,
+    statistic: isFloat,
+    ci_low: isFloat,
+    ci_high: isFloat,
+    n_units: nullable(isInt),
+    passes: nullable(isBoolean),
+    note: isString,
+  },
   risk: {
     release_variant: oneOf(RELEASE_VARIANTS),
     attacker: oneOf(ATTACKERS),
     n_targets: isInt,
-    unique_share: isNumber,
-    median_anonymity_set: isNumber,
-    reid_top1: isNumber,
-    reid_ci_low: isNumber,
-    reid_ci_high: isNumber,
-    utility_effect_ratio: nullable(isNumber),
+    unique_share: isFloat,
+    median_anonymity_set: isFloat,
+    reid_top1: isFloat,
+    reid_ci_low: isFloat,
+    reid_ci_high: isFloat,
+    utility_effect_ratio: isFloat,
     finding_survives: nullable(isBoolean),
   },
   degree_distribution: { period: isString, degree_bucket: isString, persons: nullable(isInt) },
@@ -119,6 +131,7 @@ export type DataQualityRow = Row<"data_quality">;
 export type HeaderFieldRow = Row<"header_fields">;
 export type WeeklyMetricRow = Row<"weekly_metrics">;
 export type HypothesisRow = Row<"hypotheses">;
+export type ArtifactCheckRow = Row<"artifact_checks">;
 export type RiskRow = Row<"risk">;
 export type DegreeRow = Row<"degree_distribution">;
 export type CommunityEdgeRow = Row<"community_graph">;

@@ -2,7 +2,7 @@ import { ConfidenceBadge } from "@/components/FindingCard";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { HypothesisRow } from "@/lib/data";
-import { formatInterval, formatNumber, formatP, metricLabel } from "@/lib/format";
+import { formatFloat, formatInterval, formatP, metricLabel } from "@/lib/format";
 
 const SUPPORT_VARIANT = { yes: "default", no: "outline", inconclusive: "secondary" } as const;
 
@@ -36,7 +36,7 @@ export function HypothesesTable({ hypotheses }: { hypotheses: HypothesisRow[] })
             <TableCell className="font-mono">{row.change_week ?? "none"}</TableCell>
             <TableCell className="text-right font-mono tabular-nums">{formatP(row.p_perm)}</TableCell>
             <TableCell className="text-right font-mono tabular-nums">{formatP(row.p_holm)}</TableCell>
-            <TableCell className="text-right font-mono tabular-nums">{formatNumber(row.effect)}</TableCell>
+            <TableCell className="text-right font-mono tabular-nums">{formatFloat(row.effect)}</TableCell>
             <TableCell className="font-mono tabular-nums">{formatInterval(row.ci_low, row.ci_high)}</TableCell>
             <TableCell className="text-right font-mono tabular-nums">
               {row.robust_variants_passed}/{row.robust_variants_total}

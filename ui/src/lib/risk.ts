@@ -17,7 +17,7 @@ type ReidByVariant = { variant: string } & Partial<Record<RiskRow["attacker"], n
 export function reidByVariant(rows: RiskRow[]): ReidByVariant[] {
   return RELEASE_VARIANTS.map((variant) => {
     const point: ReidByVariant = { variant };
-    for (const row of rows) if (row.release_variant === variant) point[row.attacker] = row.reid_top1;
+    for (const row of rows) if (row.release_variant === variant && row.reid_top1 !== null) point[row.attacker] = row.reid_top1;
     return point;
   });
 }

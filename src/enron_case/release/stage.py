@@ -7,8 +7,6 @@ import polars as pl
 from enron_case.context import StageContext
 from enron_case.release import kanon, tables, variants
 
-PUBLISHED_SCOPE = "observed"
-
 
 def run(ctx: StageContext) -> None:
     for name, df in published_tables(ctx).items():
@@ -19,7 +17,7 @@ def run(ctx: StageContext) -> None:
 def published_tables(ctx: StageContext) -> dict[str, pl.DataFrame]:
     """Release R1: the aggregate tables plus quality, header, finding and risk tables."""
     ingest = ctx.read_counts("ingest_counts")
-    edges = ctx.read("snapshots").filter(pl.col("scope") == PUBLISHED_SCOPE).drop("scope")
+    edges = variants.build_r0(ctx.read("snapshots"))
     r1 = variants.build_r1(
         edges, ctx.read("metric_series"), ctx.read("communities"), ctx.config.k_min
     )

@@ -13,7 +13,8 @@ change in behaviour from two artifacts of the data:
   mail changes. The check holds people fixed: the change in each custodian's own external share
   between the baseline and the period after the change point, summarised by the median.
 
-A failed check caps the hypothesis at low confidence (select.py), so it cannot be headline.
+A check that fails, or cannot run, caps the hypothesis at low confidence (select.py), so it
+cannot be headline.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import numpy as np
 import polars as pl
 
 from enron_case.config import Config
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.finding import stats
 from enron_case.finding.hypotheses import HYPOTHESES, Evidence, Network, Recompute
 from enron_case.network.communities import baseline_communities
@@ -79,7 +81,7 @@ def baseline_placebo(network: Network, recompute: Recompute, config: Config) -> 
     values = series.filter(
         (pl.col("metric") == "cross_community_share")
         & (pl.col("scope") == "observed")
-        & (pl.col("variant") == "default")
+        & (pl.col("variant") == DEFAULT_VARIANT)
         & pl.col("value").is_not_null()
     )
     before = _values(values, config.baseline_start, mid)
@@ -181,7 +183,10 @@ def table(checks: list[ArtifactCheck]) -> pl.DataFrame:
 
 
 def failed(checks: list[ArtifactCheck]) -> set[str]:
-    return {c.hypothesis for c in checks if c.passes is False}
+    """Hypotheses whose artifact check did not pass: it failed (`passes` False) or could not
+    run (`passes` None). Both cap confidence, because an artifact not ruled out may explain the
+    change; the table keeps the two apart."""
+    return {c.hypothesis for c in checks if c.passes is not True}
 
 
 _ONE_DAY = date(2000, 1, 2) - date(2000, 1, 1)

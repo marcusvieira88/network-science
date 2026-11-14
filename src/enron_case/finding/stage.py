@@ -28,7 +28,7 @@ def run_with(ctx: StageContext, recompute: Recompute) -> None:
     supported = table.filter(table["supported"] == select.YES).height
     ctx.log(
         f"[finding] {table.height} hypotheses tested, {supported} supported, "
-        f"{len(failed)} failed an artifact check"
+        f"{len(failed)} failed or could not run an artifact check"
     )
 
 

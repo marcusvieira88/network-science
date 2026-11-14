@@ -9,6 +9,7 @@ import polars as pl
 from enron_case.config import Config
 from enron_case.contracts import schemas
 from enron_case.contracts import vocab as v
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import UsageError
 from enron_case.network.communities import UNASSIGNED
 from enron_case.network.snapshots import (
@@ -23,7 +24,6 @@ from enron_case.network.snapshots import (
     with_period,
 )
 
-DEFAULT_VARIANT = "default"
 CAP_PREFIX = "cap="
 MONTH_VARIANT = "window=month"
 PAIR = ("week", "sender_pid", "recipient_pid")
