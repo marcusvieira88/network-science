@@ -112,30 +112,52 @@ flowchart TB
 
 ## Pseudonymization
 
-Stage `pseudo` crosses from ingest to restricted: addresses in, pseudonyms out, no mapping kept.
-Identity resolution runs first, so an entity of any type (person, role, list, system, unknown)
-gets one pseudonym however many addresses it used.
+Stage `pseudo` crosses from ingest to restricted. Identity resolution runs first, so an entity of
+any type (person, role, list, system, unknown) gets one pseudonym however many addresses it used.
 
-| ID | HMAC input | Subkey label |
-|----|------------|--------------|
-| `p_` | the entity's canonical address | `person-v1` |
-| `o_` | its registered domain | `org-v1` |
-| `m_` | message key | `event-v1` |
-| `e_` | message key and recipient address | `event-v1` |
+```mermaid
+flowchart LR
+  subgraph ingest["Ingest zone: addresses, purged after the run"]
+    direction LR
+    aliases["Addresses and aliases<br/>of one person"] --> resolve["Identity<br/>resolution"]
+    resolve --> canonical["Entity with its<br/>canonical address"]
+    canonical --> domain["Its registered<br/>domain"]
+    msgkey["Message key"]
+    recipient["Message key<br/>and recipient address"]
+  end
+  subgraph keys["Key, outside the repository"]
+    direction LR
+    master["Master key<br/>~/.config/enron-case/key<br/>or the customer's KMS"]
+    master -- "HMAC person-v1" --> kp["Person subkey"]
+    master -- "HMAC org-v1" --> ko["Org subkey"]
+    master -- "HMAC event-v1" --> ke["Event subkey"]
+  end
+  subgraph restricted["Restricted zone: pseudonyms only, no mapping kept"]
+    direction TB
+    pid["p_… person"]
+    oid["o_… organization"]
+    mid["m_… message"]
+    eid["e_… recipient event"]
+  end
+  canonical -- "person subkey" --> pid
+  domain -- "org subkey" --> oid
+  msgkey -- "event subkey" --> mid
+  recipient -- "event subkey" --> eid
+  keys -- "HMAC-SHA256, base32,<br/>first 16 characters" --> restricted
+  restricted --> release["Release: aggregates of<br/>at least 5 people,<br/>no pseudonyms"]
+```
 
-Each ID is HMAC-SHA256 under a subkey (the label's HMAC under the master key), base32, cut to 16
-characters after the prefix. Same key, same IDs, so runs compare; another key shares none
-(quickstart V4). Unlike a plain hash, a guessed address cannot be confirmed without the key.
-Collision odds for 84,759 entities at 80 bits: n²/2⁸¹ ≈ 3 × 10⁻¹⁵; the stage aborts on one.
+Each subkey is the HMAC of its label under the master key, so IDs of different kinds cannot be
+compared. Same key, same IDs, so runs compare; another key shares none (quickstart V4). Unlike a
+plain hash, a guessed address cannot be confirmed without the key. Collision odds for 84,759
+entities at 80 bits: n²/2⁸¹ ≈ 3 × 10⁻¹⁵; the stage aborts on one.
 
-The key lives in `~/.config/enron-case/key`, outside the repository, mode 600, made by `make` if
-absent. Real runs refuse the published sample key; the manifest keeps an 8-character
-fingerprint. With customer data it stays in their KMS (`GenerateMac`, never exported); rotation
-changes every pseudonym.
+The key file has mode 600 and is made by `make` if absent. Real runs refuse the published sample
+key; the manifest keeps an 8-character fingerprint. With customer data the key stays in their KMS
+(`GenerateMac`, never exported); rotation changes every pseudonym.
 
 Limits: key holders can test candidate addresses; a busy `o_` may betray a famous domain;
-structure still re-identifies (R0: 25–59 % in `release/risk.csv`), so the release holds only
-aggregates over at least five people, never pseudonyms.
+structure still re-identifies (R0: 25–59 % in `release/risk.csv`).
 
 ## Decision record
 
