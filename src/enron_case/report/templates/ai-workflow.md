@@ -3,42 +3,67 @@
 
 # How this was built with AI agents
 
-<!-- DRAFT SKELETON: the lead distils each section from docs/ai-workflow-log.md at the end.
-     Keep it to about one page. Facts only: what was delegated, what came back, what was
-     rejected and why, how it was verified. -->
+Distilled from `docs/ai-workflow-log.md`, which records every delegation as it happened.
 
 ## How the work was split
 
-Spec, plan, research and data contracts were written first with Spec Kit; then a frozen
-foundation (configuration, zones, contracts in code, a synthetic corpus with ground truth and a
-fixture for every table). Each work package went to one agent with a brief naming its tasks, its
-input and output contracts and the only paths it may change.
-
-<!-- Lead: work-package table (package, agent, owned paths), from the log. -->
+A person and a lead agent wrote the spec, plan, research notes and data contracts first, with
+Spec Kit. The lead then built a frozen foundation: configuration, data zones with a path guard,
+the table contracts in code, and a synthetic corpus with ground truth and a reference fixture for
+every table. Ten agents then built ten work packages in parallel, each in its own git worktree,
+each with a brief naming its tasks, its input and output contracts and the only paths it could
+change: ingest, clean, identity, pseudonymize, network, finding, risk, release, report, and the
+explorer UI. Because every agent tested against fixtures rather than against each other's code,
+none waited for another.
 
 ## What the agents produced
 
-<!-- Lead: per package, what came back and how much was accepted as is. -->
+Every package came back with a green gate. Ingest, clean, identity and pseudonymize reproduced
+their reference fixtures exactly; network reproduced its snapshots. Agents reported their own
+deviations and open questions instead of silently resolving them: a header field the contract
+kept but the brief dropped, wrong counts in a fixture, an ambiguous degree definition, a noise
+draw in a fixture that held a real chance shift.
 
 ## What was rejected or changed, and why
 
-<!-- Lead: concrete cases from the log's "Rejected or changed" column. -->
+- **Interfaces that only existed in a brief.** The risk agent coded against stand-ins and called
+  the release builders with the wrong arguments; the lead rebound it at merge.
+- **A rule that drifted from the plan.** The finding agent's brief simplified the
+  pre-registered headline rule; the lead restored it before any real data was analysed.
+- **A reviewer's fix that was too strict.** "An empty recipient set never merges" broke
+  legitimate Bcc-only copies; the fixture caught it and the rule was narrowed.
+- **A heuristic that would have distorted the network.** "Never sends, so it is a mailing list"
+  would have relabelled most real people, since only senior mailboxes were collected; removed.
+- **The first real result.** Two hypotheses passed every pre-registered check with effects too
+  large to believe. The lead's diagnostics showed both were artifacts (stale baseline groups;
+  a change in which mailboxes hold mail). The checks became pipeline code, labelled post hoc,
+  and no finding is claimed.
 
 ## The gates and reviews that kept the output correct
 
-- Tests written against answers no agent produced: synthetic ground truth and hand-computed
-  cases, never the implementation's own output.
-- `make gate` on every package: lint, strict type checks, unit and contract tests, the privacy
-  canary and the import-boundary test.
-- An independent review of every package before merge, with the code-review and
-  data-privacy-review skills; a security review before submission.
-
-<!-- Lead: what the gates and reviews actually caught, from the log. -->
+- Tests against answers no agent produced: synthetic ground truth and hand-computed cases.
+- `make gate` on every package: lint, strict type checks, unit and contract tests, a privacy
+  canary that plants markers in bodies, subjects and folder names, and an import-boundary test.
+- Two independent reviews with the code-review and data-privacy-review skills. The first
+  blocked a merge: a malformed message could make the header reader continue into the body. It
+  was rare in this corpus but real, and fixed before any result was used. The second found that
+  sensitivity variants published side by side allowed differencing below the minimum group
+  size, and that the report claimed attacks it had not run. Both were fixed.
+- A determinism check: two full runs on the real corpus with one key give identical outputs;
+  it caught a bootstrap that depended on row order.
 
 ## Where a person decided
 
-<!-- Lead: the judgment calls (content line, headline choice, mitigation, what was cut). -->
+- The content line: subject lines and folder names are content, at the cost of threads.
+- The manual identity check: a person judged a seeded sample of real merges in a terminal, so
+  real identifiers never entered an AI conversation; only two counts were kept.
+- The finding: rejecting a statistically supported headline once its artifact was shown.
+- What to cut: the dedupe-rule variant, a formal privacy budget, a group-level attack.
 
 ## What did not work
 
-<!-- Lead: honest list, from the log. -->
+- Briefs that described an interface in prose let two agents disagree about it; typed
+  interfaces in the foundation would have caught this at the gate.
+- Several agents had to place constants outside `config.py` because it was frozen.
+- Pre-registered robustness checks were necessary but not sufficient; the threats that mattered
+  were found by looking at the shape of the data, not by the plan.
