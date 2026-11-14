@@ -58,6 +58,14 @@ def _cusum_scores(values: FloatArray, candidates: IntArray, direction: int) -> F
     return result
 
 
+def best_change_index(
+    values: FloatArray, first_candidate: int, direction: int, *, min_after_weeks: int
+) -> int:
+    """Week index that maximises the weighted directional CUSUM (no p-value)."""
+    candidates = _candidates(len(values), first_candidate, min_after_weeks)
+    return int(candidates[int(np.argmax(_cusum_scores(values, candidates, direction)))])
+
+
 def change_point(
     values: FloatArray,
     first_candidate: int,

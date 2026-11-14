@@ -85,6 +85,17 @@ undefined estimate and the 20 null replicates were added in the same commit. His
   `robust_variants_passed / robust_variants_total`. Passes when at least one variant exists and
   all pass.
 
+*Amendment to the null model, made after every real-data result was known (review of
+2026-11-14):* two defects made `null_z` optimistic, and both are fixed. (1) Recipients were
+shuffled among events of equal week, weight and `in_network` flag only, so a recipient could
+trade a person's message for a list's or an outsider's; the network is built from ties sent by
+internal persons, so in-weight *from persons* was not preserved. The stratum now also holds the
+sender's type and internal flag. (2) Each null replicate's effect was taken at the observed
+change week, while the observed effect is the maximum over candidate weeks; each replicate now
+searches its own change week with the same CUSUM. Both changes can only lower `null_z`. They
+change no published outcome: no hypothesis among H1–H4 is held true either way (see the release
+for the new values).
+
 ## Confidence and headline
 
 Confidence rule (research R11, until `docs/metrics.md` states it; the two must agree):

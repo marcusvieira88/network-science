@@ -7,7 +7,7 @@ normally `enron_case.network.metrics.compute_series`; tests inject a fake.
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
@@ -144,12 +144,29 @@ def bootstrap_ci(
     )
 
 
+def _first_candidate(series: Series, config: Config) -> int:
+    """Index of the first week after the baseline: the change point is searched from there."""
+    return sum(week <= config.baseline_end for week in series.weeks)
+
+
+def searched_effect(series: Series, direction: int, config: Config) -> float:
+    """Effect at the series' own most likely change week, found by the same search as the
+    observed estimate. A null replicate needs that search too: the observed effect is the
+    maximum over candidate weeks, so a null taken at one fixed week understates it."""
+    index = stats.best_change_index(
+        series.values,
+        _first_candidate(series, config),
+        direction,
+        min_after_weeks=config.min_after_weeks,
+    )
+    return effect_at(series, series.weeks[index], config)
+
+
 def estimate(series: Series, direction: int, config: Config, rng: np.random.Generator) -> Estimate:
     """Change point, its permutation p-value, the effect there and its bootstrap interval."""
-    first = sum(week <= config.baseline_end for week in series.weeks)
     found = stats.change_point(
         series.values,
-        first,
+        _first_candidate(series, config),
         direction,
         config.permutations,
         rng,
@@ -180,8 +197,24 @@ def _variant_passes(found: Estimate | None, direction: int, alpha: float) -> boo
     return found.p_perm < alpha and stats.on_side(direction, found.ci_low, found.ci_high)
 
 
+# How a recomputed series yields an effect: at the observed change week (leave-one-out asks
+# whether that change survives), or at its own searched week (a null replicate).
+EffectOf = Callable[[Series, Hypothesis, Estimate, Config], float]
+
+
+def _at_observed_week(series: Series, hyp: Hypothesis, found: Estimate, config: Config) -> float:
+    return effect_at(series, found.change_week, config)
+
+
+def _at_searched_week(series: Series, hyp: Hypothesis, found: Estimate, config: Config) -> float:
+    return searched_effect(series, hyp.direction, config)
+
+
 def _effects_or_nan(
-    recomputed: pl.DataFrame, estimates: dict[str, Estimate | None], config: Config
+    recomputed: pl.DataFrame,
+    estimates: dict[str, Estimate | None],
+    config: Config,
+    effect_of: EffectOf,
 ) -> dict[str, float]:
     effects: dict[str, float] = {}
     for hyp in HYPOTHESES:
@@ -191,18 +224,21 @@ def _effects_or_nan(
             continue
         try:
             series = series_of(recomputed, hyp, DEFAULT_VARIANT, config)
-            effects[hyp.id] = effect_at(series, found.change_week, config)
+            effects[hyp.id] = effect_of(series, hyp, found, config)
         except InsufficientData:
             effects[hyp.id] = math.nan
     return effects
 
 
 def _collect(
-    runs: Iterable[pl.DataFrame], estimates: dict[str, Estimate | None], config: Config
+    runs: Iterable[pl.DataFrame],
+    estimates: dict[str, Estimate | None],
+    config: Config,
+    effect_of: EffectOf,
 ) -> dict[str, list[float]]:
     collected: dict[str, list[float]] = {hyp.id: [] for hyp in HYPOTHESES}
     for recomputed in runs:
-        for hyp_id, value in _effects_or_nan(recomputed, estimates, config).items():
+        for hyp_id, value in _effects_or_nan(recomputed, estimates, config, effect_of).items():
             collected[hyp_id].append(value)
     return collected
 
@@ -227,7 +263,7 @@ def leave_one_out(
         )
         for pid in custodians
     )
-    return _collect(runs, estimates, config)
+    return _collect(runs, estimates, config, _at_observed_week)
 
 
 def null_effects(
@@ -236,7 +272,8 @@ def null_effects(
     estimates: dict[str, Estimate | None],
     config: Config,
 ) -> dict[str, list[float]]:
-    """Effect at each hypothesis' change week on `config.null_replicates` rewired networks."""
+    """Effect on each of `config.null_replicates` rewired networks, each at its own searched
+    change week, so the null faces the same search as the observed effect."""
     runs = (
         recompute(
             nullmodel.rewire(network.events, stats.rng_for(config.seed, _NULL_STREAM, replicate)),
@@ -246,7 +283,7 @@ def null_effects(
         )
         for replicate in range(config.null_replicates)
     )
-    return _collect(runs, estimates, config)
+    return _collect(runs, estimates, config, _at_searched_week)
 
 
 def _null_z(found: Estimate | None, null_values: list[float]) -> float:

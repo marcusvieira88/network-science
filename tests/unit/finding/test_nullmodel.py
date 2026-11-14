@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from datetime import datetime
 
 import polars as pl
 import pytest
@@ -39,6 +40,52 @@ def test_rewiring_preserves_weekly_margins(
     assert before.get_column("weight").to_list() == pytest.approx(
         after.get_column("weight").to_list()
     )
+
+
+def test_rewiring_preserves_in_weight_from_each_kind_of_sender(
+    events: pl.DataFrame, rewired: pl.DataFrame
+) -> None:
+    """The network counts only ties from internal persons, so a recipient's in-weight from
+    internal persons, external persons and non-persons must each be kept, not only the total."""
+
+    def from_kind(df: pl.DataFrame) -> pl.DataFrame:
+        week = pl.col("ts_hour").dt.date().dt.truncate("1w").alias("week")
+        keys = [week, "in_network", "sender_type", "sender_internal", "recipient_pid"]
+        return (
+            df.group_by(keys)
+            .agg(pl.col("weight").sum())
+            .sort("week", "in_network", "sender_type", "sender_internal", "recipient_pid")
+        )
+
+    before, after = from_kind(events), from_kind(rewired)
+    keys = ["week", "in_network", "sender_type", "sender_internal", "recipient_pid"]
+    assert before.select(keys).equals(after.select(keys))
+    assert before.get_column("weight").to_list() == pytest.approx(
+        after.get_column("weight").to_list()
+    )
+
+
+def test_rewiring_never_swaps_recipients_across_sender_kinds() -> None:
+    """Two events of equal weight in one week, one from a person and one from a list: a
+    rewiring that kept only weight and week could hand the person's recipient to the list."""
+    base = pl.DataFrame(
+        {
+            "event_id": ["e1", "e2"],
+            "ts_hour": [datetime(2000, 1, 3, 9), datetime(2000, 1, 4, 9)],
+            "sender_pid": ["s1", "s2"],
+            "sender_type": ["person", "list"],
+            "sender_internal": [True, True],
+            "weight": [1.0, 1.0],
+            "in_network": [True, True],
+            "recipient_pid": ["r1", "r2"],
+            "recipient_type": ["person", "person"],
+            "recipient_internal": [True, True],
+            "recipient_org_pid": ["o1", "o1"],
+        }
+    )
+    for seed in range(20):
+        out = nullmodel.rewire(base, stats.rng_for(seed))
+        assert out.get_column("recipient_pid").to_list() == ["r1", "r2"]
 
 
 def test_rewiring_moves_recipients_with_their_attributes(
