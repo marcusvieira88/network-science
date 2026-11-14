@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import io
+import os
 import tarfile
+import time
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -181,6 +184,27 @@ def test_date_beyond_datetime_range_is_flagged_not_a_crash() -> None:
     assert record["parse_flags"] == ["bad_date"]
 
 
+@pytest.fixture
+def local_zone_not_utc() -> Iterator[None]:
+    """Run in a local zone west of UTC, so reading a zoneless time as local time would shift
+    it. Windows has no time.tzset; there the test runs in whatever zone the machine has."""
+    if not hasattr(time, "tzset"):
+        yield
+        return
+    previous = os.environ.get("TZ")
+    os.environ["TZ"] = "America/Chicago"
+    time.tzset()
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = previous
+        time.tzset()
+
+
+@pytest.mark.usefixtures("local_zone_not_utc")
 def test_date_with_unknown_zone_is_read_as_utc() -> None:
     # RFC 5322: "-0000" says the time is UTC and the sender's local zone is unknown, so the
     # wall-clock time is the UTC instant: 16:39 on 14 May 2001.

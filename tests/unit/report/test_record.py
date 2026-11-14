@@ -157,13 +157,15 @@ TOO_FEW = "Too few months are published to compare the record between the two wi
 # later month stays below it, so no switch month is named.
 NO_SWITCH: list[float] = [*SWITCHED[:-1], 0.6]
 NO_H5 = pl.DataFrame({"hypothesis": ["H6"], "custodians": [32], "median_change": [0.0]})
+# August to November 2000: the reference months, and every published month before December 2000.
+REFERENCE_MONTHS = (date(2000, 8, 1), date(2000, 11, 1))
 RANGES = (
     "The share of the custodians' weekday sent mail stamped outside working hours is between "
     "0.45 and 0.55 in the reference months and between 0.06 and 0.1 in the crisis months"
 )
 
 
-def _months_suppressed(shares: list[float | None], first: date, last: date) -> pl.DataFrame:
+def _months_suppressed(shares: Sequence[float | None], first: date, last: date) -> pl.DataFrame:
     """The profile with the after-hours share suppressed in months first..last (inclusive)."""
     hidden = pl.col("month").is_between(first, last)
     return _profile(shares).with_columns(
@@ -172,13 +174,13 @@ def _months_suppressed(shares: list[float | None], first: date, last: date) -> p
 
 
 def test_suppressed_crisis_months_leave_too_few_to_compare() -> None:
-    profile = _months_suppressed(list(SWITCHED), date(2001, 8, 1), date(2001, 11, 1))
+    profile = _months_suppressed(SWITCHED, date(2001, 8, 1), date(2001, 11, 1))
     assert record.record_statement(profile, _h5(-0.44)) == TOO_FEW
     assert record.record_summary(profile, _h5(-0.44)) == TOO_FEW
 
 
 def test_suppressed_reference_months_leave_too_few_to_compare() -> None:
-    profile = _months_suppressed(list(SWITCHED), date(2000, 8, 1), date(2000, 11, 1))
+    profile = _months_suppressed(SWITCHED, *REFERENCE_MONTHS)
     assert record.record_statement(profile, _h5(-0.44)) == TOO_FEW
     assert record.record_summary(profile, _h5(-0.44)) == TOO_FEW
 
@@ -234,7 +236,7 @@ def test_volume_sentence_skips_a_side_suppressed_in_one_window() -> None:
 
 def test_switch_month_needs_a_published_month_before_the_reference_end() -> None:
     """Every month before December 2000 suppressed: there is nothing to lie beyond."""
-    profile = _months_suppressed(list(SWITCHED), date(2000, 8, 1), date(2000, 11, 1))
+    profile = _months_suppressed(SWITCHED, *REFERENCE_MONTHS)
     assert record._switch_month(profile, lower=True) is None
 
 

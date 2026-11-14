@@ -3,7 +3,7 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from enron_case.contracts import schemas
+from enron_case.contracts import schemas, vocab
 from enron_case.errors import ContractViolation
 from enron_case.synth import SynthOutput
 
@@ -60,8 +60,8 @@ def test_leak_count_scans_every_element_of_a_list_cell() -> None:
     """Hand-counted: three list elements match an identifier pattern (an address, a person
     pseudonym and an organisation pseudonym); the clean elements, the empty list and the null
     cell count for nothing."""
-    person = "p_" + "a" * 16
-    org = "o_" + "b2" * 8
+    person = vocab.PERSON_PREFIX + "a" * vocab.PSEUDONYM_LEN
+    org = vocab.ORG_PREFIX + "b2" * (vocab.PSEUDONYM_LEN // 2)
     df = pl.DataFrame(
         {
             "names": [

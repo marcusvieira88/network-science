@@ -18,14 +18,14 @@ from enron_case.config import (
     SAMPLE_KEY_HEX,
     Config,
 )
-from enron_case.context import LogFn, StageContext
+from enron_case.context import LogFn, StageContext, stderr_log
 from enron_case.contracts.schemas import EXPLORATORY_CONFIDENT
 from enron_case.errors import KeyProblem
 from enron_case.manifest import RunManifest
 from enron_case.zones import Paths
-from helpers import TEST_KEY_HEX
 
 LEAKY_ADDRESS = "someone@example.invalid"
+NOT_THE_SAMPLE_KEY = "0" * len(SAMPLE_KEY_HEX)
 
 
 @dataclass
@@ -51,7 +51,7 @@ class FakePipeline:
         sample: bool,
         stages: Sequence[cli.Stage],
         keep_ingest: bool = False,
-        log: LogFn = print,
+        log: LogFn = stderr_log,
     ) -> cli.RunResult:
         self.calls.append(
             PipelineCall(paths, config, sample, [s.name for s in stages], keep_ingest)
@@ -67,7 +67,8 @@ def pipeline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakePipeline:
     """The repository root moved to tmp_path, the key environment restored after the test
     (main sets the sample key) and run_pipeline replaced by a recorder."""
     monkeypatch.setattr(cli, "REPO_ROOT", tmp_path)
-    monkeypatch.setenv(KEY_ENV, TEST_KEY_HEX)
+    # Not the sample key, so a test can tell that main() switched to it.
+    monkeypatch.setenv(KEY_ENV, NOT_THE_SAMPLE_KEY)
     monkeypatch.setenv(KEY_FILE_ENV, str(tmp_path / "unused.key"))
     fake = FakePipeline()
     monkeypatch.setattr(cli, "run_pipeline", fake)
@@ -101,7 +102,18 @@ def test_run_without_keep_ingest_purges_and_does_not_warn(
 ) -> None:
     assert cli.main(["run", "--sample"]) == 0
     [call] = pipeline.calls
-    assert call.stages == list(cli.STAGE_NAMES[: cli.STAGE_NAMES.index(cli.DEFAULT_LAST) + 1])
+    assert call.stages == [
+        "fetch",
+        "parse",
+        "clean",
+        "identity",
+        "pseudo",
+        "network",
+        "finding",
+        "risk",
+        "release",
+        "report",
+    ]
     assert call.keep_ingest is False
     assert capsys.readouterr().err == ""
 
