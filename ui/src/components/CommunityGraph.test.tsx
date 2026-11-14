@@ -58,13 +58,13 @@ describe("layoutGroups", () => {
   });
 });
 
-describe("CommunityGraph", () => {
+describe("CommunityGraph without WebGL (2D fallback)", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
   function renderGraph() {
-    return render(<CommunityGraph groups={groups} edges={edges} weeks={weeks} events={[]} minGroupSize={5} />);
+    return render(<CommunityGraph groups={groups} edges={edges} weeks={weeks} events={[]} minGroupSize={5} webgl={false} />);
   }
 
   function nodePositions(container: HTMLElement): string[] {
