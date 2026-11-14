@@ -381,3 +381,27 @@ Two publication details changed while designing the release table, before any nu
   (a variant's count minus the primary's could describe fewer than k custodians), so each variant
   publishes only whether h(W1) > h(W0), its p band, its placebo's p band and whether it clears
   the rolling windows. The primary publishes its counts under the k rule stated above.
+
+## O1 (H26) result (written after it was computed)
+
+Computed by the pipeline at commit 9a6c4c0, which was committed before the first real-data run;
+the code was not changed after the result (later commits changed only report wording and
+documents). The numbers live in `release/departures.csv`, `release/departure_tests.csv` and the
+report's H26 section; they are not repeated here, so they cannot go stale.
+
+**Outcome: not established.** No departure wave in the crisis window can be claimed. The first
+necessary condition already fails: fewer than k = 5 of the custodians at risk in the crisis
+window stopped sending while their mailbox kept receiving mail (so the count is suppressed).
+The other necessary conditions fail too: the crisis share is not above the reference share
+(one-sided p at or above 0.05) and not above every earlier window of the same length, and
+leave-one-out is not stable. The placebo passes. No published variant in the rule reaches p
+below 0.05 (one variant, `active 8`, has a window with fewer than k custodians at risk and
+publishes nothing). Record ends in the crisis and reference windows and both parts of the
+split at the third-quarter loss announcement are below k and suppressed.
+
+Read plainly: among the custodians whose record covers both what they sent and what they
+received, the headers show no departure wave in the crisis window: departures there are too
+few to publish and no more frequent than a year earlier. This does not say nobody left Enron; it says the collected mailboxes do not record a
+departure wave among their owners in those weeks. Departures after the bankruptcy filing
+(December 2001 onwards) fall outside the stated window, and their silences run into the months
+when collection ends, where they cannot be told from record ends.

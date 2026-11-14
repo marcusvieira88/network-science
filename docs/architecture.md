@@ -3,7 +3,7 @@
 How data flows through the pipeline, where the privacy boundary sits, and how the explorer UI is
 fed, as implemented. The design began in `specs/001-enron-network-analysis/plan.md` and
 `research.md`; table schemas are in `specs/001-enron-network-analysis/contracts/data-contracts.md`
-(contract 1.6) and in code in `src/enron_case/contracts/`.
+(contract 1.7) and in code in `src/enron_case/contracts/`.
 
 ### Data zones and stages
 
@@ -28,8 +28,8 @@ flowchart TB
         T4[(events + entities_p)]
         S5[network<br/>snapshots, metrics, communities]
         T5[(snapshots, metric_series,<br/>communities)]
-        S6[finding<br/>H1–H4, artifact checks, H5–H25,<br/>record profile]
-        T6[(hypothesis_results,<br/>artifact_results,<br/>exploratory_results,<br/>profile_results)]
+        S6[finding<br/>H1–H4, artifact checks, H5–H25,<br/>record profile, H26 departures]
+        T6[(hypothesis_results,<br/>artifact_results,<br/>exploratory_results,<br/>profile_results,<br/>departure_results,<br/>departure_test_results)]
         S7[risk<br/>attack R0 / R1 / R2<br/>with A1 / A2 / A3]
         T7[(risk_results)]
         CT[(counts/*.json<br/>counts only)]
@@ -183,6 +183,9 @@ flowchart TB
     XO --> T2[(exploratory)]
     E --> PR[record profile: custodians' mail<br/>and after-hours share by month]
     PR --> T3[(record_profile)]
+    E --> DP[H26: custodian departures, post hoc<br/>silence while the mailbox still receives]
+    DP --> DT[Fisher vs same weeks a year earlier,<br/>placebo, rolling windows, leave-one-out,<br/>variants]
+    DT --> T4[(departures, departure_tests)]
 ```
 
 H5–H24 were stated in `docs/hypotheses-exploratory.md` (as E1–E20) before they were computed,
@@ -193,6 +196,12 @@ hypothesis is held true**: H2 and H3 pass the pre-registered rule but fail their
 (baseline drift; a change in which mailboxes hold mail), H1 and H4 are not supported, and of
 H5–H25 none is confident. H16, the strongest lead, fails its retention check and is capped at
 inconclusive; H25 finds no change within custodians.
+
+H26, a structural question stated post hoc (O1 in `docs/hypotheses-exploratory.md`), asks
+whether custodians left during the crisis: a departure is a custodian who stops sending for 16
+weeks while their own mailbox keeps receiving mail that only it can hold, so a mailbox that was
+no longer collected (a record end) does not count. It is **not established**: too few
+departures in the crisis window to publish, no more frequent than a year earlier.
 
 The published finding is about the **record**, not behaviour: the record profile
 (`record_profile`) shows the share of the custodians' weekday sent mail stamped outside working

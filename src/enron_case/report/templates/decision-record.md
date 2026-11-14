@@ -29,8 +29,8 @@ injected from release tables; none is typed.
 
 - **Strict content line, including `Subject`.** Content fields ({{fields_content}}) are never
   stored. We lose threads and reply times and dedupe on sender, second and recipients alone:
-  {{dq_deduplicate_removed}} copies removed. Precision and recall are measured only against the
-  synthetic corpus's ground truth.
+  {{dq_deduplicate_removed}} copies removed. Precision and recall are measured on synthetic
+  ground truth only.
 - **Rule-based identity resolution.** Deterministic, explainable rules weighted to precision,
   because a false merge invents a central person while a false split only dilutes one:
   {{dq_resolve_identities_count_in}} addresses to {{dq_resolve_identities_count_out}} entities.
@@ -50,6 +50,8 @@ change in behaviour is established. {{record_summary}}
 
 **Behaviour.** {{headline_statement}} {{replication_statement}} Details: the report.
 
+**Structure (H26, post hoc).** {{departure_summary}}
+
 ## What changes with real customer data
 
 - **Metadata-only connectors**: mail scopes that return headers only, so mail content never
@@ -63,9 +65,9 @@ change in behaviour is established. {{record_summary}}
 
 ## Not done, and why
 
-- **No behavioural finding claimed.** The apparent crisis-year signals failed checks against
-  known artifacts (stale groups, mailbox mix, inbox retention); those checks, the record
-  profile and the replication test were added after results were seen and are labelled post hoc.
+- **No behavioural or structural finding.** The apparent crisis-year signals failed
+  checks against known artifacts (stale groups, mailbox mix, inbox retention); those checks,
+  the record profile and the replication and departure tests came after results (post hoc).
 - **Dropped for time**: the dedupe-rule sensitivity variant.
 - **A sketch, not a guarantee**: the noise release (R2) has no formal privacy budget.
 - **Identity precision on real data** rests on a manual sample judged by a person, not on ground

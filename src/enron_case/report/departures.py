@@ -69,9 +69,11 @@ def _band_text(band: object, alpha: float) -> str:
 
 
 def _p_text(row: Row, p: str, band: str, alpha: float) -> str:
-    """The p-value where it is published, otherwise its band."""
+    """The p-value where it is published, otherwise its band (a dash when both are hidden)."""
     if row[p] is not None:
         return f"p = {format_value(row[p])}"
+    if row[band] is None:
+        return format_value(None)
     return f"p {_band_text(row[band], alpha)}"
 
 
@@ -95,8 +97,11 @@ def _primary(tests: pl.DataFrame) -> Row:
 
 
 def _share(row: Row, k_min: int) -> str:
-    at_risk = _count(row, "at_risk", k_min)
-    return f"{_count(row, 'departures', k_min)} of {at_risk} custodians at risk"
+    """Departures of the custodians at risk, with the share where it is published."""
+    text = f"{_count(row, 'departures', k_min)} of {_count(row, 'at_risk', k_min)} at risk"
+    if row["hazard"] is None:
+        return text
+    return f"{text} (share {format_value(row['hazard'])})"
 
 
 def _reasons(primary: Row, crisis: Row, k_min: int, alpha: float) -> list[str]:
@@ -123,10 +128,17 @@ def _variant_sentence(tests: pl.DataFrame, alpha: float) -> str:
     ruled = tests.filter(pl.col("in_rule") & (pl.col("variant") != schemas.DEPARTURE_PRIMARY))
     direction = ruled.filter(pl.col("crisis_above_reference").fill_null(False)).height
     significant = ruled.filter(pl.col("p_band").is_in([FAMILY_BOUND, BELOW_ALPHA])).height
-    return (
+    hidden = ruled.filter(pl.col("p_band").is_null()).height
+    text = (
         f"Of the {ruled.height} robustness variants in the rule, {direction} keep the crisis "
-        f"share above the reference share and {significant} keep p below {format_value(alpha)}."
+        f"share above the reference share and {significant} keep p below {format_value(alpha)}"
     )
+    if hidden:
+        text += (
+            f"; {hidden} publish no comparison, because one of their windows has too few "
+            "custodians at risk"
+        )
+    return text + "."
 
 
 def _split_sentence(periods: pl.DataFrame, k_min: int) -> str:
@@ -149,13 +161,12 @@ def departure_statement(periods: pl.DataFrame, tests: pl.DataFrame, config: Conf
     primary = _primary(tests)
     crisis, reference = _period(periods, CRISIS), _period(periods, REFERENCE)
     evidence = (
-        f"In the crisis window {_share(crisis, k_min)} stopped sending for "
-        f"{config.departure_silence_weeks} weeks or more while their own mailbox kept receiving "
-        f"mail (share {format_value(crisis['hazard'])}), against {_share(reference, k_min)} in "
-        f"the same weeks a year earlier (share {format_value(reference['hazard'])}; one-sided "
-        f"Fisher {_p_text(primary, 'p', 'p_band', alpha)}). Record ends (the mailbox stops "
-        f"holding mail too): {_count(crisis, 'record_ends', k_min)} in the crisis window, "
-        f"{_count(reference, 'record_ends', k_min)} in the reference window."
+        f"Custodians who stopped sending for {config.departure_silence_weeks} weeks or more "
+        f"while their own mailbox kept receiving mail: {_share(crisis, k_min)} in the crisis "
+        f"window, against {_share(reference, k_min)} in the same weeks a year earlier "
+        f"(one-sided Fisher {_p_text(primary, 'p', 'p_band', alpha)}). Record ends (the "
+        f"mailbox stops holding mail too): {_count(crisis, 'record_ends', k_min)} in the crisis "
+        f"window, {_count(reference, 'record_ends', k_min)} in the reference window."
     )
     rolling = (
         f" The crisis share is {'above' if primary['above_rolling'] else 'not above'} every one "
@@ -182,11 +193,8 @@ def departure_summary(tests: pl.DataFrame) -> str:
     """The outcome in one sentence, for the decision record and the slides."""
     outcome = str(_primary(tests)["outcome"])
     if outcome == NOT_ESTABLISHED:
-        return "No wave of custodian departures in the crisis window can be established."
-    return (
-        "During the crisis, custodians stopped sending while their mailboxes kept receiving "
-        f"mail at a higher rate than before; confidence: {CONFIDENCE[outcome]}."
-    )
+        return "No wave of custodian departures in the crisis can be established."
+    return f"Custodians left at a higher rate in the crisis than before; confidence: {outcome}."
 
 
 def periods_table(periods: pl.DataFrame) -> str:
