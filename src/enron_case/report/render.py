@@ -1,0 +1,452 @@
+"""Render `release/report.md` from release tables, and inject release numbers into documents.
+
+Every number shown comes from a release table cell or a run parameter, formatted by
+`markdown.format_value`. The placeholder -> value table for documents is `document_values`.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
+
+import polars as pl
+
+from enron_case.config import Config
+from enron_case.context import StageContext
+from enron_case.contracts import vocab
+from enron_case.errors import ContractViolation, PrivacyViolation
+from enron_case.report import quality
+from enron_case.report.markdown import bullets, format_value, table
+
+PLACEHOLDER = re.compile(r"\{\{([a-z0-9_]+)\}\}")
+IDENTIFIER = re.compile("|".join(f"(?:{p})" for p in vocab.LEAK_PATTERNS))
+DEFAULT_VARIANT = "default"  # metric variant label for the main analysis (data contracts)
+MITIGATION_TARGET = 0.5  # SC-007: a mitigated release should at least halve the rate
+
+HYPOTHESIS_CLAIMS = {
+    "H1": "communication concentrated on fewer people as the crisis approached",
+    "H2": "communication increasingly crossed established group boundaries",
+    "H3": "the organization turned inward",
+    "H4": "working relationships were rewired faster",
+}
+CONFIDENCE_WORDS = {
+    "high": "high: the change passes every check we defined in advance",
+    "moderate": "moderate: the change is significant but fails at least one robustness check",
+    "low": "low: the evidence is weak or inconsistent across checks",
+}
+RELEASE_VARIANTS = {
+    "R0": "pseudonymized person-level weekly edge list (the naive output; never published)",
+    "R1": "aggregates only, every cell meeting the minimum group size, bucketed degrees, "
+    "weekly resolution, pseudonyms re-keyed per release",
+    "R2": "R1 plus calibrated noise on counts (a sketch, not a formal privacy budget)",
+}
+ATTACKERS = {
+    "A1": "outsider who holds the public corpus and matches per-address activity features",
+    "A2": "insider who knows a few true identities and propagates from them through the graph",
+}
+ALTERNATIVE_EXPLANATIONS = (
+    "Retention: what each person kept, and what was collected, differs by person and period, "
+    "so coverage changes toward late in the period for reasons unrelated to behaviour.",
+    "Volume: more messages alone can move a structural metric; the rewiring null model, which "
+    "keeps every sender's and recipient's volume, separates the two.",
+    "Sample: the collected mailboxes are mostly senior staff, and the collection was shaped by "
+    "an investigation; leaving out each mailbox in turn tests whether one of them drives it.",
+    "Cleaning choices: the recipient cap and the window length change the network; the "
+    "sensitivity variants re-estimate the effect under each.",
+)
+FALSIFIERS = (
+    "The effect disappears when any single mailbox is left out.",
+    "The effect is no larger than the rewiring null model gives with the same volumes.",
+    "The effect changes sign or loses significance under a different recipient cap or window.",
+    "The same change appears at another time of the record with no comparable event.",
+)
+LIMITS = (
+    "Coverage: the corpus holds a limited set of mailboxes, mostly senior staff. A tie is visible "
+    "only when one end is a collected mailbox, so results describe this sample, not the whole "
+    "organization.",
+    "Retention and selection: what people kept and what was collected differ by person and "
+    "period, and the collection was shaped by an investigation.",
+    "Headers only: subjects are content and are excluded, so there are no threads and no reply "
+    "times. Deduplication cannot use content and merges distinct messages from one sender to the "
+    "same recipients in the same second.",
+    "Identity resolution is rule-based and favours precision; aliases it misses split one person "
+    "into several nodes.",
+    "Pseudonymization is not anonymization: person-level pseudonymized data must be treated as "
+    "re-identifiable (see the attack on R0), so only aggregates are published; the noise variant "
+    "is a sketch, not a formal privacy budget.",
+    "Observational design: a structural change near public events does not show what people "
+    "knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.",
+)
+
+HYPOTHESIS_HEADERS = (
+    "Hypothesis",
+    "Claim",
+    "Metric",
+    "Scope",
+    "Change week",
+    "Effect",
+    "Interval",
+    "p",
+    "Holm p",
+    "Null z",
+    "Leave-one-out range",
+    "Robust variants",
+    "Supported",
+    "Confidence",
+    "Headline",
+)
+RISK_COLUMNS = (
+    "release_variant",
+    "attacker",
+    "n_targets",
+    "unique_share",
+    "median_anonymity_set",
+    "reid_top1",
+    "reid_ci_low",
+    "reid_ci_high",
+    "utility_effect_ratio",
+    "finding_survives",
+)
+RISK_HEADERS = (
+    "Release",
+    "Attacker",
+    "Targets",
+    "Unique share",
+    "Median anonymity set",
+    "Re-identified (top-1)",
+    "Interval low",
+    "Interval high",
+    "Effect ratio",
+    "Finding survives",
+)
+
+
+class UnfilledPlaceholder(ContractViolation):
+    """A document names a placeholder that no release table fills."""
+
+
+@dataclass(frozen=True)
+class ReleaseTables:
+    data_quality: pl.DataFrame
+    header_fields: pl.DataFrame
+    hypotheses: pl.DataFrame
+    risk: pl.DataFrame
+    weekly_metrics: pl.DataFrame
+
+    @classmethod
+    def read(cls, ctx: StageContext) -> ReleaseTables:
+        return cls(
+            data_quality=ctx.read("data_quality"),
+            header_fields=ctx.read("header_fields"),
+            hypotheses=ctx.read("hypotheses"),
+            risk=ctx.read("risk"),
+            weekly_metrics=ctx.read("weekly_metrics"),
+        )
+
+
+# ---- the finding --------------------------------------------------------------------------
+
+
+def headline(hypotheses: pl.DataFrame) -> dict[str, Any] | None:
+    rows = hypotheses.filter(pl.col("is_headline")).rows(named=True)
+    if len(rows) > 1:
+        raise ContractViolation(f"hypotheses: {len(rows)} headline rows, at most one allowed")
+    return rows[0] if rows else None
+
+
+def _f(row: Mapping[str, Any], column: str) -> str:
+    return format_value(row[column])
+
+
+def claim(hypothesis: str) -> str:
+    if hypothesis not in HYPOTHESIS_CLAIMS:
+        raise ContractViolation("hypotheses: unknown hypothesis id")
+    return HYPOTHESIS_CLAIMS[hypothesis]
+
+
+def change_phrase(row: Mapping[str, Any]) -> str:
+    if row["change_week"] is None:
+        return "no single change week was estimated"
+    return f"the change point is the week of {_f(row, 'change_week')}"
+
+
+def headline_statement(row: Mapping[str, Any] | None) -> str:
+    if row is None:
+        return (
+            "No hypothesis is supported. Every outcome is listed below; a null result is a "
+            "valid answer to the question."
+        )
+    return (
+        f"{row['hypothesis']} is supported: {claim(row['hypothesis'])}. "
+        f"Metric `{row['metric']}` in the {row['scope']} network; {change_phrase(row)}; "
+        f"standardized effect of {_f(row, 'effect')} "
+        f"(bootstrap interval {_f(row, 'ci_low')} to {_f(row, 'ci_high')}), "
+        f"permutation p = {_f(row, 'p_perm')}, Holm-adjusted p = {_f(row, 'p_holm')}. "
+        f"Confidence: {row['confidence']}."
+    )
+
+
+def evidence(row: Mapping[str, Any]) -> list[str]:
+    return [
+        f"Effect size: {_f(row, 'effect')} standard deviations against the baseline period, "
+        f"block-bootstrap interval {_f(row, 'ci_low')} to {_f(row, 'ci_high')}.",
+        f"Chance baseline: permutation p = {_f(row, 'p_perm')}; "
+        f"{_f(row, 'null_z')} standard deviations from a null model that rewires recipients "
+        "while keeping every sender's and recipient's volume.",
+        f"Multiple testing: Holm-adjusted p = {_f(row, 'p_holm')} across all hypotheses.",
+        f"Leaving out each mailbox in turn: effect between {_f(row, 'loo_min_effect')} and "
+        f"{_f(row, 'loo_max_effect')}.",
+        f"Sensitivity variants: {_f(row, 'robust_variants_passed')} of "
+        f"{_f(row, 'robust_variants_total')} agree.",
+    ]
+
+
+def finding_section(hypotheses: pl.DataFrame) -> str:
+    row = headline(hypotheses)
+    parts = ["## The finding", headline_statement(row)]
+    if row is not None:
+        parts += [
+            "### Evidence",
+            bullets(evidence(row)),
+            f"**Confidence**: {CONFIDENCE_WORDS[row['confidence']]}.",
+            "### Alternative explanations considered",
+            bullets(ALTERNATIVE_EXPLANATIONS),
+            "### What would falsify it",
+            bullets(FALSIFIERS),
+        ]
+    return "\n\n".join(parts)
+
+
+def hypothesis_row(row: Mapping[str, Any]) -> list[str]:
+    return [
+        row["hypothesis"],
+        claim(row["hypothesis"]),
+        f"`{row['metric']}`",
+        row["scope"],
+        _f(row, "change_week"),
+        _f(row, "effect"),
+        f"{_f(row, 'ci_low')} to {_f(row, 'ci_high')}",
+        _f(row, "p_perm"),
+        _f(row, "p_holm"),
+        _f(row, "null_z"),
+        f"{_f(row, 'loo_min_effect')} to {_f(row, 'loo_max_effect')}",
+        f"{_f(row, 'robust_variants_passed')} of {_f(row, 'robust_variants_total')}",
+        row["supported"],
+        row["confidence"],
+        _f(row, "is_headline"),
+    ]
+
+
+def hypotheses_table(hypotheses: pl.DataFrame) -> str:
+    return table(HYPOTHESIS_HEADERS, [hypothesis_row(r) for r in hypotheses.rows(named=True)])
+
+
+def hypotheses_section(hypotheses: pl.DataFrame) -> str:
+    return "\n\n".join(
+        (
+            "## All hypotheses",
+            "Written down before the analysis ran on the real corpus. Every outcome is shown, "
+            "including those not supported.",
+            hypotheses_table(hypotheses),
+        )
+    )
+
+
+def hypotheses_summary(hypotheses: pl.DataFrame) -> str:
+    """Narrow version of the hypotheses table for a slide."""
+    rows = [
+        [
+            row["hypothesis"],
+            claim(row["hypothesis"]),
+            _f(row, "effect"),
+            f"{_f(row, 'ci_low')} to {_f(row, 'ci_high')}",
+            _f(row, "p_holm"),
+            row["supported"],
+            row["confidence"],
+        ]
+        for row in hypotheses.rows(named=True)
+    ]
+    headers = ("Hypothesis", "Claim", "Effect", "Interval", "Holm p", "Supported", "Confidence")
+    return table(headers, rows)
+
+
+# ---- risk ---------------------------------------------------------------------------------
+
+
+def risk_table(risk: pl.DataFrame) -> str:
+    rows = risk.select(RISK_COLUMNS).rows()
+    return table(RISK_HEADERS, [[format_value(v) for v in row] for row in rows])
+
+
+def risk_summary(risk: pl.DataFrame) -> str:
+    """Narrow version of the risk table for a slide."""
+    rows = [
+        [
+            row["release_variant"],
+            row["attacker"],
+            _f(row, "unique_share"),
+            _f(row, "reid_top1"),
+            f"{_f(row, 'reid_ci_low')} to {_f(row, 'reid_ci_high')}",
+            _f(row, "finding_survives"),
+        ]
+        for row in risk.rows(named=True)
+    ]
+    headers = ("Release", "Attacker", "Unique share", "Re-identified", "Interval", "Survives")
+    return table(headers, rows)
+
+
+def _risk_row(risk: pl.DataFrame, variant: str, attacker: str) -> dict[str, Any]:
+    rows = risk.filter(
+        (pl.col("release_variant") == variant) & (pl.col("attacker") == attacker)
+    ).rows(named=True)
+    if len(rows) != 1:
+        raise ContractViolation(f"risk: expected one row for {variant}/{attacker}")
+    return rows[0]
+
+
+def risk_verdicts(risk: pl.DataFrame) -> list[str]:
+    """One line per mitigated release and attacker: rate before and after, halved or not."""
+    lines = []
+    for variant, attacker in risk.select("release_variant", "attacker").rows():
+        if variant == "R0":
+            continue
+        before = _risk_row(risk, "R0", attacker)
+        after = _risk_row(risk, variant, attacker)
+        halved = after["reid_top1"] <= before["reid_top1"] * MITIGATION_TARGET
+        lines.append(
+            f"{variant} against {attacker}: re-identified share {_f(before, 'reid_top1')} on R0, "
+            f"{_f(after, 'reid_top1')} on {variant} "
+            f"({'at least halved' if halved else 'not halved: target missed'}); "
+            f"finding survives: {_f(after, 'finding_survives')}."
+        )
+    return lines
+
+
+def risk_section(risk: pl.DataFrame, k_min: int) -> str:
+    variants = bullets(f"**{name}**: {text}" for name, text in RELEASE_VARIANTS.items())
+    attackers = bullets(f"**{name}**: {text}" for name, text in ATTACKERS.items())
+    return "\n\n".join(
+        (
+            "## Privacy and re-identification risk",
+            f"Every published table meets a minimum group size of k = {k_min}. The risk was "
+            "measured by attacking the pipeline's own output, not asserted.",
+            "Releases attacked:",
+            variants,
+            "Attackers:",
+            attackers,
+            risk_table(risk),
+            "Before and after mitigation:",
+            bullets(risk_verdicts(risk)),
+        )
+    )
+
+
+# ---- report -------------------------------------------------------------------------------
+
+
+def limits_section() -> str:
+    return "\n\n".join(("## Limits", bullets(LIMITS)))
+
+
+def render_report(tables: ReleaseTables, config: Config) -> str:
+    sections = (
+        "# Report: headers-only network analysis of the public Enron email corpus",
+        "Generated by the pipeline from the release tables in this directory; no number below "
+        f"is typed by hand. Minimum group size k = {config.k_min}; seed {config.seed}.",
+        quality.quality_section(tables.data_quality, tables.header_fields),
+        finding_section(tables.hypotheses),
+        hypotheses_section(tables.hypotheses),
+        risk_section(tables.risk, config.k_min),
+        limits_section(),
+    )
+    text = "\n\n".join(sections) + "\n"
+    check_no_identifiers(text)
+    return text
+
+
+def check_no_identifiers(text: str) -> None:
+    hits = len(IDENTIFIER.findall(text))
+    if hits:
+        raise PrivacyViolation(f"report text holds {hits} identifier-shaped values")
+
+
+# ---- documents ----------------------------------------------------------------------------
+
+
+def slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+
+
+def _row_values(prefix: str, row: Mapping[str, Any], skip: tuple[str, ...]) -> dict[str, str]:
+    return {f"{prefix}_{col}": format_value(v) for col, v in row.items() if col not in skip}
+
+
+def headline_chart(tables: ReleaseTables) -> str:
+    """Mermaid line chart of the headline metric over the weeks, or a sentence if none."""
+    row = headline(tables.hypotheses)
+    if row is None:
+        return "No hypothesis is supported, so there is no headline series to chart."
+    series = tables.weekly_metrics.filter(
+        (pl.col("scope") == row["scope"])
+        & (pl.col("metric") == row["metric"])
+        & (pl.col("variant") == DEFAULT_VARIANT)
+        & pl.col("value").is_not_null()
+    ).sort("week")
+    weeks = ", ".join(f'"{format_value(w)}"' for w in series.get_column("week").to_list())
+    values = ", ".join(format_value(v) for v in series.get_column("value").to_list())
+    return "\n".join(
+        (
+            "```mermaid",
+            "xychart-beta",
+            f'    title "{row["metric"]}, {row["scope"]} network, weekly"',
+            f"    x-axis [{weeks}]",
+            f"    line [{values}]",
+            "```",
+        )
+    )
+
+
+def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
+    """The single placeholder -> value table for every document."""
+    values: dict[str, str] = {"k_min": str(config.k_min), "seed": str(config.seed)}
+    for row in tables.data_quality.rows(named=True):
+        values.update(_row_values(f"dq_{slug(row['step'])}", row, ("order", "step")))
+    for ruling, fields in quality.fields_by_ruling(tables.header_fields).items():
+        values[f"fields_{ruling}"] = fields
+    for row in tables.hypotheses.rows(named=True):
+        values.update(_row_values(row["hypothesis"].lower(), row, ("hypothesis",)))
+    for row in tables.risk.rows(named=True):
+        prefix = f"risk_{row['release_variant'].lower()}_{row['attacker'].lower()}"
+        values.update(_row_values(prefix, row, ("release_variant", "attacker")))
+    top = headline(tables.hypotheses)
+    if top is not None:
+        values.update(_row_values("headline", top, ()))
+        values["headline_claim"] = claim(top["hypothesis"])
+    values.update(
+        {
+            "headline_statement": headline_statement(top),
+            "headline_chart": headline_chart(tables),
+            "quality_table": quality.funnel_table(tables.data_quality),
+            "header_table": quality.header_table(tables.header_fields),
+            "hypotheses_table": hypotheses_table(tables.hypotheses),
+            "hypotheses_summary": hypotheses_summary(tables.hypotheses),
+            "risk_table": risk_table(tables.risk),
+            "risk_summary": risk_summary(tables.risk),
+            "risk_verdicts": bullets(risk_verdicts(tables.risk)),
+            "limits": bullets(LIMITS),
+        }
+    )
+    return values
+
+
+def inject(text: str, values: Mapping[str, str]) -> str:
+    """Replace every `{{name}}`; fail on an unknown name or a malformed placeholder."""
+    missing = sorted({name for name in PLACEHOLDER.findall(text) if name not in values})
+    if missing:
+        raise UnfilledPlaceholder(f"no value for placeholders: {', '.join(missing)}")
+    leftover = PLACEHOLDER.sub("", text)
+    if "{{" in leftover or "}}" in leftover:
+        raise UnfilledPlaceholder("malformed placeholder in document")
+    return PLACEHOLDER.sub(lambda m: values[m.group(1)], text)
