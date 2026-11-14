@@ -24,6 +24,9 @@ const nullable =
   <T>(guard: Guard<T>): Guard<T | null> =>
   (v): v is T | null =>
     v === null || guard(v);
+/** A hypothesis id ends in its number: the one list of hypotheses is ordered by it. */
+export const HYPOTHESIS_ID = /(\d+)$/;
+const isNumberedId: Guard<string> = (v): v is string => isString(v) && HYPOTHESIS_ID.test(v);
 /** A float cell: null where the release table holds NaN or ±inf (not computable). */
 const isFloat = nullable(isNumber);
 
@@ -104,7 +107,7 @@ export const TABLE_COLUMNS = {
   },
   exploratory: {
     order: isInt,
-    hypothesis: isString,
+    hypothesis: isNumberedId,
     family: oneOf(EXPLORATORY_FAMILIES),
     measure: isString,
     direction: oneOf(DIRECTIONS),

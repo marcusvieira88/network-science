@@ -3,7 +3,7 @@
  * table (stated before being computed) merged and ordered by the number in each id. Which table a
  * row comes from decides how it is read; the id strings themselves are never relied on.
  */
-import { type ArtifactCheckRow, DataError, type ExploratoryRow, type HypothesisRow } from "@/lib/data";
+import { type ArtifactCheckRow, DataError, type ExploratoryRow, HYPOTHESIS_ID, type HypothesisRow } from "@/lib/data";
 import { NOT_COMPUTABLE, formatFloat } from "@/lib/format";
 
 export type HypothesisKind = "preregistered" | "exploratory";
@@ -28,9 +28,9 @@ export const STATED: Record<HypothesisKind, string> = {
 /** Within one number, the hypotheses stated before any data come first. */
 const KIND_ORDER: Record<HypothesisKind, number> = { preregistered: 0, exploratory: 1 };
 
-/** The number at the end of an id ("H12" → 12); an id without one is malformed data. */
+/** The number at the end of an id ("H12" → 12); parseRelease already refuses an id without one. */
 export function hypothesisNumber(id: string): number {
-  const match = /(\d+)$/.exec(id);
+  const match = HYPOTHESIS_ID.exec(id);
   if (!match?.[1]) throw new DataError(`hypothesis id "${id}" has no number`);
   return Number(match[1]);
 }

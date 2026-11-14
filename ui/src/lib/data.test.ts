@@ -68,11 +68,11 @@ describe("parseRelease", () => {
     expect(data.tables.artifact_checks[0]?.passes).toBeNull();
   });
 
-  it("reads the exploratory family E1–E20 with nullable equalised results", () => {
+  it("reads the twenty exploratory hypotheses with nullable equalised results, whatever their id prefix", () => {
     const data = parseRelease(rawSample());
     const rows = data.tables.exploratory;
-    expect(rows.map((r) => r.hypothesis)).toEqual(Array.from({ length: 20 }, (_, i) => `E${i + 1}`));
-    expect(rows.filter((r) => r.outcome === "confident").map((r) => r.hypothesis)).toEqual(["E12"]);
+    expect(rows.map((r) => r.order)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
+    expect(rows.filter((r) => r.outcome === "confident").map((r) => r.order)).toEqual([12]);
     expect(rows[0]?.equalised_median).toBeNull();
     expect(rows[11]).toMatchObject({ family: "second", equalised_median: 0.1 });
   });
@@ -81,6 +81,12 @@ describe("parseRelease", () => {
     const doc = rawSample();
     firstRow(doc, "exploratory").outcome = "supported";
     expect(() => parseRelease(doc)).toThrow(/column outcome/);
+  });
+
+  it("rejects an exploratory hypothesis id without a number", () => {
+    const doc = rawSample();
+    firstRow(doc, "exploratory").hypothesis = "Hx";
+    expect(() => parseRelease(doc)).toThrow(/column hypothesis/);
   });
 
   it("rejects a missing table", () => {
