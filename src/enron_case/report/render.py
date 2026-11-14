@@ -100,6 +100,9 @@ LIMITS = (
     "autocorrelated, and a calibration test in the suite shows the test rejects far more often "
     "than its nominal level on autocorrelated series without a change. A small p alone is weak "
     "evidence here.",
+    "Deduplication matches copies on the second they were sent. If two stored copies of one "
+    "message carry different timestamp conventions (see the record section), they do not "
+    "merge, so the months around the change may hold hidden duplicates; not checked.",
     "The H2 baseline placebo splits the baseline year at a fixed midpoint instead of searching "
     "a change week; a searched split could only make its jump larger, so this can only make H2 "
     "fail its check more clearly.",

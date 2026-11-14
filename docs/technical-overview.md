@@ -487,6 +487,9 @@ equalisation, so mail kept cannot pose as mail sent. Published analyses of this 
 of the three and no significance tests. Our null results are therefore not a contradiction: the
 effects they describe are in the record, and we do not find them in behaviour. What our design
 cannot exclude is the record change itself: it falls between our reference and crisis windows.
+It may also defeat our deduplication in the months around it: copies of one message stored
+under two timestamp conventions do not share a second and would not merge (received mail spikes
+in April 2001). That is a check for someone with access to the restricted zone, not yet run.
 
 ### Re-identification
 
