@@ -21,6 +21,8 @@ from enron_case import zones
 from enron_case.config import (
     KEY_ENV,
     KEY_FILE_ENV,
+    MANIFEST_FILE,
+    SAMPLE_ARCHIVE,
     SAMPLE_INTERNAL_DOMAIN,
     SAMPLE_KEY_HEX,
     Config,
@@ -101,7 +103,7 @@ def load_key_fingerprint(sample: bool) -> str:
 def ensure_sample_corpus(paths: Paths) -> None:
     from enron_case.synth import generate  # noqa: PLC0415 - only sample runs need it
 
-    if not (paths.dir(Zone.RAW) / "synthetic_maildir.tar.gz").exists():
+    if not (paths.dir(Zone.RAW) / SAMPLE_ARCHIVE).exists():
         generate(paths.data_root)
 
 
@@ -171,7 +173,7 @@ def run_pipeline(
         if not keep_ingest:
             zones.purge_ingest(paths)
     full_run = bool(stages) and stages[0].name in {"fetch", PARSE_STAGE}
-    target = zones.path_for(paths, "cli", Zone.RELEASE, "run_manifest.json", "w")
+    target = zones.path_for(paths, "cli", Zone.RELEASE, MANIFEST_FILE, "w")
     manifest.write(target, merge=not full_run)
     return RunResult(manifest, ran, skipped)
 

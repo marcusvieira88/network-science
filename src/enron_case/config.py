@@ -18,6 +18,8 @@ CORPUS_ARCHIVE = "enron_mail_20150507.tar.gz"
 # SHA-256 of the archive above; pinned after the first verified download.
 CORPUS_SHA256 = "b3da1b3fe0369ec3140bb4fbce94702c33b7da810ec15d718b3fadf5cd748ca7"
 SAMPLE_ARCHIVE = "synthetic_maildir.tar.gz"
+# The run manifest, written by the orchestrator into the release zone.
+MANIFEST_FILE = "run_manifest.json"
 # Fixed key for the synthetic sample and tests only. `--sample` always uses it, so the real key
 # never touches synthetic data and synthetic runs never need the real key.
 SAMPLE_KEY_HEX = "7465737400000000000000000000000000000000000000000000000000000000"
