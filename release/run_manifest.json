@@ -1,5 +1,5 @@
 {
-  "code_version": "75b2dff",
+  "code_version": "419541d",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -80,53 +80,53 @@
   "counts": {
     "clean_counts": "709051e457fed5e0b2ff6017aff8d3b70f4819461360a446961da7e0740f8a6d",
     "identity_counts": "283d606afb8176f11529f27bf2364eaf5b264a7c2109d3faaee3e36f77ed777c",
-    "ingest_counts": "9614889f0da1b79fd8449bd32d2f48841035a8888afc8372e635c79fe65f2107",
+    "ingest_counts": "65e2b711132c2ab80a4e4ed369056e407f46cae5b6a7cadf6aa4d45d7d67dde4",
     "pseudo_counts": "63ffc199a38c663abc0c785ba01f7db7b3ef976391778aa2fc30075d8a61b216"
   },
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.18
+      "seconds": 0.23
     },
     {
       "stage": "parse",
-      "seconds": 29.27
+      "seconds": 219.55
     },
     {
       "stage": "clean",
-      "seconds": 25.02
+      "seconds": 95.83
     },
     {
       "stage": "identity",
-      "seconds": 4.37
+      "seconds": 6.62
     },
     {
       "stage": "pseudo",
-      "seconds": 17.07
+      "seconds": 25.77
     },
     {
       "stage": "network",
-      "seconds": 0.86
+      "seconds": 1.58
     },
     {
       "stage": "finding",
-      "seconds": 23.33
+      "seconds": 57.2
     },
     {
       "stage": "risk",
-      "seconds": 46.51
+      "seconds": 86.64
     },
     {
       "stage": "release",
-      "seconds": 0.08
+      "seconds": 0.24
     },
     {
       "stage": "report",
-      "seconds": 0.01
+      "seconds": 0.03
     },
     {
       "stage": "ui-data",
-      "seconds": 0.05
+      "seconds": 0.04
     }
   ]
 }

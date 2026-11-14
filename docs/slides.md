@@ -156,7 +156,8 @@ Among the within-custodian hypotheses, none reached the standard to be held true
 
 ## Real customer data, and how this was built
 
-- Metadata-only connectors, so content never leaves the source; key and entity registry held
+- Metadata-only mail scopes, so mail content never leaves the source (Teams and Slack text is
+  dropped in memory: no such scope); key and entity registry held
   by the customer; retention schedule, works council review, data residency; a formal privacy
   budget across every published output
 - Built spec-first with parallel agents, one work package each, tested against a synthetic
