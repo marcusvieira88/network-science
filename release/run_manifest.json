@@ -1,5 +1,5 @@
 {
-  "code_version": "e40d7f3",
+  "code_version": "95d00a8",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -66,16 +66,16 @@
     "exploratory_results": "f74a1f47dcb985c91191bd11f4a0eb7b9e74aa8f7cfe934528e6e99365522b03",
     "header_fields": "abe77c7a00f3a9f98aa0375ff3add6e1e7d4f68f643f825b08b0e6c22f1640e3",
     "header_records": "b49d34453c50a23d81d245db2c25b83a31b3ab893988578af8064b1d6f16126b",
-    "hypotheses": "e2af4910b67e9efc3a2dadab46547aad43ab92e88e8685691f128222eb977e87",
-    "hypothesis_results": "e2af4910b67e9efc3a2dadab46547aad43ab92e88e8685691f128222eb977e87",
+    "hypotheses": "50bde188cf164440ba6d272be4801d9df57c7e8fa25433fa8e2bc76562d4500e",
+    "hypothesis_results": "50bde188cf164440ba6d272be4801d9df57c7e8fa25433fa8e2bc76562d4500e",
     "messages": "a0e2a7483f3fffa60e57f77d3a2f84afc10eefea70163bcf2c1b41a2125d0864",
-    "metric_series": "dace4a99b51d9aa250eafa74f9f216561d79e0551f4649050dc70635de060771",
+    "metric_series": "28dc759b354e3445c0afc8044cce7ca5eb4e9be41e501159b881fd3c725bb226",
     "profile_results": "8b67f3751af6ae606ab42a95d00faae780ac0f827369d910aa3d20e13819fd62",
     "record_profile": "8b67f3751af6ae606ab42a95d00faae780ac0f827369d910aa3d20e13819fd62",
     "risk": "f6a9008f16643614f5b28feb3138f00376ae2134eb36c265409f774d4992f3e9",
     "risk_results": "f6a9008f16643614f5b28feb3138f00376ae2134eb36c265409f774d4992f3e9",
     "snapshots": "0ff13d6a46caa97ef95cdef217131fdb90b036129da16d3c9dbb291e3dcf9fe8",
-    "weekly_metrics": "8e41d497efb8f7c69da3a8f3c40879c821f100cba5a755bcfb964cb78821f4a2"
+    "weekly_metrics": "46566c40711c23c622eee0b2d5d878c5024b12dbd7025d1fbfc80a91b77a732f"
   },
   "counts": {
     "clean_counts": "709051e457fed5e0b2ff6017aff8d3b70f4819461360a446961da7e0740f8a6d",
@@ -86,58 +86,53 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.17,
-      "code_version": "e40d7f3"
+      "seconds": 0.18,
+      "code_version": "95d00a8"
     },
     {
       "stage": "parse",
-      "seconds": 29.43,
-      "code_version": "e40d7f3"
+      "seconds": 36.31,
+      "code_version": "95d00a8"
     },
     {
       "stage": "clean",
-      "seconds": 23.93,
-      "code_version": "e40d7f3"
+      "seconds": 26.45,
+      "code_version": "95d00a8"
     },
     {
       "stage": "identity",
-      "seconds": 4.13,
-      "code_version": "e40d7f3"
+      "seconds": 4.82,
+      "code_version": "95d00a8"
     },
     {
       "stage": "pseudo",
-      "seconds": 15.53,
-      "code_version": "e40d7f3"
+      "seconds": 15.21,
+      "code_version": "95d00a8"
     },
     {
       "stage": "network",
-      "seconds": 0.68,
-      "code_version": "e40d7f3"
+      "seconds": 0.71,
+      "code_version": "95d00a8"
     },
     {
       "stage": "finding",
-      "seconds": 21.64,
-      "code_version": "e40d7f3"
+      "seconds": 22.72,
+      "code_version": "95d00a8"
     },
     {
       "stage": "risk",
-      "seconds": 42.75,
-      "code_version": "e40d7f3"
+      "seconds": 45.34,
+      "code_version": "95d00a8"
     },
     {
       "stage": "release",
-      "seconds": 0.08,
-      "code_version": "e40d7f3"
+      "seconds": 0.11,
+      "code_version": "95d00a8"
     },
     {
       "stage": "report",
-      "seconds": 0.02,
-      "code_version": "e40d7f3"
-    },
-    {
-      "stage": "ui-data",
       "seconds": 0.03,
-      "code_version": "e40d7f3"
+      "code_version": "95d00a8"
     }
   ]
 }
