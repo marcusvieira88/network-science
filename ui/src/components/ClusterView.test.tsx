@@ -166,10 +166,12 @@ describe("ClusterView", () => {
   it("names the group whose cross-group share changed most, without a causal claim", () => {
     const onShowHypotheses = renderView();
     const line = screen.getByTestId("what-changed");
-    // G02 cross-group share: 4/7 = 57.1% in the baseline year, 3/3 = 100% in the crisis weeks.
+    // G02 cross-group share among real groups: 3/6 = 50% in the baseline year (its 1 to outside
+    // people is left out), 3/3 = 100% in the crisis weeks.
     expect(line).toHaveTextContent(
-      "the cross-group share of group G02 changed most: from 57.1% to 100% (+42.9 percentage points)",
+      "the cross-group share of group G02 changed most: from 50% to 100% (+50 percentage points)",
     );
+    expect(line).toHaveTextContent("counted between groups only; mail with outside people is left out");
     expect(line).toHaveTextContent("it does not say why they changed");
     expect(line).toHaveTextContent("The groups were fixed on the baseline year");
     expect(line).toHaveTextContent("The H2 artifact check (baseline placebo) found this drift large enough to explain H2");

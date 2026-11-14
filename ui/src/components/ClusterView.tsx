@@ -76,8 +76,8 @@ function WhatChanged({ change, driftCheck, onShowHypotheses }: WhatChangedProps)
         <>
           From the baseline year to the crisis weeks, the cross-group share of group{" "}
           <span className="text-foreground">{change.group}</span> changed most: from {formatShare(change.before)} to{" "}
-          {formatShare(change.after)} ({pointChange(change.change)}). This describes the published ties; it does not
-          say why they changed.{" "}
+          {formatShare(change.after)} ({pointChange(change.change)}), counted between groups only; mail with outside
+          people is left out. This describes the published ties; it does not say why they changed.{" "}
         </>
       )}
       The groups were fixed on the baseline year, and a grouping fits the period it was fitted on best, so cross-group
