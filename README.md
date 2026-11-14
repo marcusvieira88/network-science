@@ -39,17 +39,78 @@ of them the download; the pipeline itself takes about 2.5.
   them (A3; the corpus names them) about as many. So only aggregates are published, every group
   at least five people, leaving no person-level record to match.
 
-## Decision record
+## Architecture and data flow
+
+Data lives in zones. A path guard (`zones.py`) confines each package to the zones it may use, and
+an import-boundary test keeps everything after `pseudo` away from the identifier-side packages. The
+ingest zone is deleted at the end of every run; `risk` alone may score its guesses against it,
+emitting counts only.
 
 ```mermaid
 flowchart LR
-    R[raw archive] --> I[ingest<br/>headers, identifiers] -->|keyed HMAC| P[restricted<br/>pseudonyms only] -->|groups ≥ 5| A[release<br/>aggregates] --> U[report + UI]
+    KEY{{"key: ~/.config/enron-case/key<br/>outside the repo"}}
+    subgraph RAW["raw · git-ignored"]
+        A[("CMU archive")]
+    end
+    subgraph ING["ingest · addresses and names, purged at end of run"]
+        ingest --> clean --> identity
+    end
+    GUARD{{"privacy boundary<br/>path guard + import-boundary test"}}
+    subgraph RES["restricted · pseudonyms only, git-ignored"]
+        pseudo --> network --> finding
+        network --> risk
+        CNT[("counts<br/>per-stage counts")]
+    end
+    CHK[("checks<br/>manual merge counts")]
+    subgraph REL["release · aggregates, k ≥ 5, committed"]
+        release
+    end
+    DOCS[("docs<br/>report.md, documents")]
+    UI[("ui<br/>release.json")]
+    A --> ingest
+    identity -.-> CHK
+    identity --> GUARD --> pseudo
+    KEY -.-> pseudo
+    finding & risk --> release
+    CHK -.-> release
+    release -->|report| DOCS
+    release -->|uiexport| UI
 ```
 
-**Architecture.** Four data zones; a path guard confines each package to its zones, and an
-import-boundary test keeps everything after pseudonymization away from identifiers. Every table
-crossing a zone is validated against a written contract; the UI reads one JSON file built from
-the release only.
+From the archive to the explorer, each arrow names what crosses it. Every table crossing a zone is
+validated against a written contract.
+
+```mermaid
+flowchart TB
+    D["CMU tarball<br/>download + SHA-256 check<br/>make, scripts/run-all.sh"]
+    H["ingest: read each header<br/>stop at the first blank line<br/>Subject, body, attachments never read"]
+    C["clean: normalize, dedupe"]
+    I["identity: resolve aliases, rules N1–N5"]
+    P["pseudo: keyed HMAC<br/>p_ person, o_ org, e_ event, m_ message"]
+    N["network: weekly snapshots,<br/>Louvain groups"]
+    F["finding: H1–H25,<br/>record profile"]
+    R["risk: attackers A1–A3"]
+    K["release: suppress groups under 5"]
+    T[("release/*.csv + report.md")]
+    U["uiexport"]
+    J[("ui/public/data/release.json")]
+    V["Vite + React explorer: Overview · Metrics · Network · Clusters<br/>Hypotheses · Data quality · Privacy and risk · Limits"]
+    D -->|"archive bytes"| H
+    H -->|"header records with addresses:<br/>Date, From, To, Cc, Bcc, X-From,<br/>X-To, X-cc, X-bcc, Message-ID"| C
+    C -->|"deduplicated messages"| I
+    I -->|"entities + address map"| P
+    P -->|"pseudonymized events"| N
+    N -->|"snapshots, metrics, groups"| F
+    N -->|"snapshots"| R
+    F -->|"results"| K
+    R -->|"risk scores"| K
+    K -->|"aggregates ≥ 5"| T
+    T -->|"release tables only"| U
+    U -->|"one JSON file"| J
+    J -->|"fetched by the browser"| V
+```
+
+## Decision record
 
 | Trade-off | Gained | Paid |
 |-----------|--------|------|
