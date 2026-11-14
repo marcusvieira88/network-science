@@ -7,6 +7,7 @@ import {
   outsideExplanation,
   outsideLabel,
   outsidePeople,
+  outsideShare,
   outsideTies,
   outsideWeekCaption,
   outsideWeekShare,
@@ -53,10 +54,10 @@ describe("outsidePeople and outsideExplanation", () => {
 
   it("says in one sentence who is in the bucket and that it is not a community", () => {
     expect(outsideExplanation(25838, 5, BASELINE_2000)).toBe(
-      "25,838 people with no tie in 2000 (mostly people who first appear later) or in groups under 5 people; not a community.",
+      "25,838 people with no tie in 2000 (such as people who first appear later) or in groups under 5 people; not a community.",
     );
     expect(outsideExplanation(7, 5, null)).toBe(
-      "7 people with no tie in the baseline period (mostly people who first appear later) or in groups under 5 people; not a community.",
+      "7 people with no tie in the baseline period (such as people who first appear later) or in groups under 5 people; not a community.",
     );
   });
 });
@@ -82,6 +83,22 @@ describe("outsideWeekShare", () => {
     expect(outsideWeekShare(edges, "2001-10-22")).toBe(0);
     expect(outsideWeekShare(edges, "2001-11-05")).toBeNull();
     expect(outsideWeekShare(edges, null)).toBeNull();
+  });
+});
+
+describe("outsideShare", () => {
+  it("is one rule for any measure and any set of weeks", () => {
+    const edges = [
+      row("2000-01-03", "G01", "G02", 10, 3),
+      row("2000-01-03", "G01", "other", 30, 1),
+      row("2000-01-10", "other", "other", 60, 4),
+      row("2000-01-17", "G01", "G01", 100, 2),
+    ];
+    // n_messages in the first two weeks: 90 of 100; weight: 5 of 8.
+    const early = (week: string) => week <= "2000-01-10";
+    expect(outsideShare(edges, "n_messages", early)).toBeCloseTo(0.9, 12);
+    expect(outsideShare(edges, "weight", early)).toBeCloseTo(5 / 8, 12);
+    expect(outsideShare(edges, "weight", () => false)).toBeNull();
   });
 });
 

@@ -631,8 +631,8 @@ def outside_statement(community_groups: pl.DataFrame, k_min: int) -> str:
         )
     return (
         "The `other` row of `community_groups.csv` is not a community: it holds the "
-        f"{format_value(rows[0]['n_persons'])} people with no tie in the baseline period (in this "
-        "corpus mostly people first seen after it) plus any community of fewer than "
+        f"{format_value(rows[0]['n_persons'])} people with no tie in the baseline period (such as "
+        "people first seen after it) plus any community of fewer than "
         f"{k_min} people. Its ties are published like a group's, but the explorer does not draw "
         "it as a group: it labels these people as outside the baseline groups and states, for "
         "each week, the share of mail that involves them."

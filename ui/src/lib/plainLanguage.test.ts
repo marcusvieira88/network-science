@@ -17,19 +17,19 @@ describe("plainVerdict, hypotheses stated before any data", () => {
     expect(verdict.sentence).toBe("In-degree concentration (Gini) in the core network changed, and the change held up under every check.");
   });
 
-  it("says a supported one whose artifact check fails is explained by the data, quoting the check", () => {
+  it("says a supported one whose artifact check fails is explained by a known artifact of the data or the method, quoting the check", () => {
     const row = preregistered("H2", { supported: "yes", metric: "external_share", scope: "observed" });
     const verdict = verdictOf([row], [], [check("H2", { passes: false, note: "drift explains it" })]);
     expect(verdict.verdict).toBe("artifact");
     expect(verdict.sentence).toBe(
-      "External share in the observed network looked like a real change, but a check showed a quirk of the data explains it: drift explains it.",
+      "External share in the observed network looked like a real change, but a check showed a known artifact of the data or the method explains it: drift explains it.",
     );
   });
 
   it("says a supported one whose check could not run is not claimed", () => {
     const verdict = verdictOf([preregistered("H2", { supported: "yes" })], [], [check("H2", { passes: null })]);
     expect(verdict.verdict).toBe("weak");
-    expect(verdict.sentence).toContain("the check for quirks of the data could not run");
+    expect(verdict.sentence).toContain("the check for a known artifact could not run");
   });
 
   it("says a supported one that passes its check but is not the headline is not robust enough", () => {
@@ -83,7 +83,7 @@ describe("executiveSummary", () => {
     expect(executiveSummary(entries)).toEqual({
       answer: "None of the 5 hypotheses held up under the checks.",
       points: [
-        "1 looked real at first but is explained by a quirk of the data (H2).",
+        "1 looked real at first but is explained by a known artifact of the data or the method (H2).",
         "1 gave mixed evidence (H7).",
         "1 could not be tested with this data (H5).",
         "2 showed no reliable change.",

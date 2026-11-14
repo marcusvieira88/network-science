@@ -105,7 +105,7 @@ describe("ClusterView", () => {
   it("explains the outside bucket and gives each period's share of weight involving outside people", async () => {
     renderView();
     expect(screen.getByTestId("outside-note")).toHaveTextContent(
-      "Outside the 2000 groups: 5 people with no tie in 2000 (mostly people who first appear later) or in groups under 5 people; not a community.",
+      "Outside the 2000 groups: 5 people with no tie in 2000 (such as people who first appear later) or in groups under 5 people; not a community.",
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole("tab", { name: "Baseline year" }));
@@ -186,6 +186,21 @@ describe("ClusterView", () => {
   it("says when the drift check did not run", () => {
     renderView(edges, vi.fn(), null);
     expect(screen.getByTestId("what-changed")).toHaveTextContent("did not run in this release");
+  });
+
+  it("mentions the hatched arc only when the release has an outside bucket", () => {
+    render(
+      <ClusterView
+        groups={groups.filter((g) => g.group !== "other")}
+        edges={edges.filter((e) => e.dst_group !== "other")}
+        periods={periods}
+        minGroupSize={5}
+        driftCheck={false}
+        onShowHypotheses={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/hatched grey arc/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("outside-note")).not.toBeInTheDocument();
   });
 
   it("says when there is nothing to compare or draw", async () => {

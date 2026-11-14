@@ -20,8 +20,8 @@ describe("PlainHypotheses", () => {
     if (!list) throw new Error("no list");
     const items = within(list).getAllByRole("listitem");
     expect(items.map((item) => item.getAttribute("data-verdict"))).toEqual(["artifact", "untestable"]);
-    expect(items[0]).toHaveTextContent("H2Explained by the data");
-    expect(items[0]).toHaveTextContent("a quirk of the data explains it: drift explains it.");
+    expect(items[0]).toHaveTextContent("H2Explained by an artifact");
+    expect(items[0]).toHaveTextContent("a known artifact of the data or the method explains it: drift explains it.");
   });
 
   it("folds the hypotheses with no reliable change under one line", () => {
@@ -34,5 +34,16 @@ describe("Glossary", () => {
   it("defines every term in plain words", () => {
     render(<Glossary />);
     for (const { term } of GLOSSARY) expect(screen.getByText(term)).toBeInTheDocument();
+  });
+
+  it("says what the release supports: groups of at least the minimum size, and people outside them as no group", () => {
+    const meaning = (term: string) => GLOSSARY.find((entry) => entry.term === term)?.meaning ?? "";
+    expect(meaning("Group")).toContain("at least a minimum size");
+    expect(meaning("Group")).not.toContain("above a minimum size");
+    expect(meaning("Outside the baseline groups")).toContain("not a group");
+    // H2's artifact is the method (groups fixed on the baseline going stale), not only the data.
+    expect(meaning("Artifact check")).toContain("the method");
+    expect(meaning("Placebo")).not.toContain("picking up noise");
+    expect(meaning("Leave-one-out")).toContain("check");
   });
 });

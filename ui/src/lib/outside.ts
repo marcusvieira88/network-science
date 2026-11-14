@@ -1,13 +1,13 @@
 /**
  * How the UI names and explains the release's `other` bucket. The release keeps the label `other`
  * (contract stability); on screen it is "Outside the <baseline> groups": people with no tie in the
- * baseline period (mostly people who first appear later) plus communities under k. It is not a
+ * baseline period plus communities under k. It is not a
  * community, so it is described by its size and by how much mail involves it, never as a group.
  * Every number here comes from community_groups and community_graph.
  */
 import type { CommunityEdgeRow, CommunityGroupRow, Period } from "@/lib/data";
 import { formatNumber, formatShare } from "@/lib/format";
-import { OTHER_GROUP } from "@/lib/network";
+import { OTHER_GROUP, type TieMeasure } from "@/lib/network";
 
 /** Short form where space is tight (chord labels, tie rows). */
 export const OUTSIDE_SHORT = "outside";
@@ -45,7 +45,7 @@ export function outsideExplanation(people: number, minGroupSize: number, baselin
   const year = baselineYear(baseline);
   const period = year ?? "the baseline period";
   return (
-    `${formatNumber(people)} people with no tie in ${period} (mostly people who first appear later) ` +
+    `${formatNumber(people)} people with no tie in ${period} (such as people who first appear later) ` +
     `or in groups under ${minGroupSize} people; not a community.`
   );
 }
@@ -55,20 +55,32 @@ function touchesOutside(edge: CommunityEdgeRow): boolean {
 }
 
 /**
- * The week's `n_messages` on rows with the bucket at either end over the week's `n_messages` on
- * all rows (suppressed counts as 0); null when the week has nothing published. `n_messages` counts
- * per sender–recipient pair, so this is a share of pair counts, not of distinct messages.
+ * The one rule for the outside share: over the rows of the weeks kept, the measure on rows with
+ * the bucket at either end over the measure on all rows (suppressed counts as 0); null when
+ * nothing is published there.
  */
-export function outsideWeekShare(edges: CommunityEdgeRow[], week: string | null): number | null {
+export function outsideShare(
+  edges: CommunityEdgeRow[],
+  measure: TieMeasure,
+  keepWeek: (week: string) => boolean,
+): number | null {
   let total = 0;
   let outside = 0;
   for (const edge of edges) {
-    if (edge.week !== week) continue;
-    const count = edge.n_messages ?? 0;
-    total += count;
-    if (touchesOutside(edge)) outside += count;
+    if (!keepWeek(edge.week)) continue;
+    const value = edge[measure] ?? 0;
+    total += value;
+    if (touchesOutside(edge)) outside += value;
   }
   return total > 0 ? outside / total : null;
+}
+
+/**
+ * The Network caption's share: `n_messages` in one week. `n_messages` counts per sender–recipient
+ * pair, so this is a share of pair counts, not of distinct messages.
+ */
+export function outsideWeekShare(edges: CommunityEdgeRow[], week: string | null): number | null {
+  return outsideShare(edges, "n_messages", (candidate) => candidate === week);
 }
 
 export function outsideWeekCaption(share: number | null, baseline: Period | null): string {

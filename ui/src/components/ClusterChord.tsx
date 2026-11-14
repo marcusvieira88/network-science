@@ -82,7 +82,7 @@ function FocusText({ focus, matrix, summaries, outsideName }: FocusTextProps) {
   if (focus.source === focus.target) {
     return (
       <>
-        <span className="font-semibold text-foreground">{a === OUTSIDE_SHORT ? `Among people ${outsideName.toLowerCase()}` : `Within group ${a}`}</span> · weight {formatNumber(ab)}
+        <span className="font-semibold text-foreground">{matrix.groups[focus.source] === OTHER_GROUP ? `Among people ${outsideName.toLowerCase()}` : `Within group ${a}`}</span> · weight {formatNumber(ab)}
       </>
     );
   }

@@ -380,7 +380,7 @@ def test_outside_statement_says_what_the_other_bucket_is_and_its_size() -> None:
     text = render.outside_statement(groups, k_min=5)
     assert text == (
         "The `other` row of `community_groups.csv` is not a community: it holds the 25838 people "
-        "with no tie in the baseline period (in this corpus mostly people first seen after it) "
+        "with no tie in the baseline period (such as people first seen after it) "
         "plus any community of fewer than 5 people. Its ties are published like a group's, but "
         "the explorer does not draw it as a group: it labels these people as outside the "
         "baseline groups and states, for each week, the share of mail that involves them."

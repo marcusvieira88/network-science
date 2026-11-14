@@ -153,15 +153,13 @@ describe("groupSummaries", () => {
 describe("outsideWeightShare", () => {
   it("is the period's weight with the outside bucket at either end over all its weight", () => {
     // Baseline: 4 + 2 + 1 + 3 (named) + 1 (G02 -> other; other -> G02 suppressed) = 11.
-    expect(outsideWeightShare(clusterMatrix(groups, edges, periods.baseline))).toBeCloseTo(1 / 11, 12);
-    expect(outsideWeightShare(clusterMatrix(groups, edges, periods.crisis))).toBe(0);
-    expect(outsideWeightShare(clusterMatrix(groups, [edge("2000-01-03", "other", "other", 2)], null))).toBe(1);
+    expect(outsideWeightShare(edges, periods.baseline)).toBeCloseTo(1 / 11, 12);
+    expect(outsideWeightShare(edges, periods.crisis)).toBe(0);
+    expect(outsideWeightShare([edge("2000-01-03", "other", "other", 2)], null)).toBe(1);
   });
 
-  it("is null for a period without weight or a release without the bucket", () => {
-    expect(outsideWeightShare(clusterMatrix(groups, [], null))).toBeNull();
-    const named = groups.filter((g) => g.group !== "other");
-    expect(outsideWeightShare(clusterMatrix(named, [edge("2000-01-03", "G01", "G02", 1)], null))).toBeNull();
+  it("is null for a period without weight", () => {
+    expect(outsideWeightShare([], null)).toBeNull();
   });
 });
 

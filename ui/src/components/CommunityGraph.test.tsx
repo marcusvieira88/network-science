@@ -197,7 +197,7 @@ describe("CommunityGraph without WebGL (2D fallback)", () => {
       "70% of this week's mail (counted per sender–recipient pair) involves people outside the 2000 groups.",
     );
     expect(screen.getByTestId("outside-caption")).toHaveTextContent(
-      "Outside the 2000 groups: 25,838 people with no tie in 2000 (mostly people who first appear later) or in groups under 5 people; not a community.",
+      "Outside the 2000 groups: 25,838 people with no tie in 2000 (such as people who first appear later) or in groups under 5 people; not a community.",
     );
     // The week sentence names a link between real groups only.
     expect(screen.getByTestId("week-summary")).toHaveTextContent("the busiest link between groups was G01 ↔ G02 (weight 5.5); 1 pair");

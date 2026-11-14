@@ -35,7 +35,45 @@ describe("Overview", () => {
     // handBuilt: H1 is the headline and H16 is confident; the other 22 show no reliable change.
     expect(screen.getByText("2 of 24 hypotheses held up: H1, H16.")).toBeInTheDocument();
     expect(screen.getByText("22 showed no reliable change.")).toBeInTheDocument();
-    expect(screen.getByText(/cuts the strongest attacker's re-identification rate from/)).toBeInTheDocument();
+    expect(screen.getByText(/re-identifies .* of people/)).toBeInTheDocument();
+  });
+
+  it("states both rates without the by-construction wording when the published rate is not 0", () => {
+    const data = dataWith();
+    const template = data.tables.risk[0];
+    if (!template) throw new Error("sample has no risk row");
+    const risk = [
+      { ...template, release_variant: "R0" as const, attacker: "A2" as const, reid_top1: 0.5 },
+      { ...template, release_variant: "R1" as const, attacker: "A2" as const, reid_top1: 0.04 },
+    ];
+    render(<Overview data={{ ...data, tables: { ...data.tables, risk } }} />);
+    expect(
+      screen.getByText(
+        "On person-level pseudonymised data the strongest attack re-identifies 50% of people; on the published " +
+          "release, 4%.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("strongest attacker, person-level data vs published")).toBeInTheDocument();
+  });
+
+  it("says the published 0% re-identification holds by construction, not as a measured attack", () => {
+    const data = dataWith();
+    const template = data.tables.risk[0];
+    if (!template) throw new Error("sample has no risk row");
+    const risk = [
+      { ...template, release_variant: "R0" as const, attacker: "A1" as const, reid_top1: 0.2513 },
+      { ...template, release_variant: "R0" as const, attacker: "A2" as const, reid_top1: 0.5910745371103022 },
+      { ...template, release_variant: "R1" as const, attacker: "A2" as const, reid_top1: 0 },
+    ];
+    render(<Overview data={{ ...data, tables: { ...data.tables, risk } }} />);
+    expect(
+      screen.getByText(
+        "On person-level pseudonymised data the strongest attack re-identifies 59.1% of people. The published " +
+          "release holds only groups of at least 5 people, so that attack has no person to match there (0%, by " +
+          "construction); no attack on the group tables was run.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("strongest attacker; the published tables hold no person to match")).toBeInTheDocument();
   });
 
   it("counts only real groups in the key numbers and names the outside bucket's size apart", () => {

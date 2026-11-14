@@ -25,6 +25,13 @@ function groupsNote(data: ReleaseData): string {
   return `${note}; ${formatNumber(outside)} more people are ${outsideLabel(baselinePeriod(data)).toLowerCase()}`;
 }
 
+/** The published rate is 0 by construction (no person-level record to match), never measured. */
+function reidNote(published: number | null): string {
+  return published === 0
+    ? "strongest attacker; the published tables hold no person to match"
+    : "strongest attacker, person-level data vs published";
+}
+
 export function keyNumbers(data: ReleaseData): KeyNumber[] {
   const steps = data.tables.data_quality;
   const dedupe = steps.find((row) => row.step.toLowerCase().includes("dedup"));
@@ -47,7 +54,7 @@ export function keyNumbers(data: ReleaseData): KeyNumber[] {
     {
       label: "Re-identification, naive vs published",
       value: `${formatShare(worstReid(data, "R0"))} → ${formatShare(worstReid(data, "R1"))}`,
-      note: "strongest attacker, R0 vs R1",
+      note: reidNote(worstReid(data, "R1")),
     },
   ];
 }

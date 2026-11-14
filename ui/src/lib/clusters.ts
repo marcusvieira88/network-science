@@ -5,6 +5,7 @@
  */
 import { type ArtifactCheckRow, type CommunityEdgeRow, type CommunityGroupRow, DataError, type Period } from "@/lib/data";
 import { OTHER_GROUP, compareGroups } from "@/lib/network";
+import { outsideShare } from "@/lib/outside";
 
 export const PERIOD_OPTIONS = [
   { id: "baseline", label: "Baseline year" },
@@ -133,22 +134,9 @@ export function groupSummaries(matrix: ClusterMatrix): GroupSummary[] {
   });
 }
 
-/**
- * The period's weight with the outside bucket at either end over all its weight (each directed
- * cell once); null when the period has no weight or the release has no bucket.
- */
-export function outsideWeightShare(matrix: ClusterMatrix): number | null {
-  const outside = matrix.groups.indexOf(OTHER_GROUP);
-  if (outside < 0) return null;
-  let total = 0;
-  let involving = 0;
-  matrix.directed.forEach((row, i) =>
-    row.forEach((weight, j) => {
-      total += weight;
-      if (i === outside || j === outside) involving += weight;
-    }),
-  );
-  return total > 0 ? involving / total : null;
+/** The period's weight with the outside bucket at either end over all its weight (lib/outside.ts). */
+export function outsideWeightShare(edges: CommunityEdgeRow[], range: Period | null): number | null {
+  return outsideShare(edges, "weight", (week) => weekInPeriod(week, range));
 }
 
 export interface ShareChange {

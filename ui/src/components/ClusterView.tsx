@@ -110,7 +110,7 @@ export function ClusterView({ groups, edges, periods, minGroupSize, driftCheck, 
   );
   const hasWeight = summaries.some((summary) => summary.total > 0);
   const outside = outsidePeople(groups);
-  const outsideShare = outsideWeightShare(matrix);
+  const outsideShare = outsideWeightShare(edges, range);
   const outsideName = outsideLabel(periods.baseline);
 
   return (
@@ -155,7 +155,7 @@ export function ClusterView({ groups, edges, periods, minGroupSize, driftCheck, 
             <p className="mt-2 text-xs text-muted-foreground">
               Arc length is a group's total weight in the period (within the group, sent and received). A ribbon is the
               weight between two groups, both directions summed; a ribbon that returns to its own arc is weight within
-              the group. The hatched grey arc is people outside the groups, not a group.
+              the group.{outside !== null && " The hatched grey arc is people outside the groups, not a group."}
             </p>
           </div>
           <div>
