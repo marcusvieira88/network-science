@@ -1,5 +1,5 @@
 # Data never leaves this machine: raw corpus, ingest zone, restricted zone.
-data/
+/data/
 release-sample/
 tests/fixtures/
 

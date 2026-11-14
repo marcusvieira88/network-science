@@ -62,7 +62,18 @@ class RunManifest:
         """Fingerprints that must match across runs with the same inputs and key."""
         return dict(sorted({**self.tables, **self.counts}.items()))
 
-    def write(self, path: Path) -> None:
+    def write(self, path: Path, merge: bool = False) -> None:
+        """Write the manifest. With `merge`, a partial run updates an existing manifest:
+        fingerprints of the tables it rewrote and the timings of the stages it ran."""
+        if merge and path.exists():
+            previous = read_manifest(path)
+            self.tables = {**previous.get("tables", {}), **self.tables}
+            self.counts = {**previous.get("counts", {}), **self.counts}
+            ran = {s["stage"] for s in self.stages}
+            kept = [s for s in previous.get("stages", []) if s["stage"] not in ran]
+            self.stages = kept + self.stages
+            self.key_fingerprint = self.key_fingerprint or previous.get("key_fingerprint")
+            self.corpus_sha256 = self.corpus_sha256 or previous.get("corpus_sha256")
         payload = {
             "written_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "code_version": self.code_version,

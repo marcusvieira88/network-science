@@ -50,4 +50,4 @@ ui-sample:
 	@cd ui && npm ci && npm run build && npm run preview
 
 ui-gate:
-	@cd ui && npm ci && npm run lint && npm run typecheck && npm test && node scripts/check-build.mjs
+	@cd ui && npm ci && npm run lint && npm run typecheck && npm test && npm run build && node scripts/check-build.mjs

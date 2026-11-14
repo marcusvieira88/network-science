@@ -156,7 +156,9 @@ def run_pipeline(
     finally:
         if not keep_ingest:
             zones.purge_ingest(paths)
-    manifest.write(zones.path_for(paths, "cli", Zone.RELEASE, "run_manifest.json", "w"))
+    full_run = bool(stages) and stages[0].name in {"fetch", "parse"}
+    target = zones.path_for(paths, "cli", Zone.RELEASE, "run_manifest.json", "w")
+    manifest.write(target, merge=not full_run)
     return RunResult(manifest, ran, skipped)
 
 
