@@ -25,18 +25,24 @@ both is drawn under [Release and explorer](#release-and-explorer).
 
 ```mermaid
 flowchart LR
+    subgraph SAAS["customer SaaS tenant"]
+        MAIL["Gmail, Outlook<br/>metadata-only scopes"]
+        CHAT["Teams, Slack<br/>APIs return text"]
+    end
     subgraph CUST["customer account"]
         HK{{"KMS HMAC key<br/>GenerateMac only"}}
     end
     subgraph TEN["tenant workload account · one per tenant, residency region"]
+        WH["API Gateway webhook receiver<br/>signature check, IDs to SQS"]
+        SM{{"Secrets Manager<br/>OAuth tokens, tenant KMS key"}}
         subgraph IDV["identifier VPC · private subnets, no NAT"]
             SFN["Step Functions<br/>stage order, retries, purge"]
-            T1["Fargate task: identifier<br/>fetch, parse, clean,<br/>identity, pseudo"]
+            T1["Fargate task: identifier<br/>connectors or fetch, parse,<br/>clean, identity, pseudo"]
             T2["Fargate task: restricted<br/>network, finding, risk"]
             T3["Fargate task: release<br/>release, report, ui-data"]
-            EP["VPC endpoints<br/>S3, KMS, ECR, Logs, STS"]
+            EP["VPC endpoints<br/>S3, KMS, ECR, Logs, STS,<br/>Secrets Manager, SQS"]
         end
-        FW["fetch subnet<br/>Network Firewall allowlist:<br/>corpus host only"]
+        FW["egress subnet<br/>Network Firewall allowlist:<br/>corpus host or provider API hosts"]
         RAW[("raw bucket")]
         ING[("ingest bucket<br/>no versioning, 1-day expiry")]
         RES[("restricted bucket<br/>incl. counts prefix")]
@@ -48,6 +54,11 @@ flowchart LR
         COG["Cognito or customer IdP"]
     end
     USER["viewer"]
+    MAIL -->|"headers only,<br/>scope-enforced"| FW
+    CHAT -->|"text dropped<br/>in memory"| FW
+    SAAS -. "webhooks" .-> WH
+    WH -.-> T1
+    SM -.-> T1
     SFN --> T1 --> T2 --> T3
     T1 -.-> FW
     T1 --> RAW
@@ -70,8 +81,9 @@ ingest bucket (see [below](#two-designs-for-the-ingest-zone)). Three AWS account
 - **Customer account** holds the HMAC key. We are granted `kms:GenerateMac` on it, nothing
   else, and the customer can revoke that grant at any time.
 - **Tenant workload account** holds raw, ingest and restricted data and runs the pipeline. It
-  has no public endpoint and no route to the internet. The one exception is the fetch subnet,
-  which can reach the corpus host only.
+  has no route to the internet except the egress subnet, which reaches only the corpus host or,
+  with customer data, the provider API hosts. Its one public endpoint is the webhook receiver
+  (see [Connectors](#connectors)).
 - **Serving account** holds the release and the explorer. It has no IAM path back to raw,
   ingest or restricted. The release task writes into it through a bucket policy that allows
   `s3:PutObject` from that one role.
@@ -147,6 +159,46 @@ test should fail when the deployed policies and `ALLOWED` disagree.
   this subnet is replaced by metadata-only connectors (technical overview, "Toward real customer
   data"), each with an allowlist for its API host.
 - Security groups allow no inbound traffic, because no task serves anything.
+
+### Connectors
+
+With customer data the fetch stage is replaced by connectors to Gmail / Google Workspace,
+Microsoft 365 (Outlook), Microsoft Teams and Slack (README, "Next steps", step 1). Each is an
+ingest-side package inside the identifier task, so addresses and names stay behind the
+pseudonymization boundary.
+
+| Source | API and scope | Content guarantee |
+|---|---|---|
+| Gmail / Google Workspace | Gmail API, `https://www.googleapis.com/auth/gmail.metadata` (restricted scope, domain-wide delegation) | Headers only, enforced by Google: the scope cannot return bodies or attachments |
+| Microsoft 365 (Outlook) | Microsoft Graph, application permission `Mail.ReadBasic.All` (admin consent); Graph Data Connect for bulk export | Headers only, enforced by Microsoft: the permission excludes `body`, `previewBody`, attachments and extended properties |
+| Microsoft Teams | Microsoft Graph channel and chat message APIs | No metadata-only permission exists. The connector keeps sender, recipients or channel, time and thread IDs and drops the text in memory before anything is written |
+| Slack | Slack Web API (`conversations.history`, `conversations.replies`) and Events API | As Teams: text dropped in memory, including the text inside event payloads |
+
+Both mail scopes still return `Subject`; the header allowlist discards it, as today. For Teams and
+Slack the guarantee rests on our code, not on the provider, and the privacy canary is extended
+to feed messages with known text through the connector and fail if any of it is written.
+
+- **Egress.** Connectors reach the provider API hosts only (for example `gmail.googleapis.com`,
+  `oauth2.googleapis.com`, `graph.microsoft.com`, `login.microsoftonline.com`, `slack.com`),
+  through the egress subnet's Network Firewall domain allowlist behind a NAT gateway. No other
+  subnet gets a route out.
+- **Tokens.** OAuth client secrets and refresh tokens live in Secrets Manager, encrypted with
+  the tenant's KMS key and read through an interface endpoint by the identifier task role only.
+  Each tenant grants the narrowest scope through admin consent and can revoke it at any time.
+- **Incremental sync.** Webhooks only say that something changed; the connector then fetches the
+  delta with the same scopes. Gmail push arrives through Google Cloud Pub/Sub (`users.watch`,
+  then `users.history.list`); Microsoft Graph sends change notifications (subscriptions and
+  delta queries); Slack sends Events API callbacks. The receivers sit behind API Gateway, with
+  WAF, in the tenant workload account. A Lambda authorizer verifies each request before it is
+  accepted: the OIDC token Pub/Sub attaches to push requests, the Graph validation handshake and
+  `clientState` secret, and Slack's `X-Slack-Signature` HMAC with the request timestamp to block
+  replays. The receiver forwards only resource IDs to an SQS queue; it drops any message text
+  (Slack events carry it) in memory and logs counts only.
+- **Rate limits.** Each provider throttles (HTTP 429 with `Retry-After`; Gmail and Graph also
+  per-user and per-tenant quotas). Connectors honour `Retry-After`, otherwise back off
+  exponentially with jitter seeded from `config.py`, and resume from the last stored history ID
+  or delta token, so a throttled run continues rather than restarts. Throttle and retry counts go
+  to the telemetry described [below](#monitoring-and-observability).
 
 ## The HMAC key
 

@@ -183,10 +183,13 @@ In order; each step is a gate for the next. Details: [technical overview](docs/t
 
 ```mermaid
 flowchart LR
+    MAIL["Gmail, Outlook"] -->|"headers only,<br/>scope-enforced"| CON
+    CHAT["Teams, Slack"] -->|"text dropped<br/>in memory"| CON
     CI["GitHub Actions<br/>make gate, OIDC"] -->|signed image| SFN
     KMS{{"customer KMS<br/>HMAC key"}} -.-> SFN
-    subgraph W["tenant account · private VPC, no egress"]
-        SFN["Step Functions + Fargate<br/>pipeline: Polars"] --> REL[("release Parquet<br/>KMS key per zone")]
+    subgraph W["tenant account · private VPC, egress to provider APIs only"]
+        SM{{"Secrets Manager<br/>OAuth tokens, KMS"}} -.-> CON["connectors"]
+        CON --> SFN["Step Functions + Fargate<br/>pipeline: Polars"] --> REL[("release Parquet<br/>KMS key per zone")]
     end
     subgraph SV["serving account"]
         CF["CloudFront + WAF<br/>static UI, CSP"] -->|"/api, JWT"| API["API Gateway<br/>rate limit, roles"] --> Q["query service<br/>DuckDB, k ≥ 5, budget"]
