@@ -40,4 +40,3 @@ export function FocusSummary({ graph, focusKey, people, overlaps }: SummaryProps
     </div>
   );
 }
-

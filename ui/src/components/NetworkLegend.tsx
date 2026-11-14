@@ -62,4 +62,3 @@ export function NetworkLegend({ groups, maxTie, mode }: LegendProps) {
     </div>
   );
 }
-
