@@ -132,8 +132,9 @@ Skills used ([`.claude/skills/`](.claude/skills/); detail in
 [`docs/ai-workflow.md`](docs/ai-workflow.md)):
 
 - **Spec Kit (SDD):** `speckit-constitution` (seven principles), `speckit-specify` (five user
-  stories), `speckit-plan` (zones, contracts), `speckit-tasks` (about a hundred tasks),
-  `speckit-implement` (lead plus ten agents). Planned, not run: `speckit-converge`.
+  stories), `speckit-plan` (zones, contracts), `speckit-tasks` (about a hundred tasks).
+  Implementation ran from `tasks.md` through agent briefs (lead plus ten agents), not the
+  `speckit-implement` skill. Planned, not run: `speckit-converge`.
 - **Review skills (custom, written for this project):** `data-privacy-review` (caught
   differencing below the minimum group size), `code-quality-review` (strict typing of tests, no
   `Any`), `data-scientist-review` (showed H16 to be a retention artifact).
