@@ -153,14 +153,17 @@ true; neither can make one confident.
   messages in both windows are subsampled to the smaller window's count, the measure is
   recomputed and the paired test rerun. It is reported next to the outcome, not part of the
   rule. Because it is run only for the hypotheses that survived, its p has no Holm rank of its
-  own: `equalised_p_holm` multiplies it by the family size (21 since E21 joined it; 20 before) and caps it at 1, which is Holm's
+  own: `equalised_p_holm` multiplies it by the family size (20; 21 since H25 was added) and caps
+  it at 1, which is Holm's
   multiplier for the family's smallest p and conservative at every other rank. Read the
   equalised result against `equalised_p_holm`, not the unadjusted `equalised_p`.
 - **Retention check** (2703cba, after the data-science review, run with the
   `/data-scientist-review` skill). Inbox retention differs by person and period, so a contact's
   message can be missing because the custodian's inbox lost it. E12 is recomputed counting only
-  contacts who are themselves custodians, whose messages survive in their own sent folders
-  whatever the receiving inbox kept; crisis against reference with the same placebo. It passes
+  contacts who are themselves custodians, whose messages can survive in their own sent folders
+  as well as in the receiving inbox, so the measure depends less on what one inbox kept (it is
+  not independent of retention: the sender's own sent-folder retention still moves it; wording
+  corrected in the pre-delivery review); crisis against reference with the same placebo. It passes
   only if the crisis interval lies on the hypothesised side over at least k custodians and the
   placebo passes; a hypothesis that fails it is at most inconclusive. E12 fails it: among
   custodian-to-custodian contacts the change is not established, and the same subset rises
@@ -169,6 +172,13 @@ true; neither can make one confident.
   them was held true (in the last committed real run E16 is inconclusive and the others are not
   supported), and a failed check can only cap an outcome at inconclusive, so it could not change
   theirs. A future run in which one of them is held true needs its own retention check first.
+
+- **Timestamp caveat on E2 (= H6)** (pre-delivery review, after every result, so post hoc). The
+  hour convention of `Date` changes between the reference and crisis windows (see the record
+  profile below). A shift of several hours moves messages across midnight, so the weekend share
+  crosses the same change as E1. E2 now carries a caveat that blocks a confident outcome, as E1's
+  does. It changes no outcome: E2 is not supported. E1's caveat no longer says which year is
+  shifted, since that is not established.
 
 E12 measures whether a contact sent the custodian anything in the same window, not whether they
 replied: headers carry no thread.
@@ -196,7 +206,10 @@ observed or core network moves with how much mail was kept, so it cannot be read
 - **Multiple testing**: Holm's correction runs across E1–E21 (H5–H25, twenty-one hypotheses), so
   adding E21 makes every hypothesis harder to pass, not easier.
 - **Retention check**: the same measure counting only the custodians this custodian *sent* to,
-  which no inbox can move. It must pass as the E12 check does (crisis interval on the
+  which no inbox can move. *(Corrected in the pre-delivery review, after the result: a message
+  to another custodian can also survive only in that custodian's inbox, and the sender's own
+  sent-folder retention moves it, so the measure depends less on inbox retention, not on none.
+  The rule is unchanged.)* It must pass as the E12 check does (crisis interval on the
   hypothesised side over at least k custodians, and the placebo passes), or E21 is at most
   inconclusive.
 - **Volume equalisation** is reported next to it, as for the others.
@@ -210,18 +223,18 @@ observed or core network moves with how much mail was kept, so it cannot be read
 
 ## E21 result (written after it was computed)
 
-E21 (H25) is **not supported**: median within-custodian change +0.008 (interval 0 to 0.033) over
-31 custodians, Holm-adjusted p 0.24 across the twenty-one, and the pre-crisis placebo shows a
-change of the same size (+0.025, 13 custodians). Its retention check did not run, because the
-outcome was not supported (a check can only cap an outcome). The published densification is not
-visible when each custodian is compared with themselves a year earlier. Numbers:
-`release/exploratory.csv`, row H25; the figures here are typed by hand from the committed run
-(checked against the release on 2026-11-14), and the release table is authoritative after any
-rerun.
+E21 (H25) is **not supported**: the median within-custodian change is small, its interval touches
+zero, its Holm-adjusted p across the twenty-one is above 0.05, and the pre-crisis placebo shows a
+change at least as large. Its retention check did not run, because the outcome was not supported
+(a check can only cap an outcome). The published densification is not established when each
+custodian is compared with themselves a year earlier. The numbers are not repeated here, so they
+cannot go stale: `release/exploratory.csv`, row H25, and the report's H5–H25 table, both
+generated by the pipeline. *(Numbers typed here by hand earlier were replaced by this pointer in
+the pre-delivery review.)*
 
 The record profile stated as a known threat above is published as `release/record_profile.csv`
 and summarised in the report ("What changed in the record during the crisis year"): the
-after-hours share of the custodians' weekday sent mail lies between about 0.43 and 0.54 in the
-reference months and between 0.04 and 0.06 in the crisis months, and from May 2001 on every month
-lies below every earlier month. The placebo windows (January–April 2000 and 2001) both lie
+after-hours share of the custodians' weekday sent mail lies far lower in every crisis month than
+in any reference month, and falls step by step from late spring to late summer 2001. The placebo
+windows (January–April 2000 and 2001) both lie
 before that change, so a passing placebo cannot clear any H5–H25 result of it.

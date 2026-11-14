@@ -353,7 +353,7 @@ def exploratory_statement(exploratory: pl.DataFrame) -> str:
                 f"{format_value(r['retention_median'])} (interval "
                 f"{format_value(r['retention_ci_low'])} to "
                 f"{format_value(r['retention_ci_high'])}). "
-                "It is not established once how much inbox mail was kept is held fixed."
+                "It is not established on a measure that depends less on what one inbox kept."
                 for r in exploratory.filter(
                     pl.col("retention_passes").eq(False)
                     & pl.col("placebo_passes").eq(True)
@@ -608,7 +608,8 @@ def n2_limit(data_quality: pl.DataFrame) -> str:
         return f"{risk}; no manual check of merges was run."
     row = manual[0]
     text = (
-        f"{risk}; a manual check of {format_value(row['count_in'])} sampled real merges found "
+        f"{risk}; a manual check of {format_value(row['count_in'])} real merges, sampled from "
+        f"the merges of every rule, found "
         f"{format_value(row['removed'])} wrong merges (precision {format_value(row['precision'])}, "
         f"exact binomial interval {format_value(row['precision_ci_low'])} to "
         f"{format_value(row['precision_ci_high'])})"
@@ -619,6 +620,8 @@ def n2_limit(data_quality: pl.DataFrame) -> str:
             f"; rule N2 accounts for {format_value(n2[0]['count_in'])} of the sampled merges "
             f"and {format_value(n2[0]['removed'])} of the wrong ones"
         )
+    else:
+        text += "; how many were N2 merges is not in the committed check"
     return text + "."
 
 

@@ -94,8 +94,9 @@ trade a person's message for a list's or an outsider's; the network is built fro
 internal persons, so in-weight *from persons* was not preserved. The stratum now also holds the
 sender's type and internal flag. (2) Each null replicate's effect was taken at the observed
 change week, while the observed effect is the maximum over candidate weeks; each replicate now
-searches its own change week with the same CUSUM. Both changes can only lower `null_z`. They
-change no published outcome: no hypothesis among H1–H4 is held true either way. With the
+searches its own change week with the same CUSUM. Both changes make the null harder to beat
+(they are expected to lower `null_z`, though the null's standard deviation also changes, so not
+guaranteed to). They change no published outcome: no hypothesis among H1–H4 is held true either way. With the
 corrected null, H3's `null_z` moves from −4.7 to +2.0, so H3 now also fails the null-model check
 (its change is reproduced by rewiring with the same volumes); H2's stays far above the threshold
 and is explained by its artifact check instead.
@@ -163,6 +164,13 @@ from two known artifacts:
   30 (`config.min_unit_events`) sent events in both periods, of the change in each custodian's own external share between
   the baseline and the period after the change point. Passes only if its bootstrap interval lies
   below zero (the hypothesised direction).
+
+*Coverage (noted in the pre-delivery review, post hoc).* `cross_community_share` leaves out
+every tie touching a person with no tie in 2000 (community −1). Their share grows through 2001:
+in the crisis weeks about two-thirds of the messages in the published group graph
+(`release/community_graph.csv`, group `other`) touch them. H2 therefore measures crossings among
+people already active in 2000, a shrinking part of the mail; this is one more reason it is not a
+finding, and any group-level reading of 2001 describes that part only.
 
 A failed check caps the hypothesis at **low** confidence, so it cannot be the headline. A check
 that could not run (for example `within_custodian` without a change point) caps it too, because

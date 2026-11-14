@@ -45,8 +45,8 @@ injected from release tables; none is typed.
   k = 5. On the aggregate release (R1) the shares fall to 0,
   0 and 0. With no finding claimed, there is no effect whose loss to measure.
 
-**Finding.** The change in the crisis year that the headers establish is in the record, not
-in behaviour. The share of weekday sent mail stamped outside working hours is between 0.426 and 0.538 in the reference months and between 0.0399 and 0.0643 in the crisis months; the `Date` convention changed in between from 2001-05-01, within the same people (H5: median change -0.44, interval -0.512 to -0.372). Every within-custodian comparison crosses that change; confidence that it happened: high, its cause not established.
+**Finding.** The change in the crisis year that the headers establish is in the record; no
+change in behaviour is established. The share of weekday sent mail stamped outside working hours is between 0.426 and 0.538 in the reference months and between 0.0399 and 0.0643 in the crisis months; the `Date` convention changed in between from 2001-05-01, within the same people (H5: median change -0.44, interval -0.512 to -0.372). Every within-custodian comparison crosses that change; confidence that it happened: high, its cause not established.
 
 **Behaviour.** No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report. H25, the post-hoc replication test of the denser network that Diesner, Frantz and Carley describe, compares each custodian's share of the other custodians they exchanged mail with: a median change of 0.00826 (interval 0 to 0.0331, Holm-adjusted p = 0.239, 31 custodians); outcome: not supported. Details: the report.
 

@@ -418,7 +418,10 @@ def test_n2_limit_reports_the_manual_check_from_data_quality(synth: SynthOutput)
     )
     quality = pl.concat([synth.table("data_quality"), manual])
     text = " ".join(render.limits(quality, synth.table("community_groups"), 5))
-    assert "a manual check of 50 sampled real merges found 1 wrong merges" in text
+    assert (
+        "a manual check of 50 real merges, sampled from the merges of every rule, found 1 wrong"
+        in text
+    )
     assert "precision 0.98, exact binomial interval 0.894 to 1" in text
     assert "rule N2 accounts for 12 of the sampled merges and 1 of the wrong ones" in text
 
@@ -493,3 +496,33 @@ def test_only_a_row_that_met_its_rule_is_called_so() -> None:
     # An interval spanning zero shows the change is not established, not that retention
     # explains it.
     assert "largely explained" not in text
+
+
+def test_retention_sentence_does_not_claim_retention_is_held_fixed() -> None:
+    table = pl.DataFrame([_retention_row("H16", True, True)])
+    text = render.exploratory_statement(table)
+    assert "held fixed" not in text
+    assert "depends less on what one inbox kept" in text
+
+
+def test_n2_limit_without_a_per_rule_count_says_the_rule_mix_is_not_recorded(
+    synth: SynthOutput,
+) -> None:
+    manual = pl.DataFrame(
+        {
+            "order": [4],
+            "step": ["manual merge check"],
+            "count_in": [50],
+            "count_out": [50],
+            "removed": [0],
+            "rule": ["seeded sample, judged by a person"],
+            "precision": [1.0],
+            "recall": [None],
+            "precision_ci_low": [0.929],
+            "precision_ci_high": [1.0],
+        },
+        schema=synth.table("data_quality").schema,
+    )
+    text = " ".join(render.limits(pl.concat([synth.table("data_quality"), manual])))
+    assert "sampled from the merges of every rule" in text
+    assert "how many were N2 merges is not in the committed check" in text

@@ -145,3 +145,8 @@ def test_switch_month_must_leave_the_whole_earlier_range() -> None:
         }
     )
     assert "From 2001-05-01 on" in record.record_statement(profile, _h5(-0.44))
+
+
+def test_record_statement_names_h1_to_h4_as_crossing_the_change_too() -> None:
+    text = record.record_statement(_profile(SWITCHED), _h5(-0.44))
+    assert "H1–H4 compare the weeks after their change week with the baseline year" in text

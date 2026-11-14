@@ -281,8 +281,9 @@ def _reciprocity(tables: Tables, window: Window) -> pl.DataFrame:
 
 def _reciprocity_between_custodians(tables: Tables, window: Window) -> pl.DataFrame:
     """Reciprocity counting only contacts who are themselves custodians. Their mail is collected
-    from both sides (a message from one survives in their own sent folder even if the other
-    custodian's inbox lost it), so how much inbox mail was kept cannot move this measure. `n` is the
+    from both sides (a message from one can survive in their own sent folder even if the other
+    custodian's inbox lost it), so it depends less on how much inbox mail was kept; the
+    sender's own retention still moves it. `n` is the
     smaller of the custodian's sent and received counts, so both must meet the minimum."""
     sent = _in(tables.sent, window)
     received = _in(tables.received, window)
@@ -348,13 +349,14 @@ def _core_ego_density(tables: Tables, window: Window) -> pl.DataFrame:
 
 
 def _core_out_density(tables: Tables, window: Window) -> pl.DataFrame:
-    """H25's retention measure: only the custodians written to, which no inbox can move."""
+    """H25's retention measure: only the custodians written to, which depends less on what the
+    custodian's inbox kept."""
     return _core_density(tables, window, received=False)
 
 
 @dataclass(frozen=True)
 class RetentionRule:
-    """A measure that inbox retention cannot move, and the caveat recorded when it fails."""
+    """A measure that inbox retention moves less, and the caveat recorded when it fails."""
 
     measure: Measure
     caveat: str
@@ -592,7 +594,7 @@ class RetentionCheck:
 def retention_check(
     tables: Tables, direction: int, measure: Measure, config: Config, order: int
 ) -> RetentionCheck:
-    """The hypothesis recomputed on a measure that inbox retention cannot move. Passes only if
+    """The hypothesis recomputed on a measure that inbox retention moves less. Passes only if
     the crisis change is on the hypothesised side over at least k custodians and the same
     subset shows no comparable pre-crisis change."""
     minimum = config.exploratory_min_messages

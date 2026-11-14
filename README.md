@@ -24,16 +24,17 @@ of them the download; the pipeline itself takes about 2.5.
   read; only `Date` and the address fields are used, and addresses never leave the ingest zone.
 - **Data quality:** about 517,000 files, half of them duplicate copies, give about 250,000
   messages; about 85,400 addresses resolve to about 84,800 entities.
-- **Finding:** what changed in the crisis year is the *record*, not measurable behaviour. For
-  the same custodians, the share of weekday sent mail stamped outside working hours drops from
-  about half to a few percent between spring and late summer 2001, and the received mail kept
-  per month grows up to several-fold: the `Date` convention changed (most likely the mail system)
-  right between the windows every comparison sets against each other. Confidence: high that the
-  record changed; its cause is not established.
+- **Finding:** what the headers establish for the crisis year is a change in the *record*; no
+  change in behaviour is established. For the same custodians, the share of weekday sent mail
+  stamped outside working hours falls from about half to a few percent, step by step from May
+  to August 2001, and the received mail kept per month rises to up to about three times the
+  reference months: the `Date` convention changed (most likely the mail system) between the
+  windows every comparison sets against each other. Confidence: high that the record changed;
+  its cause is not established.
 - **Behaviour:** no hypothesis among H1–H25 is held true. H2/H3 passed their tests but are
-  artifacts (stale baseline groups; a changing mailbox mix); H16 fails its retention check; H25,
-  a post-hoc replication of the published "denser network in the crisis", finds no change within
-  custodians.
+  explained by artifacts (stale baseline groups; a changing mailbox mix); H16 fails its retention
+  check; H25, a post-hoc replication of the published "denser network in the crisis", does not
+  establish it within custodians.
 - **Risk:** person-level pseudonymized edges are re-identifiable: an outsider (A1) matches about
   a quarter of people, an insider knowing a few custodians (A2) more than half, one knowing all of
   them (A3; the corpus names them) about as many. So only aggregates are published, every group
@@ -150,13 +151,15 @@ rejected the artifact results.
 
 Our counts agree with published ones (517,401 files = the 2004 release minus 30 later deletions;
 250,537 messages, within 1 % of content-based dedupes); our identity resolution is weaker than
-published manual cleanups; within custodians we do not find the published 2001 network changes. Citations: [related work](docs/technical-overview.md#related-work-and-how-this-compares).
+published manual cleanups; within custodians the published 2001 network changes are not established. Citations: [related work](docs/technical-overview.md#related-work-and-how-this-compares).
 
 ## Limits
 
 - Body bytes pass through the decompressor on the way to being skipped; the archive on disk holds them.
 - About 150 mailboxes collected by an investigation: what people kept differs by person and period.
-- Every crisis comparison crosses the change of the `Date` convention; the placebo windows cannot see it.
+- Every crisis comparison, H1–H4 included, crosses the change of the `Date` convention; the placebo windows cannot see it.
+- Groups are frozen on 2000 ties. People with no 2000 tie fall outside every group, and in the
+  crisis months about two-thirds of the messages in the group graph touch them.
 - Identity precision on real data rests on a manual sample, not ground truth.
 - The noise release is a sketch without a formal privacy budget.
 

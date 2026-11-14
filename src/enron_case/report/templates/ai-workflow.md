@@ -89,7 +89,8 @@ definition, a noise draw in a fixture that held a real chance shift.
   aggregate (H3). The diagnostics
   became pipeline code, labelled post hoc, and both hypotheses are capped at low confidence.
 - **The last positive claim.** Restricted to contacts between custodians, whose messages to
-  each other are kept in the sender's own mailbox whatever the recipient kept, the H16 effect is not established and the same subset rises
+  each other can survive in either mailbox and so depend less on what one inbox kept, the H16
+  effect is not established and the same subset rises
   before the crisis. The retention check is now pipeline code and caps H16 at inconclusive.
 
 ## A final review against prior work
@@ -116,8 +117,8 @@ its own worktree, removed `Any` from signatures and dead scaffolding. What the r
   changes whether a hypothesis is held true.
 - **A third attacker.** The public corpus names every mailbox owner, so a realistic insider
   knows every custodian. Attacker A3, the propagation attack seeded with all of them,
-  re-identifies about as large a share of the remaining people as A2; the aggregates still
-  match nobody.
+  re-identifies about as large a share of the remaining people as A2; the aggregates hold no
+  person-level record for any attack to match.
 - **Documented rather than fixed**, because they cannot change what is claimed: the liberal
   permutation test, the fixed-split H2 placebo, the smaller placebo samples, the utility
   interval.

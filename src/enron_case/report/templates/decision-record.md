@@ -45,8 +45,8 @@ injected from release tables; none is typed.
   k = {{k_min}}. On the aggregate release (R1) the shares fall to {{risk_r1_a1_reid_top1}},
   {{risk_r1_a2_reid_top1}} and {{risk_r1_a3_reid_top1}}. {{utility_phrase}}
 
-**Finding.** The change in the crisis year that the headers establish is in the record, not
-in behaviour. {{record_summary}}
+**Finding.** The change in the crisis year that the headers establish is in the record; no
+change in behaviour is established. {{record_summary}}
 
 **Behaviour.** {{headline_statement}} {{replication_statement}} Details: the report.
 
