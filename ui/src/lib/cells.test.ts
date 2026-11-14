@@ -13,6 +13,12 @@ const groups: CommunityGroupRow[] = [
 const radius = (nPersons: number): number => 2 * Math.sqrt(nPersons);
 
 describe("seededRandom", () => {
+  it("is mulberry32: the reference implementation's first draws for seed 1", () => {
+    // Computed independently with 32-bit integer arithmetic in Python.
+    const random = seededRandom(1);
+    expect([random(), random(), random()]).toEqual([0.6270739405881613, 0.002735721180215478, 0.5274470399599522]);
+  });
+
   it("repeats for the same seed, differs for another, and stays in [0, 1)", () => {
     const a = seededRandom(7);
     const b = seededRandom(7);

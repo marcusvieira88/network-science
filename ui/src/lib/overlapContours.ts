@@ -13,7 +13,7 @@ export const CONTOUR_LAYER_ID = "overlapContours";
  * Contour radius ÷ the radius of the disc Sigma draws (and hovers) for the group. 1: the outline
  * is that disc, so the lens the eye sees is the depth the overlap solver computed.
  */
-export const CONTOUR_RADIUS_PER_DISC_RADIUS = 1;
+const CONTOUR_RADIUS_PER_DISC_RADIUS = 1;
 /** Fill opacity, as the Sigma.js highlight-group example's `color + "22"`. */
 export const CONTOUR_FILL_OPACITY = 0x22 / 0xff;
 /** Border widths in CSS pixels, drawn inside the contour so its outer edge stays the disc's edge. */

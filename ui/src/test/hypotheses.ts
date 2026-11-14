@@ -4,8 +4,8 @@
  */
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
 
-export const FIRST_EXPLORATORY = 5;
-export const LAST_EXPLORATORY = 24;
+const FIRST_EXPLORATORY = 5;
+const LAST_EXPLORATORY = 24;
 
 export function preregistered(id: HypothesisRow["hypothesis"], overrides: Partial<HypothesisRow> = {}): HypothesisRow {
   return {
