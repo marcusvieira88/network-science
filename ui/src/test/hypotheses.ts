@@ -55,6 +55,7 @@ export function exploratory(number: number, overrides: Partial<ExploratoryRow> =
     equalised_ci_low: null,
     equalised_ci_high: null,
     equalised_p: null,
+    equalised_p_holm: null,
     retention_median: null,
     retention_ci_low: null,
     retention_ci_high: null,

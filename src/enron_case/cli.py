@@ -21,13 +21,14 @@ from enron_case import zones
 from enron_case.config import (
     KEY_ENV,
     KEY_FILE_ENV,
+    SAMPLE_ARCHIVE,
     SAMPLE_INTERNAL_DOMAIN,
     SAMPLE_KEY_HEX,
     Config,
 )
 from enron_case.context import LogFn, StageContext, stderr_log
 from enron_case.errors import KeyProblem, PipelineError, UsageError
-from enron_case.manifest import RunManifest, code_version
+from enron_case.manifest import RunManifest, code_version, file_sha256
 from enron_case.zones import Paths, Zone
 
 
@@ -102,7 +103,7 @@ def load_key_fingerprint() -> str:
 def ensure_sample_corpus(paths: Paths) -> None:
     from enron_case.synth import generate  # noqa: PLC0415 - only sample runs need it
 
-    if not (paths.dir(Zone.RAW) / "synthetic_maildir.tar.gz").exists():
+    if not (paths.dir(Zone.RAW) / SAMPLE_ARCHIVE).exists():
         generate(paths.data_root)
 
 
@@ -135,6 +136,7 @@ def run_pipeline(
     )
     if sample:
         ensure_sample_corpus(paths)
+        manifest.corpus_sha256 = file_sha256(paths.dir(Zone.RAW) / SAMPLE_ARCHIVE)
     ran: list[str] = []
     skipped: list[str] = []
     try:
@@ -156,6 +158,7 @@ def run_pipeline(
             seconds = time.perf_counter() - started
             manifest.tables.update(ctx.outputs)
             manifest.counts.update(ctx.count_outputs)
+            manifest.corpus_sha256 = ctx.corpus_sha256 or manifest.corpus_sha256
             manifest.record_stage(stage.name, seconds)
             ran.append(stage.name)
             log(f"[{stage.name}] done in {seconds:.1f}s")

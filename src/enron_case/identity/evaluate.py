@@ -45,3 +45,18 @@ def sample_merges(address_map: pl.DataFrame, n: int, seed: int) -> pl.DataFrame:
 def manual_counts(verdicts: Sequence[bool]) -> tuple[int, int]:
     """(checked, correct) from reviewer verdicts; the verdicts themselves are not kept."""
     return len(verdicts), sum(verdicts)
+
+
+def manual_counts_by_rule(
+    rules: Sequence[str], verdicts: Sequence[bool | None]
+) -> dict[str, dict[str, int]]:
+    """Rule -> {checked, correct} over the judged merges (None: skipped, not counted). Counts
+    only, never which address was judged."""
+    out: dict[str, dict[str, int]] = {}
+    for rule, verdict in zip(rules, verdicts, strict=True):
+        if verdict is None:
+            continue
+        counts = out.setdefault(rule, {"checked": 0, "correct": 0})
+        counts["checked"] += 1
+        counts["correct"] += int(verdict)
+    return dict(sorted(out.items()))

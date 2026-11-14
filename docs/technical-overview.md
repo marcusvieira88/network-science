@@ -19,9 +19,9 @@ three batches, each committed before it was computed.
 - **H5–H24** (H5–H14 committed after the H1–H4 results, H15–H24 after the H5–H14 results):
   within-custodian paired comparisons, with Holm's correction across those twenty. **None is
   held true.** The strongest lead is H16 (originally E12): of the people a custodian wrote to, a
-  larger share also wrote back than in the same weeks a year earlier. It met its stated rule,
+  larger share also wrote to them than in the same weeks a year earlier. It met its stated rule,
   but fails the retention check added after a data-science review: among
-  custodian-to-custodian contacts, whose replies are visible whatever an inbox kept, the change
+  custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change
   is not established (+0.11, interval −0.11 to +0.30), and the same subset already rises before
   the crisis. The effect is largely explained by how much inbox mail was kept.
 - **So no hypothesis among H1–H24 is held true.**
@@ -379,8 +379,8 @@ flowchart LR
   with windows fixed by public dates (2001-08-14 to 2001-12-02 against the same weeks of 2000).
   Measures are ratios or per-active-week rates over all of a custodian's sent or received
   messages (not only network ties); a custodian needs at least 20 messages in each window. H16
-  is ego-level reciprocity: the share of a custodian's sent-to contacts who wrote back in the
-  same window.
+  is ego-level reciprocity: the share of a custodian's sent-to contacts who also wrote to the
+  custodian in the same window (any message, not necessarily a reply).
 - **Test.** Wilcoxon signed-rank (two-sided) on d; median of d with a percentile bootstrap
   interval over custodians (2000 draws); Holm across all twenty.
 - **Pre-crisis placebo.** The same difference for January–April 2001 against January–April 2000;

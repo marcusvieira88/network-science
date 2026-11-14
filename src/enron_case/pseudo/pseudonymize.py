@@ -16,8 +16,6 @@ from enron_case.contracts.vocab import ROLE_STRENGTH
 from enron_case.errors import ContractViolation, PseudonymCollision
 from enron_case.pseudo.keys import EVENT_LABEL, ORG_LABEL, PERSON_LABEL, keyed_digest
 
-# Message flags that take a message out of the network (data-contracts.md, events.in_network).
-EXCLUSION_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailing")
 EVENT_ID_SEPARATOR = "|"
 
 
@@ -129,7 +127,7 @@ def _message_recipient_pairs(messages: pl.DataFrame) -> pl.DataFrame:
             pl.col("ts_utc").dt.truncate("1h").alias("ts_hour"),
             (1.0 / pl.col("n_recipients")).alias("weight"),
             ~pl.col("flags")
-            .list.eval(pl.element().is_in(list(EXCLUSION_FLAGS)))
+            .list.eval(pl.element().is_in(list(v.NETWORK_EXCLUSION_FLAGS)))
             .list.any()
             .alias("in_network"),
         )

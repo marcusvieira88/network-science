@@ -15,6 +15,7 @@ def fetch(ctx: StageContext) -> None:
     target = ctx.path(Zone.RAW, CORPUS_ARCHIVE, "w")
     download = http_downloader(ctx.config.download_timeout_seconds)
     fetch_archive(target, CORPUS_URL, CORPUS_SHA256, download)
+    ctx.corpus_sha256 = CORPUS_SHA256
     ctx.log("[fetch] corpus archive verified")
 
 

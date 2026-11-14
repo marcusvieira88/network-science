@@ -18,7 +18,7 @@ from enron_case.context import StageContext
 from enron_case.contracts import schemas, vocab
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import ContractViolation, PrivacyViolation
-from enron_case.release.tables import STEP_MANUAL
+from enron_case.release.tables import STEP_MANUAL, STEP_MANUAL_RULE
 from enron_case.report import quality
 from enron_case.report.markdown import bullets, format_value, table
 
@@ -26,6 +26,7 @@ PLACEHOLDER = re.compile(r"\{\{([a-z0-9_]+)\}\}")
 IDENTIFIER = re.compile("|".join(f"(?:{p})" for p in vocab.LEAK_PATTERNS))
 NO_CHECK = "no check"  # a hypothesis without an artifact check (docs/hypotheses.md)
 MITIGATION_TARGET = 0.5  # SC-007: a mitigated release should at least halve the rate
+STEP_MANUAL_N2 = STEP_MANUAL_RULE.format(rule="N2")
 
 HYPOTHESIS_CLAIMS = {
     "H1": "communication concentrated on fewer people as the crisis approached",
@@ -89,6 +90,10 @@ LIMITS = (
     "The effect interval is computed at a change week chosen from the same data (the week that "
     "maximises the change statistic), so it is optimistic: it ignores the uncertainty of where "
     "the change happened.",
+    "For H5–H24, the pre-crisis placebos run on fewer custodians than the crisis comparison "
+    "(fewer meet the minimum message count in the January-to-April windows; see the placebo "
+    "custodians column), so they have less power: a passing placebo does not exclude a "
+    "pre-existing trend.",
     "The artifact checks were added after the first real-data run, because two hypotheses "
     "passed every pre-registered check yet looked implausibly strong. They are documented as a "
     "post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.",
@@ -326,7 +331,8 @@ def exploratory_statement(exploratory: pl.DataFrame) -> str:
             text += (
                 f"; with mail volume equalised, {format_value(r['equalised_median'])} "
                 f"(interval {format_value(r['equalised_ci_low'])} to "
-                f"{format_value(r['equalised_ci_high'])})"
+                f"{format_value(r['equalised_ci_high'])}, family-adjusted p = "
+                f"{format_value(r['equalised_p_holm'])})"
             )
         parts.append(text + ".")
     return (
@@ -346,6 +352,7 @@ def exploratory_section(exploratory: pl.DataFrame) -> str:
             format_value(r["median_change"]),
             f"{format_value(r['ci_low'])} to {format_value(r['ci_high'])}",
             format_value(r["p_holm"]),
+            format_value(r["placebo_custodians"]),
             {True: "passes", False: "fails", None: SUPPRESSED}[r["placebo_passes"]],
             {True: "stable", False: "unstable", None: SUPPRESSED}[r["loo_stable"]],
             r["outcome"] or SUPPRESSED,
@@ -373,6 +380,7 @@ def exploratory_section(exploratory: pl.DataFrame) -> str:
                     "Median change",
                     "Interval",
                     "Holm p",
+                    "Placebo custodians",
                     "Placebo",
                     "Leave-one-out",
                     "Outcome",
@@ -505,9 +513,18 @@ def risk_verdicts(risk: pl.DataFrame) -> list[str]:
     return lines
 
 
-def risk_section(risk: pl.DataFrame, k_min: int) -> str:
+NO_HEADLINE_UTILITY = (
+    'The effect ratio and "finding survives" columns are empty because there is no headline '
+    "finding to recompute on the mitigated releases: they measure how much of the headline "
+    "effect R1 and R2 keep. H5–H24 are computed in the finding stage on restricted data, not "
+    "from a release, so the release mitigations do not change them."
+)
+
+
+def risk_section(risk: pl.DataFrame, k_min: int, has_headline: bool) -> str:
     variants = bullets(f"**{name}**: {text}" for name, text in RELEASE_VARIANTS.items())
     attackers = bullets(f"**{name}**: {text}" for name, text in ATTACKERS.items())
+    utility_note = () if has_headline else (NO_HEADLINE_UTILITY,)
     return "\n\n".join(
         (
             "## Privacy and re-identification risk",
@@ -521,6 +538,7 @@ def risk_section(risk: pl.DataFrame, k_min: int) -> str:
             "Attackers:",
             attackers,
             risk_table(risk),
+            *utility_note,
             "Before and after mitigation:",
             bullets(risk_verdicts(risk)),
         )
@@ -541,11 +559,19 @@ def n2_limit(data_quality: pl.DataFrame) -> str:
     if not manual:
         return f"{risk}; no manual check of merges was run."
     row = manual[0]
-    wrong = row["count_in"] - row["count_out"]
-    return (
+    text = (
         f"{risk}; a manual check of {format_value(row['count_in'])} sampled real merges found "
-        f"{format_value(wrong)} wrong merges."
+        f"{format_value(row['removed'])} wrong merges (precision {format_value(row['precision'])}, "
+        f"exact binomial interval {format_value(row['precision_ci_low'])} to "
+        f"{format_value(row['precision_ci_high'])})"
     )
+    n2 = data_quality.filter(pl.col("step") == STEP_MANUAL_N2).rows(named=True)
+    if n2:
+        text += (
+            f"; rule N2 accounts for {format_value(n2[0]['count_in'])} of the sampled merges "
+            f"and {format_value(n2[0]['removed'])} of the wrong ones"
+        )
+    return text + "."
 
 
 def limits(data_quality: pl.DataFrame) -> list[str]:
@@ -565,7 +591,7 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
         finding_section(tables.hypotheses, tables.artifact_checks),
         hypotheses_section(tables.hypotheses),
         exploratory_section(tables.exploratory),
-        risk_section(tables.risk, config.k_min),
+        risk_section(tables.risk, config.k_min, headline(tables.hypotheses) is not None),
         limits_section(tables.data_quality),
     )
     text = "\n\n".join(sections) + "\n"

@@ -15,7 +15,7 @@ from enron_case.contracts import vocab as v
 from enron_case.errors import ContractViolation
 from enron_case.zones import Zone
 
-CONTRACT_VERSION = "1.4"
+CONTRACT_VERSION = "1.5"
 
 STR = pl.String()
 INT = pl.Int64()
@@ -116,7 +116,7 @@ EXPLORATORY_CONFIDENT, EXPLORATORY_INCONCLUSIVE, EXPLORATORY_NOT_SUPPORTED = EXP
 EXPLORATORY_FAMILIES = ("first", "second")
 # Caveat recorded when a hypothesis fails its retention check (finding/exploratory.py).
 RETENTION_FAILED = (
-    "fails the retention check: among custodian-to-custodian contacts, whose replies are "
+    "fails the retention check: among custodian-to-custodian contacts, whose messages are "
     "visible whatever an inbox kept, the change is not established"
 )
 # Why a hypothesis cannot be confident whatever its numbers (docs/hypotheses-exploratory.md).
@@ -153,6 +153,9 @@ def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
         Col("equalised_ci_low", FLOAT, nullable=True),
         Col("equalised_ci_high", FLOAT, nullable=True),
         Col("equalised_p", FLOAT, nullable=True),
+        # The family size times `equalised_p`, capped at 1: Holm's multiplier for the family's
+        # smallest p and conservative at every other rank (added after results were seen).
+        Col("equalised_p_holm", FLOAT, nullable=True),
         # Retention check (added after the data-science review): the hypothesis on a measure
         # that inbox retention cannot move; null where no such check applies.
         Col("retention_median", FLOAT, nullable=True),
@@ -298,6 +301,11 @@ TABLES: dict[str, Table] = {
             Col("rule", STR, nullable=True),
             Col("precision", FLOAT, nullable=True),
             Col("recall", FLOAT, nullable=True),
+            # Exact (Clopper-Pearson) interval of `precision` where it is estimated from a
+            # sample (the manual merge check); null where precision is measured on all of the
+            # ground truth or not at all.
+            Col("precision_ci_low", FLOAT, nullable=True),
+            Col("precision_ci_high", FLOAT, nullable=True),
             fmt="csv",
         ),
         _t(

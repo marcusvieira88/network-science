@@ -21,6 +21,7 @@ import polars as pl
 from enron_case.config import Config
 from enron_case.contracts import schemas
 from enron_case.contracts import vocab as v
+from enron_case.release import tables as release_tables
 from enron_case.synth.archive import FileRecord
 from enron_case.synth.model import Entity, Message, Organisation, SynthSpec
 
@@ -528,6 +529,7 @@ class FixtureBuilder:
                     "equalised_ci_low": 0.06 if strong else None,
                     "equalised_ci_high": 0.17 if strong else None,
                     "equalised_p": 0.001 if strong else None,
+                    "equalised_p_holm": 0.02 if strong else None,
                     "retention_median": 0.11 if hid == "H16" else None,
                     "retention_ci_low": -0.1 if hid == "H16" else None,
                     "retention_ci_high": 0.3 if hid == "H16" else None,
@@ -664,6 +666,8 @@ class FixtureBuilder:
                     "rule": None,
                     "precision": None,
                     "recall": None,
+                    "precision_ci_low": None,
+                    "precision_ci_high": None,
                 },
                 {
                     "order": 2,
@@ -674,6 +678,8 @@ class FixtureBuilder:
                     "rule": "exact+subset",
                     "precision": 1.0,
                     "recall": 1.0,
+                    "precision_ci_low": None,
+                    "precision_ci_high": None,
                 },
                 {
                     "order": 3,
@@ -684,7 +690,10 @@ class FixtureBuilder:
                     "rule": "N1-N4",
                     "precision": 1.0,
                     "recall": 1.0,
+                    "precision_ci_low": None,
+                    "precision_ci_high": None,
                 },
+                *self._funnel_detail_rows(c, first_order=4),
             ]
         )
         rulings = HEADER_RULINGS
@@ -752,6 +761,59 @@ class FixtureBuilder:
             "community_groups": groups,
         }
         return {name: schemas.conform(df, name) for name, df in out.items()}
+
+    def _funnel_detail_rows(
+        self, c: dict[str, dict[str, Any]], first_order: int
+    ) -> list[dict[str, Any]]:
+        """Reference funnel detail, counted from the fixture's own messages and events: no
+        rejected files, the exact/subset split, the five flags and events in the network."""
+        msgs = self.message_rows()
+        events = self.events_table()
+        records = len(self.header_records())
+        exact = sum(r["n_copies"] - 1 for r in msgs if r["dedupe_rule"] == "exact")
+        flagged = {flag: sum(1 for r in msgs if flag in r["flags"]) for flag in v.MESSAGE_FLAGS}
+        steps = [
+            (release_tables.STEP_EXACT, records, records - exact, release_tables.RULE_EXACT),
+            (release_tables.STEP_SUBSET, records - exact, len(msgs), release_tables.RULE_SUBSET),
+            *[
+                (
+                    release_tables.STEP_FLAG.format(flag=name),
+                    len(msgs),
+                    len(msgs) - flagged[flag],
+                    release_tables.RULE_FLAG_KEPT
+                    if flag == "bad_address"
+                    else release_tables.RULE_FLAG_EXCLUDED,
+                )
+                for flag, name in release_tables.FLAG_NAMES.items()
+            ],
+            (
+                release_tables.STEP_UNTIMED,
+                len(msgs),
+                len(msgs) - sum(1 for r in msgs if r["ts_utc"] is None),
+                release_tables.RULE_UNTIMED,
+            ),
+            (
+                release_tables.STEP_EVENTS,
+                events.height,
+                int(events.get_column("in_network").sum()),
+                release_tables.RULE_EVENTS,
+            ),
+        ]
+        return [
+            {
+                "order": first_order + i,
+                "step": step,
+                "count_in": count_in,
+                "count_out": count_out,
+                "removed": count_in - count_out,
+                "rule": rule,
+                "precision": None,
+                "recall": None,
+                "precision_ci_low": None,
+                "precision_ci_high": None,
+            }
+            for i, (step, count_in, count_out, rule) in enumerate(steps)
+        ]
 
     def all_tables(self) -> dict[str, pl.DataFrame]:
         tables = {

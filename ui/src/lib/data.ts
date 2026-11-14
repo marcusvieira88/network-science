@@ -84,6 +84,9 @@ export const TABLE_COLUMNS = {
     rule: nullable(isString),
     precision: nullable(isNumber),
     recall: nullable(isNumber),
+    // Exact binomial interval where precision is estimated from a sample (contract 1.5).
+    precision_ci_low: nullable(isNumber),
+    precision_ci_high: nullable(isNumber),
   },
   header_fields: { field: isString, occurrences: isInt, ruling: isString },
   weekly_metrics: {
@@ -130,6 +133,7 @@ export const TABLE_COLUMNS = {
     equalised_ci_low: isFloat,
     equalised_ci_high: isFloat,
     equalised_p: isFloat,
+    equalised_p_holm: isFloat,
     // Retention check (contract 1.4): the hypothesis on a measure inbox retention cannot move.
     retention_median: isFloat,
     retention_ci_low: isFloat,

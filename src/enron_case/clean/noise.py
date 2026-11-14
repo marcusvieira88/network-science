@@ -10,7 +10,13 @@ from enron_case.config import Config
 
 
 def message_flags(group: Group, config: Config) -> list[str]:
-    """Sorted noise flags of one merged message. Flagged messages are kept, not dropped."""
+    """Sorted noise flags of one merged message. Flagged messages are kept, not dropped.
+
+    `mass_mailing` counts distinct recipient *addresses* above `recipient_cap`: this stage runs
+    before identity resolution, so entities do not exist yet. The `cap=N` network variant counts
+    recipient *entities* (events.n_recipients, the sender's own aliases excluded), so a message
+    to several aliases of one person counts each alias here and the person once there
+    (docs/metrics.md, Variants)."""
     addrs = group.addrs
     checks = {
         "bad_address": group.bad_address,

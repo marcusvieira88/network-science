@@ -108,6 +108,20 @@ def test_report_has_every_section(synth: SynthOutput, tmp_path: Path) -> None:
         assert f"| {field} |" in text
 
 
+def test_quality_section_shows_the_funnel_detail(synth: SynthOutput, tmp_path: Path) -> None:
+    quality = render_report(synth, tmp_path).split("## The finding", 1)[0]
+    for step in (
+        "deduplicate: exact copies",
+        "deduplicate: subset copies",
+        "flag: bad address",
+        "flag: self-only",
+        "events in the network",
+    ):
+        assert f"| {step} |" in quality, step
+    assert "files, messages or events, not persons" in quality
+    assert "addresses" in quality.split("mass mailing", 1)[1]  # the flag's unit is stated
+
+
 def test_limits_section_has_at_least_three_items(synth: SynthOutput, tmp_path: Path) -> None:
     text = render_report(synth, tmp_path)
     limits = text.split("## Limits", 1)[1]
@@ -342,17 +356,63 @@ def test_limits_name_the_optimistic_interval_and_the_n2_risk(
 def test_n2_limit_reports_the_manual_check_from_data_quality(synth: SynthOutput) -> None:
     manual = pl.DataFrame(
         {
-            "order": [4],
-            "step": ["manual merge check"],
-            "count_in": [50],
-            "count_out": [50],
-            "removed": [0],
-            "rule": ["seeded sample, judged by a person"],
-            "precision": [1.0],
-            "recall": [None],
+            "order": [4, 5],
+            "step": ["manual merge check", "manual merge check: rule N2"],
+            "count_in": [50, 12],
+            "count_out": [49, 11],
+            "removed": [1, 1],
+            "rule": ["seeded sample, judged by a person"] * 2,
+            "precision": [0.98, 11 / 12],
+            "recall": [None, None],
+            "precision_ci_low": [0.894, 0.615],
+            "precision_ci_high": [0.9995, 0.998],
         },
         schema=synth.table("data_quality").schema,
     )
     quality = pl.concat([synth.table("data_quality"), manual])
     text = " ".join(render.limits(quality))
-    assert "a manual check of 50 sampled real merges found 0 wrong merges" in text
+    assert "a manual check of 50 sampled real merges found 1 wrong merges" in text
+    assert "precision 0.98, exact binomial interval 0.894 to 1" in text
+    assert "rule N2 accounts for 12 of the sampled merges and 1 of the wrong ones" in text
+
+
+def test_funnel_table_shows_the_precision_interval(synth: SynthOutput, tmp_path: Path) -> None:
+    quality = render_report(synth, tmp_path).split("## The finding", 1)[0]
+    assert "| Precision low | Precision high |" in quality
+
+
+def test_held_true_statement_gives_the_family_adjusted_equalised_p(synth: SynthOutput) -> None:
+    exploratory = synth.table("exploratory").with_columns(
+        pl.when(pl.col("hypothesis") == "H20")
+        .then(pl.lit("confident"))
+        .otherwise(pl.col("outcome"))
+        .alias("outcome")
+    )
+    text = render.exploratory_statement(exploratory)
+    assert "Held true: H20" in text
+    assert "family-adjusted p = 0.02" in text
+
+
+def test_risk_section_says_why_utility_is_empty_without_headline(
+    synth_nochange: SynthOutput, tmp_path: Path
+) -> None:
+    risk = render_report(synth_nochange, tmp_path).split("## Privacy and re-identification", 1)[1]
+    assert "no headline finding to recompute" in risk
+    assert "H5–H24 are computed in the finding stage on restricted data" in risk
+
+
+def test_risk_section_has_no_empty_utility_note_with_headline(
+    synth: SynthOutput, tmp_path: Path
+) -> None:
+    risk = render_report(synth, tmp_path).split("## Privacy and re-identification", 1)[1]
+    assert "no headline finding to recompute" not in risk
+
+
+def test_report_states_the_weaker_placebo(synth: SynthOutput, tmp_path: Path) -> None:
+    text = render_report(synth, tmp_path)
+    exploratory = text.split("## Hypotheses H5–H24", 1)[1].split("## Privacy", 1)[0]
+    assert "| Placebo custodians |" in exploratory
+    assert "| 32 | 0.25 | 0.12 to 0.38 | 0.002 | 15 |" in exploratory  # H16: crisis n, placebo n
+    limits = text.split("## Limits", 1)[1]
+    assert "placebos run on fewer custodians than the crisis comparison" in limits
+    assert "does not exclude a pre-existing trend" in limits

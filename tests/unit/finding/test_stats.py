@@ -83,6 +83,44 @@ def test_permutation_false_positive_rate_on_no_change() -> None:
     assert rate <= ALPHA + tolerance
 
 
+def _ar1_series(seed: int, phi: float, n: int = N_WEEKS) -> np.ndarray:
+    """Stationary AR(1) with unit innovations and no change: x_t = phi * x_(t-1) + e_t."""
+    rng = np.random.default_rng(seed)
+    noise = rng.normal(0.0, 1.0, n)
+    values = np.empty(n)
+    values[0] = noise[0] / np.sqrt(1 - phi**2)
+    for t in range(1, n):
+        values[t] = phi * values[t - 1] + noise[t]
+    return values
+
+
+# False-positive rates measured on 1000 no-change AR(1) series (documented in docs/hypotheses.md,
+# "Known threats"). The permutation test assumes exchangeable weeks; autocorrelation breaks that.
+AR1_CALIBRATION = {0.3: 0.148, 0.5: 0.256}
+
+
+@pytest.mark.parametrize(("phi", "documented"), sorted(AR1_CALIBRATION.items()))
+def test_permutation_test_is_liberal_on_autocorrelated_no_change(
+    phi: float, documented: float
+) -> None:
+    n_series = 1000
+    rejections = 0
+    for seed in range(n_series):
+        found = stats.change_point(
+            _ar1_series(seed, phi),
+            FIRST_CANDIDATE,
+            1,
+            199,
+            stats.rng_for(20_000 + seed),
+            min_after_weeks=CONFIG.min_after_weeks,
+        )
+        rejections += found.p_value < ALPHA
+    rate = rejections / n_series
+    standard_error = np.sqrt(documented * (1 - documented) / n_series)
+    assert abs(rate - documented) <= 2 * standard_error  # the documented limit still holds
+    assert rate > ALPHA + 2 * np.sqrt(ALPHA * (1 - ALPHA) / n_series)  # well above nominal
+
+
 def test_change_point_is_deterministic_for_a_seed() -> None:
     values = _step_series(9, 90, step=0.3)
     first = stats.change_point(

@@ -89,6 +89,14 @@ recomputed.
 | `cap=N` | events with `n_recipients > N` are dropped before everything else (default run: N = 20) |
 | `window=month` | period is the calendar month |
 
+**Two units for a recipient cap.** The `mass_mailing` message flag (clean stage,
+`config.recipient_cap`, default 50) counts distinct recipient **addresses**, because it is set
+before identity resolution. The `cap=N` variant counts recipient **entities** (`n_recipients` on
+events: distinct recipient entities, the sender's own aliases left out). A message to several
+aliases of one person counts each alias for the flag and the person once for the variant, so a
+message can exceed the flag's cap without exceeding the same N in the variant. The two were not
+unified: the flag would have to move after identity resolution.
+
 The variants a run computes are `default` plus `config.sensitivity_variants`. For
 leave-one-mailbox-out, `compute_series(…, exclude_pids=…)` drops every event whose sender or
 recipient is an excluded person before everything else.
