@@ -101,7 +101,7 @@ nowhere at all.
 ```mermaid
 sequenceDiagram
     actor Rev as Reviewer
-    participant M as make (scripts/run-all.sh)
+    participant M as make / run.cmd (enron-case all)
     participant P as enron-case
     participant Z as data/, release/, docs/
     participant U as ui/
@@ -112,7 +112,7 @@ sequenceDiagram
     M->>P: stage fetch: download the archive, verify sha256
     M->>P: run: parse … report
     P->>Z: tables, report.md, documents, run_manifest.json, then the ingest zone is purged (also on failure)
-    M->>M: make gate (Python), make ui-gate (UI)
+    M->>M: enron-case gate (Python), enron-case ui-gate (UI)
     M->>P: stage ui-data
     P->>U: ui/public/data/release.json
     M->>U: npm run build
@@ -120,7 +120,8 @@ sequenceDiagram
 ```
 
 Each step prints one line and logs to `data/logs/<step>.log`; the first failing step stops the
-run with its exit code. `make check` does everything except serving. On a fresh clone the whole
+run with its exit code. `make check` (`uv run enron-case check` on Windows) does everything
+except serving. On a fresh clone the whole
 run took about 24 minutes, 20 of them the download on that connection; the pipeline itself takes
 about 2.5 minutes (`stages` in `release/run_manifest.json`).
 `enron-case run --sample` (`make sample`) runs the same stages on the synthetic corpus into

@@ -57,11 +57,12 @@ by the run.
 
 ## Quick start
 
-Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Node 20+, `make`, internet access
-for the first run (about 440 MB, checked against a pinned SHA-256).
+Prerequisites: [uv](https://docs.astral.sh/uv/) (it fetches Python 3.12), Node 20+, about 3 GB
+free disk, internet access for the first run (about 440 MB, checked against a pinned SHA-256).
 
 ```bash
-make
+make                     # macOS and Linux
+uv run enron-case all    # Windows, no make or bash needed (or .\run.cmd)
 ```
 
 The one command installs locked dependencies, creates a key outside the repository
@@ -70,9 +71,13 @@ every stage, runs every test (Python and UI), builds the explorer on the real re
 at http://localhost:4173, and prints where the report and the UI are. On a fresh clone it took
 about 24 minutes, 20 of them the download on that connection; the pipeline itself runs the full
 corpus (about 517,000 files) in about two and a half minutes on a laptop (`stages` in
-`release/run_manifest.json`). `make check` does the same without serving the explorer.
+`release/run_manifest.json`). `make check` (`uv run enron-case check`) does the same without
+serving the explorer. The steps are written in Python (`src/enron_case/onecommand.py`), so
+macOS, Linux and Windows run the same ones; `make` and `run.cmd` only call them, and CI runs both
+gates on all three.
 
-Finer-grained targets:
+Finer-grained targets (each is `uv run enron-case <target>` on Windows, except `sample`, which is
+`uv run enron-case run --sample`):
 
 | Command | Does |
 |---------|------|
@@ -84,7 +89,8 @@ Finer-grained targets:
 | `make ui-gate` | UI lint, type check, tests, build, and a check that the build has no external URL |
 | `make clean` | removes local data and regenerated sample output |
 
-Underneath is a CLI (`enron-case run | stage | verify | check-key | summary | review-merges`), documented in
+Underneath is a CLI (`enron-case all | check | gate | ui-gate | key | run | stage | verify |
+check-key | summary | review-merges`), documented in
 [contracts/cli.md](../specs/001-enron-network-analysis/contracts/cli.md).
 
 ---
@@ -791,7 +797,7 @@ tests/            unit, contract, privacy and integration tests, all on syntheti
 ui/               the explorer (React, TypeScript, Vite, Tailwind, shadcn/ui, Sigma.js)
 release/          the published aggregate tables, report.md and run_manifest.json
 checks/           committed counts of checks a person made (identity_manual.json)
-scripts/          run-all.sh (the one command), create-key.sh
+run.cmd           the one command on Windows (calls `enron-case all`, like `make`)
 docs/             architecture, hypotheses, metrics, decision record, slides, AI-workflow note
 specs/            Spec Kit specification, plan, research, contracts and tasks
 .claude/skills/   Spec Kit skills and the project's data-privacy-review, code-quality-review and

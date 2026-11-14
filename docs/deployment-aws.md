@@ -1,7 +1,7 @@
 # Deploying on AWS
 
 *Proposal; none of this is implemented.* Today the pipeline runs on one machine (`make`,
-`scripts/run-all.sh`) and the explorer is a static build over one `release.json`. This document
+`enron-case all`) and the explorer is a static build over one `release.json`. This document
 maps that design onto AWS so that its privacy guarantees carry over. Each guarantee in the code
 gets a second, independent enforcement in the platform. The code stays the first line of defence.
 It complements the [technical overview's next steps](technical-overview.md#next-steps), which
