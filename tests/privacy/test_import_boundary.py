@@ -73,3 +73,46 @@ def test_checker_sees_imports(tmp_path: Path) -> None:
         "import importlib\nimportlib.import_module('enron_case.identity.rules')\n"
     )
     assert imported_packages(sample) == {"ingest", "clean", "identity"}
+
+
+# The attacker sees a release and its own auxiliary knowledge only: its modules may import
+# nothing from this project except each other, so no path leads to the scorer, the address map,
+# the key, the zones or the ground truth.
+ATTACKER_MODULES = ("attack.py", "features.py")
+ATTACKER_ALLOWED = {"enron_case.risk.attack", "enron_case.risk.features"}
+
+
+def imported_modules(path: Path) -> set[str]:
+    """Full names of the project modules a file imports, string imports included."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(a.name for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            found.update(f"{node.module}.{a.name}" for a in node.names)
+            found.add(node.module)
+        elif _is_string_import(node):
+            found.add(_first_string(node))
+    return {name for name in found if name.startswith("enron_case")}
+
+
+def _outside_attacker(module: str) -> bool:
+    # `from enron_case.risk.features import NODE` yields the module and module.NODE.
+    return not any(module == m or module.startswith(f"{m}.") for m in ATTACKER_ALLOWED)
+
+
+@pytest.mark.parametrize("module", ATTACKER_MODULES)
+def test_attacker_imports_nothing_that_reaches_the_truth(module: str) -> None:
+    bad = sorted(m for m in imported_modules(SRC / "risk" / module) if _outside_attacker(m))
+    assert not bad, f"risk/{module} imports {bad}"
+
+
+def test_attacker_checker_sees_a_path_to_the_scorer(tmp_path: Path) -> None:
+    sample = tmp_path / "x.py"
+    sample.write_text(
+        "from enron_case.risk.features import NODE\nfrom enron_case.risk import score\n"
+        "import enron_case.context\n"
+    )
+    bad = sorted(m for m in imported_modules(sample) if _outside_attacker(m))
+    assert bad == ["enron_case.context", "enron_case.risk", "enron_case.risk.score"]
