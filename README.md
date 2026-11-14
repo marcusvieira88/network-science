@@ -151,35 +151,40 @@ published manual cleanups; within custodians we do not find the published 2001 n
 
 ## Next steps
 
-**Deploy on AWS**, giving each privacy guarantee a second line in the platform:
+In order; each step is a gate for the next. Details: [technical overview](docs/technical-overview.md#next-steps), [deployment on AWS](docs/deployment-aws.md).
+
+1. **An API to serve the explorer.** Today the browser fetches one static `release.json`. Replace
+   it with a read-only query API: Polars stays the processing engine of the pipeline, which writes
+   the release tables as Parquet; DuckDB serves them, querying Parquet in place with no load step.
+   Every answer passes the same k ≥ 5 suppression as the release, plus a differencing guard.
+2. **Security on the API.** JWT authentication (customer IdP via OIDC), user roles (viewer,
+   analyst, admin) checked on every route, rate limits and a query budget per user and tenant,
+   HTTPS only, encrypted storage with per-tenant keys, an audit log of who asked what.
+3. **Load and penetration tests** against that architecture: load tests (k6 or Locust) with
+   realistic query mixes and tenant counts; an external penetration test; abuse tests that try to
+   re-identify people through the API, extending the attacks in `risk/` from releases to queries.
+4. **Deploy on AWS**, giving each privacy guarantee a second line in the platform:
 
 ```mermaid
 flowchart LR
     CI["GitHub Actions<br/>make gate, OIDC"] -->|signed image| SFN
     KMS{{"customer KMS<br/>HMAC key"}} -.-> SFN
     subgraph W["tenant account · private VPC, no egress"]
-        SFN["Step Functions + Fargate<br/>one role per trust boundary"] --> S3[("zone buckets<br/>one KMS key each")]
+        SFN["Step Functions + Fargate<br/>pipeline: Polars"] --> REL[("release Parquet<br/>KMS key per zone")]
     end
     subgraph SV["serving account"]
-        REL[("release bucket")] --> CF["CloudFront + WAF<br/>Cognito, CSP"]
+        CF["CloudFront + WAF<br/>static UI, CSP"] -->|"/api, JWT"| API["API Gateway<br/>rate limit, roles"] --> Q["query service<br/>DuckDB, k ≥ 5, budget"]
+        Q --> PG[("PostgreSQL<br/>users, roles, audit")]
     end
+    REL -->|read-only| Q
     OBS["CloudWatch, Prometheus,<br/>Grafana"]
-    SFN -->|aggregates| REL
-    SFN & CF -.->|counts only| OBS
+    SFN & Q -.->|counts only| OBS
 ```
 
-- Zones become buckets; IAM roles mirror `zones.ALLOWED`; ingest stays on task storage.
-- The key stays in the customer's KMS (`GenerateMac`, never exported); rotating it changes every
-  pseudonym.
-- Images built and signed only after `make gate`, deployed by OIDC with no stored keys.
-- Today the explorer fetches one static `release.json`; a query API (DuckDB over Parquet,
-  PostgreSQL for roles, budget and audit) comes only with user-defined queries.
-- Account per tenant, residency by region; counts-only telemetry, alarms on a failed stage or
-  unpurged ingest.
-
-Also: a record-profile view in the explorer; differential privacy for releases; a group-level
-attack.
-Details: [deployment on AWS](docs/deployment-aws.md).
+   Zones become buckets and IAM roles mirror `zones.ALLOWED`; the key stays in the customer's KMS;
+   images are signed only after `make gate`; one account per tenant, residency by region.
+5. **Analysis:** a record-profile view in the explorer; differential privacy for releases; a
+   group-level attack.
 
 ## More detail
 
