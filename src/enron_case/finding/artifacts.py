@@ -32,6 +32,7 @@ from enron_case.contracts.vocab import DEFAULT_VARIANT, PERSON
 from enron_case.finding import stats
 from enron_case.finding.hypotheses import HYPOTHESES, Evidence, Network, Recompute, bootstrap_ci
 from enron_case.network.communities import baseline_communities
+from enron_case.network.snapshots import stable_sum
 
 BASELINE_PLACEBO = "baseline_placebo"
 WITHIN_CUSTODIAN = "within_custodian"
@@ -201,10 +202,10 @@ def _shares(sent: pl.DataFrame, start: date, end: date, min_events: int) -> pl.D
         sent.filter((pl.col("day") >= start) & (pl.col("day") <= end))
         .group_by("sender_pid")
         .agg(
-            ((~pl.col("recipient_internal")).cast(pl.Float64) * pl.col("weight"))
-            .sum()
-            .alias("ext"),
-            pl.col("weight").sum().alias("w"),
+            stable_sum((~pl.col("recipient_internal")).cast(pl.Float64) * pl.col("weight")).alias(
+                "ext"
+            ),
+            stable_sum(pl.col("weight")).alias("w"),
             pl.len().alias("n"),
         )
         .filter(pl.col("n") >= min_events)
