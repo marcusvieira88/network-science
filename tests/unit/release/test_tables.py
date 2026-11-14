@@ -42,6 +42,39 @@ def test_header_fields_reject_malformed_counts() -> None:
         tables.header_fields(bad_ruling)
 
 
+def test_header_field_without_a_ruling_fails() -> None:
+    unruled: JsonObject = {
+        "header_fields": {"From": 3, "Date": 2},
+        "header_rulings": {"From": "identifier"},
+    }
+    with pytest.raises(ContractViolation, match="1 header fields without a ruling"):
+        tables.header_fields(unruled)
+
+
+def test_unknown_header_names_collapse_into_one_dropped_row() -> None:
+    """Hand-computed: the two unknown names (4 + 1 occurrences) become one "(other)" row of 5,
+    labelled dropped whatever ruling the parser stored; neither spelling is published."""
+    unknown_a = "X-Unlisted-Fragment"
+    unknown_b = "Looks Like Body Text"
+    counts: JsonObject = {
+        "header_fields": {"From": 3, unknown_a: 4, unknown_b: 1},
+        "header_rulings": {"From": "identifier", unknown_a: "content", unknown_b: "content"},
+    }
+    out = tables.header_fields(counts)
+    assert out.rows() == [("From", 3, "identifier"), (vocab.OTHER_HEADER_FIELD, 5, "dropped")]
+    published = " ".join(str(value) for row in out.rows() for value in row)
+    assert unknown_a not in published
+    assert unknown_b not in published
+
+
+def test_only_known_header_names_publish_no_other_row() -> None:
+    counts: JsonObject = {
+        "header_fields": {"Date": 2},
+        "header_rulings": {"Date": "usable"},
+    }
+    assert tables.header_fields(counts).rows() == [("Date", 2, "usable")]
+
+
 def test_exploratory_rows_below_k_hide_every_derived_value() -> None:
     k = 5
     row: dict[str, object] = {
@@ -201,6 +234,26 @@ def test_manual_rule_composition_must_add_up() -> None:
         "manual_by_rule": {"N1": {"checked": 40, "correct": 40}},
     }
     with pytest.raises(ContractViolation):
+        tables.data_quality(ingest, clean, identity, pseudo, CI, manual)
+
+
+def test_manual_check_without_a_rule_split_publishes_one_row() -> None:
+    """A review stored before per-rule counts were kept: only the total row, no rule rows."""
+    ingest, clean, identity, pseudo = _funnel_counts()
+    manual: JsonObject = {"manual_checked": 20, "manual_correct": 19}
+    out = tables.data_quality(ingest, clean, identity, pseudo, CI, manual)
+    rows = out.filter(pl.col("step").str.starts_with("manual merge check"))
+    assert rows.select("step", "count_in", "count_out").rows() == [("manual merge check", 20, 19)]
+
+
+def test_manual_rule_counts_that_are_not_a_mapping_fail() -> None:
+    ingest, clean, identity, pseudo = _funnel_counts()
+    manual: JsonObject = {
+        "manual_checked": 10,
+        "manual_correct": 9,
+        "manual_by_rule": {"N1": [10, 9]},
+    }
+    with pytest.raises(ContractViolation, match="counts of rule 'N1' are not a mapping"):
         tables.data_quality(ingest, clean, identity, pseudo, CI, manual)
 
 
