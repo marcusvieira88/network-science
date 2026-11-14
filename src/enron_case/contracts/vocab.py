@@ -57,7 +57,9 @@ MESSAGE_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailin
 # `bad_address` is flagged but stays in.
 NETWORK_EXCLUSION_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailing")
 PARSE_FLAGS = ("no_header_end", "bad_date", "folded", "decode_error")
-SCOPES = ("core", "observed")
+CORE_SCOPE = "core"
+OBSERVED_SCOPE = "observed"
+SCOPES = (CORE_SCOPE, OBSERVED_SCOPE)
 # metric_series label of the main analysis; every other label is a sensitivity variant.
 DEFAULT_VARIANT = "default"
 METRICS = (
@@ -73,7 +75,8 @@ METRICS = (
 HYPOTHESES = ("H1", "H2", "H3", "H4")
 SUPPORT = ("yes", "no", "inconclusive")
 CONFIDENCE = ("high", "moderate", "low")
-RELEASE_VARIANTS = ("R0", "R1", "R2")
+NAIVE_RELEASE = "R0"  # the person-level baseline every mitigation is measured against
+RELEASE_VARIANTS = (NAIVE_RELEASE, "R1", "R2")
 # A1 outsider; A2 insider who knows a few custodians; A3 the same propagation seeded with every
 # custodian, because the mailbox folder names of the public corpus name them all.
 ATTACKERS = ("A1", "A2", "A3")
@@ -83,10 +86,16 @@ PERSON_PREFIX = "p_"
 ORG_PREFIX = "o_"
 EVENT_PREFIX = "e_"
 MESSAGE_PREFIX = "m_"
-PSEUDONYM_PATTERN = r"^p_[a-z2-7]{16}$"
-ORG_PSEUDONYM_PATTERN = r"^o_[a-z2-7]{16}$"
+# Lower-case base32 alphabet, as `pseudonym` renders a digest.
+_PSEUDONYM_BODY = f"[a-z2-7]{{{PSEUDONYM_LEN}}}"
+PSEUDONYM_PATTERN = f"^{PERSON_PREFIX}{_PSEUDONYM_BODY}$"
+ORG_PSEUDONYM_PATTERN = f"^{ORG_PREFIX}{_PSEUDONYM_BODY}$"
+EVENT_ID_PATTERN = f"^{EVENT_PREFIX}{_PSEUDONYM_BODY}$"
+MESSAGE_PSEUDONYM_PATTERN = f"^{MESSAGE_PREFIX}{_PSEUDONYM_BODY}$"
 # Any of these in a restricted or release artifact is an identifier leak.
-LEAK_PATTERNS = (r"@", r"p_[a-z2-7]{16}", r"o_[a-z2-7]{16}")
+LEAK_PATTERNS = ("@", PERSON_PREFIX + _PSEUDONYM_BODY, ORG_PREFIX + _PSEUDONYM_BODY)
+# One expression matching any of LEAK_PATTERNS.
+LEAK_PATTERN = "|".join(f"(?:{pattern})" for pattern in LEAK_PATTERNS)
 
 
 def folder_class(raw_folder: str) -> str:

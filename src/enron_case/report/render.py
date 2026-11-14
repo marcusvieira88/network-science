@@ -22,7 +22,7 @@ from enron_case.report import quality, record
 from enron_case.report.markdown import bullets, format_value, table
 
 PLACEHOLDER = re.compile(r"\{\{([a-z0-9_]+)\}\}")
-IDENTIFIER = re.compile("|".join(f"(?:{p})" for p in vocab.LEAK_PATTERNS))
+IDENTIFIER = re.compile(vocab.LEAK_PATTERN)
 NO_CHECK = "no check"  # a hypothesis without an artifact check (docs/hypotheses.md)
 MITIGATION_TARGET = 0.5  # SC-007: a mitigated release should at least halve the rate
 STEP_MANUAL_N2 = STEP_MANUAL_RULE.format(rule="N2")
@@ -544,14 +544,15 @@ def risk_verdicts(risk: pl.DataFrame) -> list[str]:
     """One line per mitigated release and attacker: rate before and after, halved or not."""
     lines = []
     for variant, attacker in risk.select("release_variant", "attacker").rows():
-        if variant == "R0":
+        if variant == vocab.NAIVE_RELEASE:
             continue
-        before = _risk_row(risk, "R0", attacker)
+        before = _risk_row(risk, vocab.NAIVE_RELEASE, attacker)
         after = _risk_row(risk, variant, attacker)
         halved = _number(after, "reid_top1") <= _number(before, "reid_top1") * MITIGATION_TARGET
+        naive = vocab.NAIVE_RELEASE
         lines.append(
-            f"{variant} against {attacker}: re-identified share {_f(before, 'reid_top1')} on R0, "
-            f"{_f(after, 'reid_top1')} on {variant} "
+            f"{variant} against {attacker}: re-identified share "
+            f"{_f(before, 'reid_top1')} on {naive}, {_f(after, 'reid_top1')} on {variant} "
             f"({'at least halved' if halved else 'not halved: target missed'}); "
             f"finding survives: {_f(after, 'finding_survives')}."
         )

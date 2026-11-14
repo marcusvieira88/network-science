@@ -12,12 +12,12 @@ import numpy as np
 import polars as pl
 
 from enron_case.config import Config
-from enron_case.contracts.vocab import DEFAULT_VARIANT
+from enron_case.contracts.vocab import DEFAULT_VARIANT, OBSERVED_SCOPE
 from enron_case.network.snapshots import stable_sum
 from enron_case.release import kanon, mitigate
 
 # The scope the release publishes and the risk stage attacks: every internal person.
-PUBLISHED_SCOPE = "observed"
+PUBLISHED_SCOPE = OBSERVED_SCOPE
 
 
 def build_r0(snapshots: pl.DataFrame) -> pl.DataFrame:

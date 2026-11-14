@@ -13,7 +13,7 @@ from enron_case.errors import UsageError
 WEEK = "week"
 MONTH = "month"
 PERIOD_INTERVALS = {WEEK: "1w", MONTH: "1mo"}
-CORE_SCOPE, OBSERVED_SCOPE = v.SCOPES
+CORE_SCOPE, OBSERVED_SCOPE = v.CORE_SCOPE, v.OBSERVED_SCOPE
 
 
 def stable_sum(expr: pl.Expr) -> pl.Expr:
