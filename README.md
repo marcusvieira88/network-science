@@ -225,13 +225,24 @@ sequenceDiagram
     X->>J: write one JSON file
     M->>B: vite build + preview
     B->>J: fetch (the only request it may make)
-    B-->>U: finding, metrics over time, group network, risk, limits
+    B-->>U: finding, metrics, 3D group network, clusters, hypotheses, risk, limits
 ```
 
 The UI is a static site. Its only input is a file built from the published release, so it cannot
-show anything the report could not. The network view draws **groups of at least five people**,
-never individuals. A Content-Security-Policy blocks other origins, and a build check fails on any
-external URL: no CDN, no web fonts, no analytics.
+show anything the report could not. Its views:
+
+| View | Shows |
+|------|-------|
+| Overview | the finding, the artifact checks that ruled out H2 and H3, and the confident exploratory result |
+| Metrics | each weekly metric by scope, with the change point, public events and baseline marked |
+| Network | a rotatable **3D graph of groups** and their ties, week by week (2D fallback without WebGL) |
+| Clusters | a **chord diagram** of mail between and within groups for the baseline year, the crisis weeks or all weeks; each group's size, within-group share and top partner groups; and the group whose cross-group share changed most, with the stale-baseline caveat |
+| Hypotheses | H1–H4 with their artifact checks, and the exploratory families E1–E20 |
+| Data quality, Privacy and risk, Limits | the cleaning funnel, header rulings, the attacks before and after mitigation, and the limits |
+
+Every node, arc and segment is a **group of at least five people**, never an individual; group
+membership is not published. A Content-Security-Policy blocks other origins, and a build check
+fails on any external URL: no CDN, no web fonts, no analytics.
 
 ---
 
@@ -407,6 +418,7 @@ half of the targets; on R1 and R2, nobody.
 | **shadcn/ui** on **Radix UI** | cards, tabs, tables, badges, slider, select, tooltip | Accessible primitives copied into the repo rather than imported from a registry, so there is no external fetch. |
 | **Recharts** (via shadcn charts) | metrics over time, change-point and event markers | Declarative charts that match the shadcn theme. |
 | **d3-force** | the flat (2D) group network layout, the fallback without WebGL | One force layout computed once and kept stable while the week slider moves. |
+| **d3-chord** | the Clusters chord diagram, drawn as plain SVG | About 3 kB with one dependency already in the bundle; plain SVG lets the privacy test check every arc. |
 | **react-force-graph-3d** + **three** | the 3D group network | Loaded as a separate chunk only when the browser has WebGL; bundled, so still no external request. |
 | **lucide-react**, **@fontsource-variable/inter** | icons, bundled font | Bundled assets, so no external request. |
 | `class-variance-authority`, `clsx`, `tailwind-merge` | component variants and class composition | The standard shadcn helpers. |

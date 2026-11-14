@@ -240,7 +240,7 @@ def test_volume_equalised_with_too_few_custodians_is_not_computed() -> None:
         ex.received_messages(events, events.get_column("sender_pid").unique()),
     )
     result = ex.volume_equalised(
-        tables, ex.MEASURES["E11"], ex.CRISIS, ex.REFERENCE, Config(), stream=0
+        tables, ex.MEASURES["E11"], CRISIS_WINDOW, REFERENCE_WINDOW, Config(), stream=0
     )
     assert result.n < Config().k_min
     assert np.isnan(result.median)
