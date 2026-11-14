@@ -26,6 +26,26 @@ describe("parseRelease", () => {
     expect(data.run.seed).toBe(20011202);
   });
 
+  it("reads the exploratory crisis and reference windows", () => {
+    const data = parseRelease(rawSample());
+    expect(data.windows).toEqual({
+      crisis: { start: "2001-08-14", end: "2001-12-02" },
+      reference: { start: "2000-08-14", end: "2000-12-02" },
+    });
+  });
+
+  it("rejects a missing or malformed window", () => {
+    const missing = rawSample();
+    delete missing.windows;
+    expect(() => parseRelease(missing)).toThrow(/windows/);
+    const reversed = rawSample();
+    reversed.windows = {
+      crisis: { start: "2001-12-02", end: "2001-08-14" },
+      reference: { start: "2000-08-14", end: "2000-12-02" },
+    };
+    expect(() => parseRelease(reversed)).toThrow(/window crisis/);
+  });
+
   it("keeps suppressed cells as null", () => {
     const data = parseRelease(rawSample());
     const tenPlus = data.tables.degree_distribution.filter((row) => row.degree_bucket === "10+");

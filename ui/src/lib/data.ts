@@ -171,6 +171,18 @@ export interface PublicEvent {
   label: string;
 }
 
+/** An inclusive date range, ISO dates. */
+export interface Period {
+  start: string;
+  end: string;
+}
+
+/** The exploratory windows of docs/hypotheses-exploratory.md (config.CRISIS_WINDOW, REFERENCE_WINDOW). */
+export interface Windows {
+  crisis: Period;
+  reference: Period;
+}
+
 export interface RunInfo {
   code_version: string;
   sample: boolean;
@@ -183,6 +195,7 @@ export interface ReleaseData {
   contract_version: string;
   run: RunInfo;
   events: PublicEvent[];
+  windows: Windows;
   tables: { [T in TableName]: Row<T>[] };
 }
 
@@ -245,6 +258,19 @@ function parseEvents(value: unknown): PublicEvent[] {
   });
 }
 
+function parsePeriod(value: unknown, name: string): Period {
+  const period = requireRecord(value, `window ${name}`);
+  if (!isIsoDate(period.start) || !isIsoDate(period.end) || period.end < period.start) {
+    throw new DataError(`window ${name} is malformed`);
+  }
+  return { start: period.start, end: period.end };
+}
+
+function parseWindows(value: unknown): Windows {
+  const windows = requireRecord(value, "windows");
+  return { crisis: parsePeriod(windows.crisis, "crisis"), reference: parsePeriod(windows.reference, "reference") };
+}
+
 /** Validate an untrusted JSON value as a release document; throws DataError. */
 export function parseRelease(value: unknown): ReleaseData {
   const doc = requireRecord(value, "release data");
@@ -264,6 +290,7 @@ export function parseRelease(value: unknown): ReleaseData {
     contract_version: doc.contract_version,
     run: parseRun(doc.run),
     events: parseEvents(doc.events),
+    windows: parseWindows(doc.windows),
     tables,
   };
   assertReleasePrivacy(data);
