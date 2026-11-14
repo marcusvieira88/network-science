@@ -3,6 +3,7 @@
  * theme as CSS variables (hex for chart colours, "H S% L%" components for the rest). These pure
  * helpers turn a variable's raw value into hex, so index.css stays the one place colours live.
  */
+import { clamp } from "@/lib/utils";
 
 export class ThemeColorError extends Error {
   override name = "ThemeColorError";
@@ -42,7 +43,7 @@ export function themeHex(name: string, raw: string): string {
 
 /** "#rrggbb" plus an opacity in [0, 1] as "#rrggbbaa", which Sigma reads as a transparent colour. */
 export function withAlpha(hex: string, opacity: number): string {
-  return `${hex}${channelHex(Math.min(Math.max(opacity, 0), 1))}`;
+  return `${hex}${channelHex(clamp(opacity, 0, 1))}`;
 }
 
 const HEX_CHANNEL_WIDTH = 2;

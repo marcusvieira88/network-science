@@ -1,7 +1,9 @@
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from "d3-force";
 import type { SimulationLinkDatum, SimulationNodeDatum } from "d3-force";
 
+import { sortedGroups } from "@/lib/cells";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
+import { clamp } from "@/lib/utils";
 
 /**
  * The release's leftover bucket (community_groups.csv): people with no tie in the baseline period
@@ -13,6 +15,13 @@ const LAYOUT_TICKS = 300;
 const MIN_RADIUS = 10;
 const RADIUS_PER_SQRT_PERSON = 4;
 const CHART_SLOTS = 8;
+/** Force-layout tuning: link length as a share of the shorter side, link pull, gap between discs. */
+const LINK_DISTANCE_SHARE = 1 / 3;
+const LINK_BASE_STRENGTH = 0.05;
+const LINK_TIE_STRENGTH = 0.5;
+const COLLIDE_PADDING = 12;
+/** Ties are drawn translucent so crossings stay readable, in the SVG and the WebGL network alike. */
+export const TIE_OPACITY = 0.55;
 /** In the Individuals mode a group's disc fades to a membrane around its anonymous points. */
 export const MEMBRANE_OPACITY = 0.25;
 /** Height of the WebGL network canvas and of its loading placeholder, in pixels. */
@@ -49,6 +58,11 @@ function pairKey(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }
 
+/** One key per unordered pair of groups, in the order a tie names them (a < b). */
+export function pairId(a: string, b: string): string {
+  return pairKey(a, b).join("\u0000");
+}
+
 /** What a tie sums: the message weight (the default everywhere) or the plain message count. */
 export type TieMeasure = "weight" | "n_messages";
 
@@ -64,7 +78,7 @@ export function weekGraph(edges: CommunityEdgeRow[], week: string | null, measur
       continue;
     }
     const [a, b] = pairKey(edge.src_group, edge.dst_group);
-    const key = `${a}\u0000${b}`;
+    const key = pairId(a, b);
     const tie = ties.get(key) ?? { a, b, weightAB: 0, weightBA: 0, total: 0 };
     if (edge.src_group === a) tie.weightAB += weight;
     else tie.weightBA += weight;
@@ -122,9 +136,7 @@ export function layoutGroups(
   width: number,
   height: number,
 ): PlacedGroup[] {
-  const nodes: LayoutNode[] = namedGroups(groups)
-    .sort((x, y) => x.group.localeCompare(y.group))
-    .map((g) => ({ group: g.group, nPersons: g.n_persons, radius: groupRadius(g.n_persons) }));
+  const nodes: LayoutNode[] = sortedGroups(namedGroups(groups)).map((g) => ({ group: g.group, nPersons: g.n_persons, radius: groupRadius(g.n_persons) }));
   const all = publishedTies(edges, null, nodes.map((n) => n.group));
   const maxTotal = Math.max(1, ...all.map((t) => t.total));
   const links: LayoutLink[] = all.map((t) => ({
@@ -138,11 +150,11 @@ export function layoutGroups(
       "link",
       forceLink<LayoutNode, LayoutLink>(links)
         .id((n) => n.group)
-        .distance(minSide / 3)
-        .strength((link) => 0.05 + 0.5 * link.strength),
+        .distance(minSide * LINK_DISTANCE_SHARE)
+        .strength((link) => LINK_BASE_STRENGTH + LINK_TIE_STRENGTH * link.strength),
     )
     .force("charge", forceManyBody().strength(-minSide))
-    .force("collide", forceCollide<LayoutNode>((n) => n.radius + 12))
+    .force("collide", forceCollide<LayoutNode>((n) => n.radius + COLLIDE_PADDING))
     .force("center", forceCenter(width / 2, height / 2))
     .stop();
   simulation.tick(LAYOUT_TICKS);
@@ -153,10 +165,6 @@ export function layoutGroups(
     x: clamp(n.x ?? width / 2, n.radius, width - n.radius),
     y: clamp(n.y ?? height / 2, n.radius, height - n.radius),
   }));
-}
-
-function clamp(value: number, low: number, high: number): number {
-  return Math.min(Math.max(value, low), high);
 }
 
 /** Label order with `other` last: the order groups are listed and coloured in. */

@@ -18,6 +18,8 @@ const MIN_LABEL_ANGLE = 0.12;
 const RIBBON_OPACITY = { rest: 0.65, highlighted: 0.9, dimmed: 0.08 } as const;
 /** The outside bucket's arc: grey hatching, so it never reads as one more group. */
 const HATCH_SIZE = 6;
+/** Hairline in the background colour that separates neighbouring ribbons. */
+const RIBBON_BORDER_WIDTH = 0.5;
 const HATCH_BACKGROUND_OPACITY = 0.3;
 const OUTSIDE_COLOR = "var(--chart-other)";
 
@@ -145,7 +147,7 @@ export function ClusterChord({ matrix, summaries, label, outsideName }: ClusterC
                 fill={outsideRibbon ? OUTSIDE_COLOR : color(source)}
                 fillOpacity={ribbonOpacity(focus, link)}
                 stroke="hsl(var(--background))"
-                strokeWidth={0.5}
+                strokeWidth={RIBBON_BORDER_WIDTH}
                 tabIndex={0}
                 aria-label={source === target ? `Within ${fullName(source)}` : `Between ${names}`}
                 className="outline-none transition-[fill-opacity]"
