@@ -153,18 +153,33 @@ published manual cleanups; within custodians we do not find the published 2001 n
 
 In order; each step is a gate for the next. Details: [technical overview](docs/technical-overview.md#next-steps), [deployment on AWS](docs/deployment-aws.md).
 
-1. **An API to serve the explorer.** Today the browser fetches one static `release.json`. Replace
+1. **Connectors instead of a file.** The corpus here is a public archive downloaded once; real data
+   comes from the customer's tools, pulled through their APIs with OAuth admin consent, the
+   narrowest scopes, tokens in a secrets manager, and incremental sync (webhooks or delta queries):
+   - **Gmail / Google Workspace:** the `gmail.metadata` scope returns headers but never bodies or
+     attachments, so the promise is enforced by Google, not only by our code.
+   - **Microsoft 365 (Outlook):** Microsoft Graph `Mail.ReadBasic.All` reads mail without body or
+     attachments; Graph Data Connect for bulk export inside the customer's tenant.
+   - **Microsoft Teams and Slack:** no metadata-only scope exists; message APIs return text. The
+     connector keeps sender, recipients/channel, time and thread IDs and drops the text in memory
+     before anything is written, with the canary test extended to cover it. Weaker than a scope,
+     so stated as such to the customer.
+
+   Each connector is a new ingest-side package: identifiers stay behind the pseudonymization
+   boundary and `Subject` is still discarded at the allowlist.
+
+2. **An API to serve the explorer.** Today the browser fetches one static `release.json`. Replace
    it with a read-only query API: Polars stays the processing engine of the pipeline, which writes
    the release tables as Parquet; DuckDB serves them, querying Parquet in place with no load step.
    Every answer passes the same k ≥ 5 suppression as the release, plus a differencing guard.
-2. **Security on the API.** JWT authentication through the customer's own identity provider (IdP: the system their staff
+3. **Security on the API.** JWT authentication through the customer's own identity provider (IdP: the system their staff
    already sign in with, such as Microsoft Entra ID, Okta or Google Workspace) via OIDC, user roles (viewer,
    analyst, admin) checked on every route, rate limits and a query budget per user and tenant,
    HTTPS only, encrypted storage with per-tenant keys, an audit log of who asked what.
-3. **Load and penetration tests** against that architecture: load tests (k6 or Locust) with
+4. **Load and penetration tests** against that architecture: load tests (k6 or Locust) with
    realistic query mixes and tenant counts; an external penetration test; abuse tests that try to
    re-identify people through the API, extending the attacks in `risk/` from releases to queries.
-4. **Deploy on AWS**, giving each privacy guarantee a second line in the platform:
+5. **Deploy on AWS**, giving each privacy guarantee a second line in the platform:
 
 ```mermaid
 flowchart LR
@@ -184,7 +199,7 @@ flowchart LR
 
    Zones become buckets and IAM roles mirror `zones.ALLOWED`; the key stays in the customer's KMS;
    images are signed only after `make gate`; one account per tenant, residency by region.
-5. **Analysis:** a record-profile view in the explorer; differential privacy for releases; a
+6. **Analysis:** a record-profile view in the explorer; differential privacy for releases; a
    group-level attack.
 
 ## More detail
