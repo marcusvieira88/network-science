@@ -63,13 +63,18 @@ def observed_snapshots(synth: SynthOutput) -> pl.DataFrame:
 
 
 # ---- R0 ---------------------------------------------------------------------------------
-def test_r0_equals_observed_person_edges(synth: SynthOutput) -> None:
-    r0 = variants.build_r0(synth.table("events"), synth.table("entities_p"))
-    assert_frame_equal(r0, observed_snapshots(synth), check_exact=False)
+def test_r0_is_the_observed_snapshot_edges_without_scope(synth: SynthOutput) -> None:
+    snapshots = synth.table("snapshots")
+    r0 = variants.build_r0(snapshots)
+    assert r0.columns == list(EDGE_SCHEMA)
+    observed_rows = snapshots.filter(pl.col("scope") == "observed").height
+    assert 0 < observed_rows < snapshots.height
+    assert r0.height == observed_rows
+    assert_frame_equal(r0, observed_snapshots(synth))
 
 
 def test_r0_is_node_level_and_cannot_pass_kanon(synth: SynthOutput) -> None:
-    r0 = variants.build_r0(synth.table("events"), synth.table("entities_p"))
+    r0 = variants.build_r0(synth.table("snapshots"))
     with pytest.raises(PrivacyViolation):
         kanon.assert_no_identifiers(r0)
 

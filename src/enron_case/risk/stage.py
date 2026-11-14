@@ -23,9 +23,9 @@ from enron_case.risk.features import NODE, node_features
 # A2 knows this many custodians' true identities (research R12).
 A2_SEEDS = 3
 
-BuildR0 = Callable[[pl.DataFrame, pl.DataFrame], pl.DataFrame]
-BuildAggregate = Callable[[pl.DataFrame, pl.DataFrame, pl.DataFrame], dict[str, pl.DataFrame]]
-BuildNoisy = Callable[[pl.DataFrame, pl.DataFrame, pl.DataFrame, int], dict[str, pl.DataFrame]]
+BuildR0 = Callable[[pl.DataFrame], pl.DataFrame]
+BuildAggregate = Callable[[pl.DataFrame, pl.DataFrame], dict[str, pl.DataFrame]]
+BuildNoisy = Callable[[pl.DataFrame, pl.DataFrame, int], dict[str, pl.DataFrame]]
 
 
 @dataclass(frozen=True)
@@ -45,8 +45,9 @@ def run(ctx: StageContext) -> None:
 
 def real_dependencies(communities: pl.DataFrame, k_min: int) -> Dependencies:
     """Bind the other packages' public interfaces (release.variants, finding.stats, pseudo)
-    to the shapes this stage calls. R1/R2 are built from R0 edges plus the baseline
-    communities, exactly as the release stage builds what it publishes."""
+    to the shapes this stage calls. R0 is the observed-scope snapshots; R1/R2 are built from
+    those edges plus the baseline communities, exactly as the release stage builds what it
+    publishes."""
     variants: Any = importlib.import_module("enron_case.release.variants")
     stats: Any = importlib.import_module("enron_case.finding.stats")
     keys: Any = importlib.import_module("enron_case.pseudo.keys")
@@ -57,19 +58,15 @@ def real_dependencies(communities: pl.DataFrame, k_min: int) -> Dependencies:
         pid: str = pseudonymize.person_pid(key, entity_id)
         return pid
 
-    def build_r1(
-        events: pl.DataFrame, entities_p: pl.DataFrame, metric_series: pl.DataFrame
-    ) -> dict[str, pl.DataFrame]:
-        edges = variants.build_r0(events, entities_p)
+    def build_r1(edges: pl.DataFrame, metric_series: pl.DataFrame) -> dict[str, pl.DataFrame]:
         tables: dict[str, pl.DataFrame] = variants.build_r1(
             edges, metric_series, communities, k_min
         )
         return tables
 
     def build_r2(
-        events: pl.DataFrame, entities_p: pl.DataFrame, metric_series: pl.DataFrame, seed: int
+        edges: pl.DataFrame, metric_series: pl.DataFrame, seed: int
     ) -> dict[str, pl.DataFrame]:
-        edges = variants.build_r0(events, entities_p)
         tables: dict[str, pl.DataFrame] = variants.build_r2(
             edges, metric_series, communities, k_min, seed
         )
@@ -85,14 +82,13 @@ def real_dependencies(communities: pl.DataFrame, k_min: int) -> Dependencies:
 
 
 def run_with(ctx: StageContext, deps: Dependencies) -> None:
-    events = ctx.read("events")
     entities_p = ctx.read("entities_p")
     metric_series = ctx.read("metric_series")
-    r0 = deps.build_r0(events, entities_p)
+    r0 = deps.build_r0(ctx.read("snapshots"))
     releases: dict[str, Release] = {
         "R0": r0,
-        "R1": deps.build_r1(events, entities_p, metric_series),
-        "R2": deps.build_r2(events, entities_p, metric_series, ctx.config.seed),
+        "R1": deps.build_r1(r0, metric_series),
+        "R2": deps.build_r2(r0, metric_series, ctx.config.seed),
     }
     aux_edges = aux_public.load_aux_edges(ctx)
     scorer = score.Scorer.from_context(ctx, deps.pid_of)

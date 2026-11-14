@@ -7,9 +7,9 @@ from dataclasses import dataclass
 import polars as pl
 
 from enron_case.config import Config
-from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.contracts import schemas
 from enron_case.contracts import vocab as v
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import UsageError
 from enron_case.network.communities import UNASSIGNED
 from enron_case.network.snapshots import (

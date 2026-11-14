@@ -14,9 +14,9 @@ from typing import Any
 import polars as pl
 
 from enron_case.config import Config
-from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.context import StageContext
 from enron_case.contracts import vocab
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.report import quality
 from enron_case.report.markdown import bullets, format_value, table

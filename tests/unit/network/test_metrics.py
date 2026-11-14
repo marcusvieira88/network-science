@@ -7,6 +7,13 @@ from datetime import date
 
 import polars as pl
 import pytest
+
+from enron_case.config import Config
+from enron_case.contracts import schemas
+from enron_case.contracts import vocab as v
+from enron_case.errors import UsageError
+from enron_case.network.communities import baseline_communities
+from enron_case.network.metrics import compute_series
 from network_toys import (
     WEEK_1,
     WEEK_2,
@@ -18,13 +25,6 @@ from network_toys import (
     people,
     toy_config,
 )
-
-from enron_case.config import Config
-from enron_case.contracts import schemas
-from enron_case.contracts import vocab as v
-from enron_case.errors import UsageError
-from enron_case.network.communities import baseline_communities
-from enron_case.network.metrics import compute_series
 
 Key = tuple[str, str, date]
 

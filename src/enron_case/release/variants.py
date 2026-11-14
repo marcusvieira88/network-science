@@ -1,6 +1,7 @@
 """Release variants attacked by the risk stage (research R12) and published by this stage.
 
-R0: node-level weekly person edges. Personal data; held in memory, never written to release.
+R0: node-level weekly person edges (observed-scope snapshots). Personal data; held in memory,
+    never written to release.
 R1: the aggregate release tables, k-thresholded through `kanon`.
 R2: R1 with seeded Laplace noise on counts and weights.
 """
@@ -13,36 +14,14 @@ import polars as pl
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.release import kanon, mitigate
 
-PERSON_TYPE = "person"
-R0_SORT = ("week", "src_pid", "dst_pid")
+# The scope the release publishes and the risk stage attacks: every internal person.
+PUBLISHED_SCOPE = "observed"
 
 
-def build_r0(events: pl.DataFrame, entities_p: pl.DataFrame) -> pl.DataFrame:
-    """Weekly edges between internal persons from in-network events: week, src_pid, dst_pid,
-    weight (sum of event weights), n_messages (distinct messages)."""
-    persons = entities_p.filter((pl.col("type") == PERSON_TYPE) & pl.col("is_internal"))
-    person_pids = persons.get_column("pid")
-    return (
-        events.filter(
-            pl.col("in_network")
-            & pl.col("sender_pid").is_in(person_pids.implode())
-            & pl.col("recipient_pid").is_in(person_pids.implode())
-        )
-        .with_columns(pl.col("ts_hour").dt.date().dt.truncate("1w").alias("week"))
-        .group_by("week", "sender_pid", "recipient_pid")
-        .agg(
-            pl.col("weight").sum(),
-            pl.col("msg_pid").n_unique().cast(pl.Int64).alias("n_messages"),
-        )
-        .select(
-            "week",
-            pl.col("sender_pid").alias("src_pid"),
-            pl.col("recipient_pid").alias("dst_pid"),
-            "weight",
-            "n_messages",
-        )
-        .sort(R0_SORT)
-    )
+def build_r0(snapshots: pl.DataFrame) -> pl.DataFrame:
+    """The node-level weekly person edges every release is built from: the observed-scope
+    `snapshots` (analysis window only), without the scope column."""
+    return snapshots.filter(pl.col("scope") == PUBLISHED_SCOPE).drop("scope")
 
 
 def build_r1(

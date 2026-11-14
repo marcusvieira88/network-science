@@ -29,8 +29,8 @@
 
 ## Release variants (WP-H interface)
 
-`enron_case.release.variants.build_r0(events, entities_p) -> pl.DataFrame` (node-level weekly
-edges, restricted zone, in memory), `build_r1(...)` and `build_r2(...)` (aggregate tables).
+`enron_case.release.variants.build_r0(snapshots) -> pl.DataFrame` (node-level weekly
+edges: the observed-scope snapshots, analysis window only; restricted zone, in memory), `build_r1(...)` and `build_r2(...)` (aggregate tables).
 Until WP-H merges, inject builders in tests.
 
 ## Utility
