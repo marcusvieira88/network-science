@@ -232,10 +232,29 @@ def build_parser() -> argparse.ArgumentParser:
         "review-merges",
         help="T046: judge a seeded sample of identity merges in this terminal (counts only kept)",
     )
+    for name, text in ONE_COMMAND_HELP.items():
+        sub.add_parser(name, help=text)
     return parser
 
 
 INFO_COMMANDS = ("check-key", "review-merges", "summary")
+# The one command and its helpers (enron_case.onecommand); the same on every OS.
+ONE_COMMAND_HELP = {
+    "all": "the one command: every step, then serve the explorer until Ctrl+C",
+    "check": "every step of `all` except serving the explorer",
+    "gate": "Python gate: lint, format, strict types, all tests",
+    "ui-gate": "UI gate: install UI dependencies if needed, lint, types, tests, build, check",
+    "ui-deps": "install the UI dependencies if the lockfile is newer than the installed tree",
+    "key": "create a key outside the repository if none exists (KEY_FILE, else the default)",
+}
+
+
+def _run_one_command(command: str) -> int:
+    from enron_case import onecommand  # noqa: PLC0415 - it imports this module
+
+    if command in onecommand.MODES:
+        return onecommand.run_one_command(command)
+    return onecommand.run_helper(command)
 
 
 def _run_info_command(args: argparse.Namespace) -> None:
@@ -258,6 +277,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         os.environ[KEY_ENV] = SAMPLE_KEY_HEX
         os.environ.pop(KEY_FILE_ENV, None)
     try:
+        if args.command in ONE_COMMAND_HELP:
+            return _run_one_command(args.command)
         if args.command in INFO_COMMANDS:
             _run_info_command(args)
             return 0

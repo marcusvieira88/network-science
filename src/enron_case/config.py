@@ -6,6 +6,7 @@ Override at run time with `enron-case run --set NAME=VALUE`.
 from __future__ import annotations
 
 import dataclasses
+import os
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -34,6 +35,44 @@ DEFAULT_KEY_PATH = Path(".config") / "enron-case" / "key"  # relative to the hom
 MIN_KEY_BYTES = 32
 # Permission bits a key file must not have: any access for group or others (like ssh keys).
 KEY_FILE_FORBIDDEN_MODE = 0o077
+# A new key file is written owner-only: mode 600 in a directory of mode 700 (POSIX). Windows has
+# no such bits; there the key creator sets an owner-only ACL instead (contracts/cli.md).
+KEY_FILE_MODE = 0o600
+KEY_DIR_MODE = 0o700
+ON_WINDOWS = os.name == "nt"
+
+# The one command (`enron-case all|check`, contracts/cli.md). Environment variables it reads:
+# where to create a key when none is configured, the explorer port, and uv (set by `uv run`).
+KEY_FILE_TARGET_ENV = "KEY_FILE"
+UI_PORT_ENV = "UI_PORT"
+UV_ENV = "UV"
+DEFAULT_UI_PORT = 4173
+EXPLORER_HOST = "127.0.0.1"  # vite.config.ts serves the explorer here
+MAX_PORT = 65535
+MIN_NODE_MAJOR = 20
+# Corpus archive, ingest zone and restricted tables of a full run (quickstart.md).
+MIN_FREE_DISK_BYTES = 3 * 1024**3
+STEP_LOG_DIR = Path("data") / "logs"
+FAILURE_TAIL_LINES = 40
+# The gates, each defined here only: `make gate`, `make ui-gate`, the one command and CI all run
+# `enron-case gate` / `enron-case ui-gate`, which run these lists. Python tools run as
+# `python -m <module>` from the repository root; UI tools run in ui/.
+PYTHON_GATE: tuple[tuple[str, ...], ...] = (
+    ("ruff", "check", "src", "tests"),
+    ("ruff", "format", "--check", "src", "tests"),
+    ("mypy",),
+    ("pytest", "-q"),
+)
+UI_GATE: tuple[tuple[str, ...], ...] = (
+    ("npm", "run", "lint"),
+    ("npm", "run", "typecheck"),
+    ("npm", "test"),
+    ("npm", "run", "build"),
+    ("node", "scripts/check-build.mjs"),
+)
+# npm rewrites this file at the end of `npm ci`; it is reinstalled only when the lockfile is newer.
+UI_DEPENDENCY_MARKER = Path("node_modules") / ".package-lock.json"
+UI_LOCKFILE = "package-lock.json"
 # Upper bound on the bytes read from one archive member's header block, by our parser and the
 # attacker's. Real headers average a few kilobytes; the cap keeps a crafted member (one endless
 # line, no newline) from being read into memory whole.

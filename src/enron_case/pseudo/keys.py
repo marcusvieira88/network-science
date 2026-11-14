@@ -1,22 +1,30 @@
-"""Master key resolution, labelled subkeys and the key fingerprint (contracts/cli.md, R5).
+"""Master key creation and resolution, labelled subkeys and the key fingerprint
+(contracts/cli.md, R5).
 
 The key and its hex text never appear in an error message, a log line or an output.
 """
 
 from __future__ import annotations
 
+import getpass
 import hashlib
 import hmac
 import os
+import secrets
+import shutil
+import subprocess
 from pathlib import Path
 
 from enron_case.cli import REPO_ROOT
 from enron_case.config import (
     DEFAULT_KEY_PATH,
+    KEY_DIR_MODE,
     KEY_ENV,
     KEY_FILE_ENV,
     KEY_FILE_FORBIDDEN_MODE,
+    KEY_FILE_MODE,
     MIN_KEY_BYTES,
+    ON_WINDOWS,
     SAMPLE_KEY_HEX,
 )
 from enron_case.errors import KeyProblem
@@ -28,6 +36,41 @@ SUBKEY_LABELS = (PERSON_LABEL, ORG_LABEL, EVENT_LABEL)
 
 FINGERPRINT_MESSAGE = b"fingerprint-v1"
 FINGERPRINT_HEX_CHARS = 8
+
+
+def create_key_file(path: Path, repo_root: Path = REPO_ROOT) -> bool:
+    """Write a new random key to `path`, readable by its owner only, unless a file is already
+    there. Returns whether a key was written. A path inside the repository is refused."""
+    target = path.expanduser()
+    if target.exists():
+        return False
+    if target.resolve().is_relative_to(repo_root.resolve()):
+        raise KeyProblem("refusing to write a key inside the repository")
+    target.parent.mkdir(mode=KEY_DIR_MODE, parents=True, exist_ok=True)
+    # O_EXCL: never write through a file or link that appeared since the check above.
+    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, KEY_FILE_MODE)
+    with os.fdopen(descriptor, "wb") as handle:
+        handle.write((secrets.token_hex(MIN_KEY_BYTES) + "\n").encode("ascii"))
+    if ON_WINDOWS:
+        _restrict_to_owner(target)
+    return True
+
+
+def _restrict_to_owner(path: Path) -> None:
+    """Windows has no mode bits: replace the inherited ACL with one granting the current user
+    alone. A key that cannot be restricted is deleted, never left readable."""
+    icacls = shutil.which("icacls")
+    account = getpass.getuser()
+    domain = os.environ.get("USERDOMAIN")
+    if domain:
+        account = f"{domain}\\{account}"
+    if icacls is not None:
+        argv = [icacls, str(path), "/inheritance:r", "/grant:r", f"{account}:F"]
+        result = subprocess.run(argv, capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            return
+    path.unlink()
+    raise KeyProblem("could not restrict the new key file to its owner (icacls); it was removed")
 
 
 def load_key(repo_root: Path = REPO_ROOT) -> bytes:
@@ -74,9 +117,19 @@ def _read_key_file(path: Path, source: str, repo_root: Path) -> bytes:
         raise KeyProblem(f"{source} lies inside the repository; move it outside")
     if not resolved.is_file():
         raise KeyProblem(f"no key found ({source} missing); run: make key")
-    if resolved.stat().st_mode & KEY_FILE_FORBIDDEN_MODE:
-        raise KeyProblem(f"{source} is open to group or other users; run: chmod 600 on it")
+    _check_owner_only(resolved, source)
     return _parse_key(resolved.read_text(encoding="ascii", errors="replace"), source)
+
+
+def _check_owner_only(path: Path, source: str) -> None:
+    """POSIX: refuse any permission bit for group or others. Windows reports no such bits (its
+    st_mode reflects only the read-only flag), so there the check is skipped: the key is
+    protected by the owner-only ACL that create_key_file sets and by the private user profile
+    it lives in (contracts/cli.md)."""
+    if ON_WINDOWS:
+        return
+    if path.stat().st_mode & KEY_FILE_FORBIDDEN_MODE:
+        raise KeyProblem(f"{source} is open to group or other users; run: chmod 600 on it")
 
 
 def _parse_key(hex_text: str, source: str) -> bytes:
