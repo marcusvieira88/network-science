@@ -10,6 +10,7 @@ import { TABLE_COLUMNS } from "@/lib/data";
 import { LEAK_PATTERN, PERSON_COUNT_COLUMNS, identifierCount, minimumGroupSize, smallPersonCounts } from "@/lib/privacy";
 import { type LabelCanvas, drawGroupHover, networkPalette } from "@/lib/sigmaNetwork";
 import { VIEWS } from "@/lib/views";
+import { layerStub, resetLayerStub } from "@/test/layerWebgl";
 import { drawnNode, resetSigmaStub, sigmaStub } from "@/test/reactSigma";
 import { rawSample, sampleData } from "@/test/sample";
 import { applyThemeVariables } from "@/test/theme";
@@ -17,6 +18,7 @@ import { applyThemeVariables } from "@/test/theme";
 // WebGL does not run in jsdom: React Sigma is replaced by a stand-in that keeps the graph, the
 // settings and the events the view hands to Sigma, so the test can inspect what would be drawn.
 vi.mock("@react-sigma/core", () => import("@/test/reactSigma"));
+vi.mock("@sigma/layer-webgl", () => import("@/test/layerWebgl"));
 
 /** Attributes a bare anonymous point may carry in the SVG view: position, size and colour. */
 const BARE_POINT_ATTRIBUTES = ["cx", "cy", "fill", "r"];
@@ -212,6 +214,7 @@ describe("privacy of what the views render", () => {
 
   it("network view, Overlap mode (WebGL): group discs only, group-level counts only", async () => {
     resetSigmaStub();
+    resetLayerStub();
     applyThemeVariables();
     const user = userEvent.setup();
     const groups = data.tables.community_groups;
@@ -235,6 +238,8 @@ describe("privacy of what the views render", () => {
     const labels = new Set(groups.map((g) => g.group));
     // Nothing per person: one disc per published group and no other node.
     for (const key of graph.nodes()) expect(labels.has(graph.getNodeAttribute(key, "label") ?? "")).toBe(true);
+    // One contour layer, drawn from those group nodes.
+    expect(layerStub.binds).toHaveLength(1);
     const [first = ""] = graph.nodes();
     act(() => sigmaStub.handlers.enterNode?.({ node: first }));
     expect(container.textContent ?? "").not.toMatch(LEAK_PATTERN);

@@ -261,7 +261,7 @@ Rules for the UI:
    network laid out with `d3-force`. The Individuals mode draws, inside each group, as many points as the group has
    persons, at seeded random positions: decoration with no label, tooltip, hover text, tie or
    data (Sigma keys are opaque sequence numbers). The Overlap mode (WebGL only) draws the week's six
-   heaviest group pairs by message count as intersecting translucent discs; an overlap is mail
+   heaviest group pairs by message count as intersecting outlined contours (one `@sigma/layer-webgl` layer, drawn from group nodes only); an overlap is mail
    between groups, never shared members. There is
    no person-level node, tooltip or table anywhere (`ui/src/privacy.test.ts`).
 3. No outside requests: fonts and assets are bundled; no analytics, no CDN.

@@ -201,8 +201,8 @@ describe("networkGraph in the Overlap mode", () => {
   const overlap = { a: "G01", b: "G02", messages: 20, weight: 8, shareA: 20 / 30, shareB: 1, depth: 0.8 };
   const graph = networkGraph({ groups, positions, ties: [], maxTie: 8, palette, points: null, overlaps: [overlap] });
 
-  it("draws translucent discs and a hidden edge instead of a line for each overlapping pair", () => {
-    expect(graph.getNodeAttribute("group:G01", "color")).toBe("#00000180");
+  it("draws transparent discs (the contour layer draws the groups) and a hidden edge instead of a line for each overlapping pair", () => {
+    expect(graph.getNodeAttribute("group:G01", "color")).toBe("#00000000");
     expect(graph.edges().map((key) => graph.getEdgeAttributes(key))).toEqual([
       { size: 0, color: "#00000a8c", weight: 8, hidden: true },
     ]);

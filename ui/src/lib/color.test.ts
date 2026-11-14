@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ThemeColorError, hslToHex, themeHex, withAlpha } from "@/lib/color";
+import { ThemeColorError, hexChannels, hslToHex, themeHex, withAlpha } from "@/lib/color";
 
 describe("hslToHex", () => {
   // Expected values from Python's colorsys.hls_to_rgb, rounded to bytes.
@@ -34,5 +34,17 @@ describe("withAlpha", () => {
     expect(withAlpha("#3987e5", 0.55)).toBe("#3987e58c");
     expect(withAlpha("#3987e5", 2)).toBe("#3987e5ff");
     expect(withAlpha("#3987e5", -1)).toBe("#3987e500");
+  });
+});
+
+describe("hexChannels", () => {
+  it("reads #rrggbb as red, green and blue in [0, 1]", () => {
+    expect(hexChannels("#ff8000")).toEqual([1, 128 / 255, 0]);
+    expect(hexChannels("#3987E5")).toEqual([0x39 / 255, 0x87 / 255, 0xe5 / 255]);
+  });
+
+  it("refuses anything but #rrggbb", () => {
+    expect(() => hexChannels("#fff")).toThrow(ThemeColorError);
+    expect(() => hexChannels("#3987e580")).toThrow(ThemeColorError);
   });
 });

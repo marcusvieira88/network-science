@@ -11,6 +11,8 @@ import { applyThemeVariables } from "@/test/theme";
 // Sigma needs WebGL, which jsdom lacks: React Sigma is replaced by a stand-in that keeps what the
 // view hands it (graph, settings, events).
 vi.mock("@react-sigma/core", () => import("@/test/reactSigma"));
+// The real package reads WebGL2RenderingContext on import, which jsdom lacks.
+vi.mock("@sigma/layer-webgl", () => import("@/test/layerWebgl"));
 
 const groups: CommunityGroupRow[] = [
   { group: "G01", n_persons: 14 },

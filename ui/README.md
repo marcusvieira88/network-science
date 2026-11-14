@@ -31,8 +31,17 @@ The "Individuals (anonymous)" mode fills each published group with `n_persons` p
 random positions (seed: the run seed): they have no label, tooltip, hover text or ties, and their
 Sigma keys are opaque sequence numbers (`point:<group index>-<index>`).
 The "Overlap" mode (WebGL only; the SVG fallback disables it and says so) draws the week's
-`OVERLAP_PAIRS` (6) heaviest ties by message count between published groups as intersecting,
-translucent discs; the other ties stay lines. Depth = shared messages ÷ (own within-group messages
+`OVERLAP_PAIRS` (6) heaviest ties by message count between published groups as intersecting
+contours; the other ties stay lines. The contours are one `@sigma/layer-webgl` (3.0.0, the line
+for sigma 3) layer under the ties (`src/lib/contourLayer.ts`, mapping in `src/lib/overlapContours.ts`):
+each group is outlined in its colour with a translucent fill, at exactly its disc's radius
+(`CONTOUR_RADIUS_PER_DISC_RADIUS`), so the lens shows the solver's depth; the disc itself is
+transparent and keeps hover, search and the label. One program draws every group: the package's
+`createContoursProgram` is one colour per layer, and a layer per group means a WebGL context per
+group, past the browsers' cap of 16. The layer is bound once per Overlap view and removed on mode
+change and unmount; it reads positions on every render, so it follows the week animation, and
+hover or search thickens the focused group's border and dims unrelated groups. It needs WebGL2;
+without it the view falls back to the SVG network. Depth = shared messages ÷ (own within-group messages
 of the less internally active side + shared), capped at `OVERLAP_MAX_DEPTH`; centres are then
 r_a + r_b − depth · 2 · min(r_a, r_b) apart. Positions start from the ForceAtlas2 layout and are
 relaxed per week by a fixed-iteration distance-constraint solve that keeps every other pair at

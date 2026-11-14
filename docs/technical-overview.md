@@ -272,7 +272,7 @@ ui-sample` writes. So the UI cannot show anything the report could not. Its view
 |------|-------|
 | Overview | why H1–H4 give no finding (the artifact checks that ruled out H2 and H3), any hypothesis held true (none in this release) and key numbers. The record change is in the report only; the UI has no view of `record_profile` |
 | Metrics | each weekly metric by scope, with the change point, public events and baseline marked |
-| Network | a **graph of groups** and their ties, week by week, drawn with Sigma.js (WebGL) and laid out once with ForceAtlas2: zoom, fullscreen, search by group label, hover highlighting; an anonymous Individuals mode fills each group with unlabelled points; an Overlap mode draws the week's six heaviest pairs as intersecting discs (mail between groups, not shared members); SVG fallback without WebGL (no Overlap mode) |
+| Network | a **graph of groups** and their ties, week by week, drawn with Sigma.js (WebGL) and laid out once with ForceAtlas2: zoom, fullscreen, search by group label, hover highlighting; an anonymous Individuals mode fills each group with unlabelled points; an Overlap mode draws the week's six heaviest pairs as intersecting outlined contours (`@sigma/layer-webgl`) (mail between groups, not shared members); SVG fallback without WebGL (no Overlap mode) |
 | Clusters | a **chord diagram** of mail between and within groups for the baseline year, the crisis weeks or all weeks; each group's size, within-group share and top partner groups; and the group whose cross-group share changed most, with the stale-baseline caveat |
 | Hypotheses | H1–H4 with their artifact checks, and H5–H25 |
 | Data quality, Privacy and risk, Limits | the cleaning funnel, header rulings, the attacks before and after mitigation, and the limits |
@@ -566,6 +566,7 @@ still have not run.
 | **shadcn/ui** on **Radix UI** | cards, tabs, tables, badges, slider, select, tooltip | Accessible primitives copied into the repo rather than imported from a registry, so there is no external fetch. |
 | **Recharts** (via shadcn charts) | metrics over time, change-point and event markers | Declarative charts that match the shadcn theme. |
 | **Sigma.js** + **@react-sigma/core** | the group network (WebGL), with zoom, fullscreen, search and hover | Draws thousands of points smoothly; React bindings for the controls. Loaded as a separate chunk only when the Network view opens; bundled, so no external request. |
+| **@sigma/layer-webgl** (3.0.0, matches sigma 3) | the Overlap mode's group contours, one WebGL layer under the ties | Sigma's own layer API; one layer draws every group, since a layer per group would pass the browsers' cap of 16 WebGL contexts. Bundled; no worker, blob or eval. |
 | **graphology** + **graphology-layout-forceatlas2** | the graph Sigma draws and its layout | ForceAtlas2 runs once over all weeks with fixed settings and no randomness, so groups stay put while the week slider moves. |
 | **d3-force** | the SVG group network, the fallback without WebGL | One force layout computed once and kept stable while the week slider moves. |
 | **d3-chord** + **d3-shape** | the Clusters chord diagram, drawn as plain SVG | About 3 kB with one dependency already in the bundle; plain SVG lets the privacy test check every arc. |
