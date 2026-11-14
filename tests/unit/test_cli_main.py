@@ -116,6 +116,16 @@ def test_stage_runs_one_stage_keeps_ingest_and_warns(
     assert capsys.readouterr().err == cli.KEEP_INGEST_WARNING + "\n"
 
 
+def test_stage_without_sample_uses_the_real_zones_and_domain(
+    pipeline: FakePipeline, tmp_path: Path
+) -> None:
+    assert cli.main(["stage", "network"]) == 0
+    [call] = pipeline.calls
+    assert call.sample is False
+    assert call.config.internal_domain == Config().internal_domain
+    assert call.paths == Paths.for_run(tmp_path, False)
+
+
 def test_set_overrides_reach_the_pipeline_config(pipeline: FakePipeline) -> None:
     code = cli.main(
         [
