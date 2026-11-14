@@ -19,8 +19,6 @@ from enron_case.errors import PipelineError
 from enron_case.pseudo.keys import load_key
 from enron_case.pseudo.pseudonymize import person_pid
 
-# Interval bounds of the percentile bootstrap.
-
 PidOf = Callable[[str], str]
 
 

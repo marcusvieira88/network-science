@@ -22,7 +22,7 @@ from __future__ import annotations
 import dataclasses
 import math
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 import numpy as np
 import polars as pl
@@ -37,6 +37,8 @@ from enron_case.network.snapshots import stable_sum
 BASELINE_PLACEBO = "baseline_placebo"
 WITHIN_CUSTODIAN = "within_custodian"
 CHECK_FOR = {"H2": BASELINE_PLACEBO, "H3": WITHIN_CUSTODIAN}
+H2 = next(hyp for hyp in HYPOTHESES if hyp.id == "H2")
+ONE_DAY = timedelta(days=1)
 
 # Stream labels of the two checks' generators, apart from those in hypotheses.py.
 _PLACEBO_STREAM = 7
@@ -76,13 +78,13 @@ def baseline_placebo(network: Network, recompute: Recompute, config: Config) -> 
     communities = baseline_communities(network.events, network.entities_p, placebo)
     series = recompute(network.events, network.entities_p, communities, placebo)
     values = series.filter(
-        (pl.col("metric") == "cross_community_share")
-        & (pl.col("scope") == "observed")
+        (pl.col("metric") == H2.metric)
+        & (pl.col("scope") == H2.scope)
         & (pl.col("variant") == DEFAULT_VARIANT)
         & pl.col("value").is_not_null()
     )
     before = _values(values, config.baseline_start, mid)
-    after = _values(values, mid + _ONE_DAY, config.baseline_end)
+    after = _values(values, mid + ONE_DAY, config.baseline_end)
     try:
         effect = stats.effect_size(before, after, min_baseline_weeks=config.min_baseline_weeks)
         low, high = bootstrap_ci(before, after, config, stats.rng_for(config.seed, _PLACEBO_STREAM))
@@ -184,9 +186,6 @@ def failed(checks: list[ArtifactCheck]) -> set[str]:
     run (`passes` None). Both cap confidence, because an artifact not ruled out may explain the
     change; the table keeps the two apart."""
     return {c.hypothesis for c in checks if c.passes is not True}
-
-
-_ONE_DAY = date(2000, 1, 2) - date(2000, 1, 1)
 
 
 def _values(series: pl.DataFrame, start: date, end: date) -> stats.FloatArray:

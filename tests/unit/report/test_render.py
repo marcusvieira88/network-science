@@ -269,6 +269,21 @@ def test_stage_writes_documents_only_on_real_runs(synth: SynthOutput, tmp_path: 
         assert "{{" not in text
 
 
+def test_stage_refuses_a_document_with_an_identifier(
+    synth: SynthOutput, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Documents are scanned like the report: an address-shaped or pseudonym-shaped string in a
+    template or an injected value stops the run before anything is written."""
+    leaky = "k = {{k_min}}; contact " + "someone" + "@" + "example.org"
+    monkeypatch.setattr("enron_case.report.stage.load_template", lambda _name: leaky)
+    ctx = dataclasses.replace(
+        ctx_with_fixtures("report", synth, tmp_path, tables=RELEASE_TABLES), sample=False
+    )
+    with pytest.raises(PrivacyViolation):
+        run(ctx)
+    assert not any(ctx.paths.dir(Zone.DOCS).glob("*.md"))
+
+
 # ---- review-2 wording ---------------------------------------------------------------------
 
 

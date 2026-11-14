@@ -29,6 +29,7 @@ UP, DOWN = 1, -1
 PLACEBO_FRACTION = 0.5
 WORK_START, WORK_END = 7, 19
 BROADCAST_SENT = 5
+LAST_WEEKDAY = 5  # Friday: weekday numbers run 1 = Monday ... 7 = Sunday
 BROADCAST_RECEIVED = 20
 TOP_RECIPIENTS = 3
 TOP_SENDERS = 3
@@ -404,18 +405,17 @@ def _weekday_share(condition: pl.Expr) -> WindowMeasure:
     share = _share(condition)
 
     def measure(df: pl.DataFrame) -> pl.DataFrame:
-        return share(df.filter(pl.col("weekday") <= 5))
+        return share(df.filter(pl.col("weekday") <= LAST_WEEKDAY))
 
     return measure
 
 
-LAST_WEEKDAY = 5  # Friday: weekday numbers run 1 = Monday ... 7 = Sunday
 after_hours = (pl.col("weekday") <= LAST_WEEKDAY) & (
     (pl.col("hour") < WORK_START) | (pl.col("hour") >= WORK_END)
 )
 MEASURES: dict[str, Measure] = {
     "H5": _windowed("sent", _weekday_share(after_hours)),
-    "H6": _windowed("sent", _share(pl.col("weekday") >= 6)),
+    "H6": _windowed("sent", _share(pl.col("weekday") > LAST_WEEKDAY)),
     "H7": _windowed("sent", _share(pl.col("has_bcc"))),
     "H8": _windowed("sent", _share(pl.col("has_cc"))),
     "H9": _windowed("sent", _mean_recipients),
@@ -668,6 +668,9 @@ def run_family_on(tables: Tables, config: Config) -> pl.DataFrame:
             if hyp.id in RETENTION_CHECKS and outcome != NOT_SUPPORTED
             else None
         )
+        # The retention comparison has its own custodian count: below k its statistics would
+        # describe a group under the minimum, so only its (failed) verdict is kept.
+        shown = retention if retention is not None and retention.crisis.n >= config.k_min else None
         caveat = CAVEATS.get(hyp.id, "")
         if retention is not None and not retention.passes:
             outcome = INCONCLUSIVE  # an artifact check failed: cannot be held true
@@ -698,9 +701,9 @@ def run_family_on(tables: Tables, config: Config) -> pl.DataFrame:
                 "equalised_ci_high": equalised.ci_high if equalised else None,
                 "equalised_p": equalised.p if equalised else None,
                 "equalised_p_holm": family_adjusted(equalised.p) if equalised else None,
-                "retention_median": retention.crisis.median if retention else None,
-                "retention_ci_low": retention.crisis.ci_low if retention else None,
-                "retention_ci_high": retention.crisis.ci_high if retention else None,
+                "retention_median": shown.crisis.median if shown else None,
+                "retention_ci_low": shown.crisis.ci_low if shown else None,
+                "retention_ci_high": shown.crisis.ci_high if shown else None,
                 "retention_passes": retention.passes if retention else None,
             }
         )

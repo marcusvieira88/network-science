@@ -325,8 +325,9 @@ def artifact_checks(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
 
 
 def exploratory(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
-    """H5–H24 results. A comparison over fewer than k custodians is suppressed with its
-    statistics (the count and every number derived from it)."""
+    """H5–H25 results. A comparison over fewer than k custodians is suppressed with its
+    statistics (the count and every number derived from it). The retention check's statistics
+    are already null when its own custodian count is below k (finding/exploratory.py)."""
     crisis = (
         "custodians",
         "median_change",
