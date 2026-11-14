@@ -668,6 +668,9 @@ def run_family_on(tables: Tables, config: Config) -> pl.DataFrame:
             if hyp.id in RETENTION_CHECKS and outcome != NOT_SUPPORTED
             else None
         )
+        # The retention comparison has its own custodian count: below k its statistics would
+        # describe a group under the minimum, so only its (failed) verdict is kept.
+        shown = retention if retention is not None and retention.crisis.n >= config.k_min else None
         caveat = CAVEATS.get(hyp.id, "")
         if retention is not None and not retention.passes:
             outcome = INCONCLUSIVE  # an artifact check failed: cannot be held true
@@ -698,9 +701,9 @@ def run_family_on(tables: Tables, config: Config) -> pl.DataFrame:
                 "equalised_ci_high": equalised.ci_high if equalised else None,
                 "equalised_p": equalised.p if equalised else None,
                 "equalised_p_holm": family_adjusted(equalised.p) if equalised else None,
-                "retention_median": retention.crisis.median if retention else None,
-                "retention_ci_low": retention.crisis.ci_low if retention else None,
-                "retention_ci_high": retention.crisis.ci_high if retention else None,
+                "retention_median": shown.crisis.median if shown else None,
+                "retention_ci_low": shown.crisis.ci_low if shown else None,
+                "retention_ci_high": shown.crisis.ci_high if shown else None,
                 "retention_passes": retention.passes if retention else None,
             }
         )

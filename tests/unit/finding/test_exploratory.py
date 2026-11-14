@@ -302,6 +302,34 @@ def test_a_failed_retention_check_caps_the_outcome() -> None:
     assert h15["caveat"] == "planted caveat"
 
 
+def test_a_retention_check_over_fewer_than_k_custodians_publishes_no_statistic() -> None:
+    """The retention comparison has its own custodian count. Over fewer than k custodians its
+    median and interval would describe a group below the minimum, so they are null, and the
+    check fails (it needs k custodians), while the main comparison over twenty is kept."""
+    events = _family_events(planted=True)
+    three = [f"p_{chr(97 + i) * 16}" for i in range(3)]
+
+    def three_custodians_only(tables: ex.Tables, window: ex.Window) -> pl.DataFrame:
+        return ex.MEASURES["H15"](tables, window).filter(pl.col("pid").is_in(three))
+
+    checks = dict(ex.RETENTION_CHECKS)
+    ex.RETENTION_CHECKS.clear()
+    ex.RETENTION_CHECKS["H15"] = ex.RetentionRule(three_custodians_only, "planted caveat")
+    try:
+        table = ex.run_family(events, _entities(events), Config(exploratory_bootstrap_reps=500))
+    finally:
+        ex.RETENTION_CHECKS.clear()
+        ex.RETENTION_CHECKS.update(checks)
+    h15 = table.filter(pl.col("hypothesis") == "H15").row(0, named=True)
+    assert h15["custodians"] == 20
+    assert h15["retention_passes"] is False
+    assert (h15["retention_median"], h15["retention_ci_low"], h15["retention_ci_high"]) == (
+        None,
+        None,
+        None,
+    )
+
+
 THREE_CUSTODIANS = pl.Series([A, B, D])
 
 
