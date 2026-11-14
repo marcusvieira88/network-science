@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import date
 
 import numpy as np
@@ -9,12 +10,14 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from enron_case.config import Config
 from enron_case.contracts import schemas
 from enron_case.errors import PrivacyViolation
 from enron_case.release import kanon, mitigate, variants
 from enron_case.synth import SynthOutput
 
 K = 5
+CONFIG = dataclasses.replace(Config(), k_min=K)
 H1_WEEK = date(2000, 1, 3)
 H2_WEEK = date(2000, 7, 3)
 EDGE_SCHEMA = {
@@ -82,7 +85,7 @@ def test_r0_is_node_level_and_cannot_pass_kanon(synth: SynthOutput) -> None:
 # ---- R1 ---------------------------------------------------------------------------------
 def build_r1_from_fixtures(synth: SynthOutput) -> dict[str, pl.DataFrame]:
     return variants.build_r1(
-        observed_snapshots(synth), synth.table("metric_series"), synth.table("communities"), K
+        observed_snapshots(synth), synth.table("metric_series"), synth.table("communities"), CONFIG
     )
 
 
@@ -105,7 +108,7 @@ def test_degree_buckets_per_half_year() -> None:
     h1 = [(H1_WEEK, h, leaf) for h in hubs for leaf in leaves]
     h1 += [(H1_WEEK, 2, 0), (H1_WEEK, 3, 3)]  # reverse edge and self loop add no degree
     h2 = [(H2_WEEK, 10 + 2 * i, 11 + 2 * i) for i in range(5)]
-    r1 = variants.build_r1(edges(h1 + h2), empty_metrics(), communities({0: 5}), K)
+    r1 = variants.build_r1(edges(h1 + h2), empty_metrics(), communities({0: 5}), CONFIG)
     got = {
         (p, b): n
         for p, b, n in r1["degree_distribution"].select("period", "degree_bucket", "persons").rows()
@@ -126,14 +129,16 @@ def test_degree_buckets_per_half_year() -> None:
 
 def test_groups_by_size_small_ones_merged_into_other() -> None:
     comm = communities({3: 5, 0: 7, 1: 3, 2: 3, -1: 1})
-    r1 = variants.build_r1(edges([]), empty_metrics(), comm, K)
+    r1 = variants.build_r1(edges([]), empty_metrics(), comm, CONFIG)
     groups = dict(r1["community_groups"].rows())
     assert groups == {"G01": 7, "G02": 5, "other": 7}
 
 
 def test_group_labels_follow_size_not_community_id() -> None:
     comm = communities({5: 6, 2: 9})
-    groups = dict(variants.build_r1(edges([]), empty_metrics(), comm, K)["community_groups"].rows())
+    groups = dict(
+        variants.build_r1(edges([]), empty_metrics(), comm, CONFIG)["community_groups"].rows()
+    )
     assert groups == {"G01": 9, "G02": 6}
 
 
@@ -141,7 +146,9 @@ def test_ties_with_fewer_than_k_senders_are_dropped() -> None:
     comm = communities({0: 7, 1: 6})  # pids 0-6 in G01, 7-12 in G02
     forward = [(H1_WEEK, s, 7) for s in range(5)]  # five distinct senders G01 -> G02
     back = [(H1_WEEK, s, 0) for s in range(7, 11)]  # four distinct senders G02 -> G01
-    graph = variants.build_r1(edges(forward + back), empty_metrics(), comm, K)["community_graph"]
+    graph = variants.build_r1(edges(forward + back), empty_metrics(), comm, CONFIG)[
+        "community_graph"
+    ]
     assert graph.select("week", "src_group", "dst_group", "weight", "n_messages").rows() == [
         (H1_WEEK, "G01", "G02", 5.0, 5)
     ]
@@ -150,7 +157,7 @@ def test_ties_with_fewer_than_k_senders_are_dropped() -> None:
 def test_small_other_group_is_not_published_nor_its_ties() -> None:
     comm = communities({0: 6, 1: 3})  # pids 0-5 in G01, 6-8 in other (3 persons)
     rows = [(H1_WEEK, s, 6) for s in range(6)]
-    r1 = variants.build_r1(edges(rows), empty_metrics(), comm, K)
+    r1 = variants.build_r1(edges(rows), empty_metrics(), comm, CONFIG)
     assert dict(r1["community_groups"].rows()) == {"G01": 6}
     assert r1["community_graph"].height == 0
 
@@ -166,7 +173,7 @@ def test_weekly_metrics_suppressed_below_k() -> None:
             "variant": ["default", "default"],
         }
     )
-    out = variants.build_r1(edges([]), metrics, communities({0: 5}), K)["weekly_metrics"]
+    out = variants.build_r1(edges([]), metrics, communities({0: 5}), CONFIG)["weekly_metrics"]
     assert out.select("value", "n_active").rows() == [(None, None), (0.3, 5)]
 
 
@@ -176,8 +183,7 @@ def build_r2(synth: SynthOutput, seed: int) -> dict[str, pl.DataFrame]:
         observed_snapshots(synth),
         synth.table("metric_series"),
         synth.table("communities"),
-        K,
-        seed=seed,
+        dataclasses.replace(CONFIG, seed=seed),
     )
 
 
@@ -222,7 +228,7 @@ def test_weekly_metrics_publishes_default_variant_only() -> None:
             "variant": ["default", "cap=20", "window=month"],
         }
     )
-    out = variants.build_r1(edges([]), metrics, communities({0: 5}), K)["weekly_metrics"]
+    out = variants.build_r1(edges([]), metrics, communities({0: 5}), CONFIG)["weekly_metrics"]
     assert out.select("variant", "n_active").rows() == [("default", 9)]
 
 

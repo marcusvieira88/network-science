@@ -9,6 +9,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from enron_case import config
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.contracts import vocab as v
@@ -199,7 +200,7 @@ def test_no_address_in_event_columns() -> None:
 def run_stage(
     synth: SynthOutput, root: Path, monkeypatch: pytest.MonkeyPatch, key: bytes
 ) -> tuple[StageContext, list[str]]:
-    monkeypatch.setenv(keys.KEY_ENV, key.hex())
+    monkeypatch.setenv(config.KEY_ENV, key.hex())
     logs: list[str] = []
     ctx = ctx_with_fixtures("pseudo", synth, root, tables=INPUTS)
     ctx.log = logs.append

@@ -27,23 +27,19 @@ from datetime import date
 import numpy as np
 import polars as pl
 
-from enron_case.config import Config
-from enron_case.contracts.vocab import DEFAULT_VARIANT
+from enron_case.config import CI_PERCENTILES, Config
+from enron_case.contracts.vocab import DEFAULT_VARIANT, PERSON
 from enron_case.finding import stats
-from enron_case.finding.hypotheses import HYPOTHESES, Evidence, Network, Recompute
+from enron_case.finding.hypotheses import HYPOTHESES, Evidence, Network, Recompute, bootstrap_ci
 from enron_case.network.communities import baseline_communities
 
 BASELINE_PLACEBO = "baseline_placebo"
 WITHIN_CUSTODIAN = "within_custodian"
 CHECK_FOR = {"H2": BASELINE_PLACEBO, "H3": WITHIN_CUSTODIAN}
 
-# A calm, out-of-sample half-year must not move the metric by more than this many baseline
-# standard deviations; otherwise drift alone produces "changes" of the size being tested.
-PLACEBO_MAX_EFFECT = 2.0
-# A custodian enters the within-person comparison with at least this many sent events in
-# each period, so that one person's share is not decided by a handful of messages.
-MIN_UNIT_EVENTS = 30
-PERSON = "person"
+# Stream labels of the two checks' generators, apart from those in hypotheses.py.
+_PLACEBO_STREAM = 7
+_WITHIN_CUSTODIAN_STREAM = 8
 
 
 @dataclass(frozen=True)
@@ -87,10 +83,8 @@ def baseline_placebo(network: Network, recompute: Recompute, config: Config) -> 
     before = _values(values, config.baseline_start, mid)
     after = _values(values, mid + _ONE_DAY, config.baseline_end)
     try:
-        effect = stats.effect_size(before, after)
-        low, high = stats.block_bootstrap_ci(
-            before, after, config.bootstrap_reps, stats.rng_for(config.seed, 7)
-        )
+        effect = stats.effect_size(before, after, min_baseline_weeks=config.min_baseline_weeks)
+        low, high = bootstrap_ci(before, after, config, stats.rng_for(config.seed, _PLACEBO_STREAM))
     except stats.InsufficientData:
         return ArtifactCheck(
             "H2",
@@ -102,7 +96,8 @@ def baseline_placebo(network: Network, recompute: Recompute, config: Config) -> 
             None,
             "placebo periods too short",
         )
-    passes = abs(effect) <= PLACEBO_MAX_EFFECT
+    # Drift alone would otherwise produce "changes" of the size being tested.
+    passes = abs(effect) <= config.placebo_max_effect
     note = (
         "out-of-sample jump within the calm baseline year is small"
         if passes
@@ -134,8 +129,10 @@ def within_custodian(network: Network, change_week: date | None, config: Config)
         & pl.col("sender_internal")
         & pl.col("sender_pid").is_in(custodians.implode())
     ).with_columns(pl.col("ts_hour").dt.date().alias("day"))
-    before = _shares(sent, config.baseline_start, config.baseline_end)
-    after = _shares(sent, change_week, config.analysis_end)
+    # A minimum of sent events per period keeps one person's share from being decided by a
+    # handful of messages.
+    before = _shares(sent, config.baseline_start, config.baseline_end, config.min_unit_events)
+    after = _shares(sent, change_week, config.analysis_end, config.min_unit_events)
     # Sorted, so the seeded bootstrap resamples the same order on every run.
     paired = before.join(after, on="sender_pid", suffix="_after").sort("sender_pid")
     changes = (paired.get_column("share_after") - paired.get_column("share")).to_numpy()
@@ -151,9 +148,10 @@ def within_custodian(network: Network, change_week: date | None, config: Config)
             None,
             "fewer custodians than the minimum group size",
         )
-    rng = stats.rng_for(config.seed, 8)
+    rng = stats.rng_for(config.seed, _WITHIN_CUSTODIAN_STREAM)
     medians = np.median(rng.choice(changes, size=(config.bootstrap_reps, n)), axis=1)
-    low, high = (float(q) for q in np.quantile(medians, [0.025, 0.975]))
+    quantiles = [percentile / 100 for percentile in CI_PERCENTILES]
+    low, high = (float(q) for q in np.quantile(medians, quantiles))
     passes = stats.on_side(-1, low, high)  # H3 direction: down
     note = (
         "custodians themselves shifted their mail inward"
@@ -198,7 +196,7 @@ def _values(series: pl.DataFrame, start: date, end: date) -> stats.FloatArray:
     return out
 
 
-def _shares(sent: pl.DataFrame, start: date, end: date) -> pl.DataFrame:
+def _shares(sent: pl.DataFrame, start: date, end: date, min_events: int) -> pl.DataFrame:
     return (
         sent.filter((pl.col("day") >= start) & (pl.col("day") <= end))
         .group_by("sender_pid")
@@ -209,6 +207,6 @@ def _shares(sent: pl.DataFrame, start: date, end: date) -> pl.DataFrame:
             pl.col("weight").sum().alias("w"),
             pl.len().alias("n"),
         )
-        .filter(pl.col("n") >= MIN_UNIT_EVENTS)
+        .filter(pl.col("n") >= min_events)
         .select("sender_pid", (pl.col("ext") / pl.col("w")).alias("share"))
     )

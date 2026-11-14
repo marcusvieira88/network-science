@@ -26,13 +26,13 @@ owners); scope `observed` = every internal person seen in the headers.
 - **Analysis window**: `config.analysis_start .. config.analysis_end` (2000-01-01 .. 2002-03-31).
 - **Baseline**: `config.baseline_start .. config.baseline_end` (calendar 2000).
 - **Change point**: searched only among weeks after the baseline, leaving at least four weeks
-  after it. The "after" period runs from the change week to the end of the analysis window.
+  (`config.min_after_weeks`) after it. The "after" period runs from the change week to the end of the analysis window.
 - Weeks where the metric is undefined (fewer than `config.k_min` active persons) are dropped,
   not treated as zero.
 
 ## Decision rule (same for every hypothesis)
 
-Let `d` = +1 for "up" and −1 for "down". Significance level α = 0.05.
+Let `d` = +1 for "up" and −1 for "down". Significance level α = 0.05 (`config.alpha`).
 
 1. **Change point (a)**: weighted directional CUSUM over the analysis window of `n` weeks,
    `T = max over candidate weeks τ of −d · Σ_{i<τ}(x_i − mean x) · √(n / (τ (n − τ)))`. The
@@ -40,15 +40,16 @@ Let `d` = +1 for "up" and −1 for "down". Significance level α = 0.05.
    being under-scored.) p-value `p_perm` by permuting the weeks (`config.permutations` permutations,
    seeded from `config.seed`), `p = (1 + #{T_perm ≥ T}) / (1 + permutations)`.
 2. **Effect (b)**: `effect = (mean after change − mean baseline) / sd baseline` (sample sd).
-   95% interval `ci_low .. ci_high` by moving-block bootstrap (blocks of 4 weeks,
-   `config.bootstrap_reps` replicates, resampling baseline and after period separately, change
-   week held fixed).
+   95% interval `ci_low .. ci_high` (`config.ci_level`) by moving-block bootstrap (blocks of
+   4 weeks, `config.block_weeks`; `config.bootstrap_reps` replicates, resampling baseline and
+   after period separately, change week held fixed).
 3. **Multiple testing (f)**: Holm correction of `p_perm` across H1–H4 gives `p_holm`.
 
 `supported` is decided in this order:
 
-- **inconclusive** if the effect cannot be computed (fewer than two baseline weeks, a constant
-  baseline, or fewer than four weeks after every candidate change point);
+- **inconclusive** if the effect cannot be computed (fewer than two baseline weeks,
+  `config.min_baseline_weeks`; a constant baseline; or fewer than four weeks,
+  `config.min_after_weeks`, after every candidate change point);
 - **no** if the interval lies wholly on the opposite side of zero (`d · ci_high < 0`);
 - **yes** if `p_holm < α` and the interval lies wholly on the hypothesised side (`d · ci_low > 0`);
 - **no** if `p_holm ≥ α` and the interval does not lie wholly on the hypothesised side;
@@ -61,7 +62,7 @@ enters the Holm correction with `p_perm = 1`, and its effect and interval are re
 
 - **Null model (c)**: within each week, recipients are shuffled among events of equal weight
   and equal `in_network` flag, which preserves every sender's out-weight and every recipient's
-  in-weight in that week. The metric series is recomputed on each of 20 rewired networks and the
+  in-weight in that week. The metric series is recomputed on each of 20 (`config.null_replicates`) rewired networks and the
   effect taken at the same change week. `null_z = (effect − mean null effect) / sd null effect`.
   Passes when `d · null_z > z_{1−α}` (one-sided, 1.645). A change that the volume-preserving
   null reproduces is a volume or degree change, not a structural one.
@@ -123,11 +124,11 @@ from two known artifacts:
   best on the period it was fitted to, so cross-community share rises right after the baseline
   ends whatever happens. Placebo: fit communities on the first half of the baseline year and
   measure the jump into the calm second half (out of sample, before any 2001 event). A jump of
-  more than `PLACEBO_MAX_EFFECT` (2.0) baseline standard deviations fails: drift alone then
+  more than `config.placebo_max_effect` (2.0) baseline standard deviations fails: drift alone then
   produces effects of the size being tested.
 - **H3, `within_custodian`.** The aggregate external share moves when the mix of mailboxes
   holding mail changes. The check holds people fixed: the median, over custodians with at least
-  30 sent events in both periods, of the change in each custodian's own external share between
+  30 (`config.min_unit_events`) sent events in both periods, of the change in each custodian's own external share between
   the baseline and the period after the change point. Passes only if its bootstrap interval lies
   below zero (the hypothesised direction).
 

@@ -34,10 +34,6 @@ Release = pl.DataFrame | dict[str, pl.DataFrame]
 # Release-side column names of the node-level edge list (release.variants.build_r0).
 RELEASE_SRC = "src_pid"
 RELEASE_DST = "dst_pid"
-# Rows of the distance matrix computed at once; bounds memory on the full corpus.
-DISTANCE_CHUNK = 1024
-# A2: a guess needs at least this many (week, mapped person) contacts in common.
-A2_MIN_SUPPORT = 2
 
 
 def person_edges(release: Release) -> pl.DataFrame | None:
@@ -52,9 +48,9 @@ def node_edges(release: pl.DataFrame) -> pl.DataFrame:
     return release.select(WEEK, pl.col(RELEASE_SRC).alias(SRC), pl.col(RELEASE_DST).alias(DST))
 
 
-def attack_a1(release: Release, aux_edges: pl.DataFrame) -> dict[str, str]:
+def attack_a1(release: Release, aux_edges: pl.DataFrame, chunk_rows: int) -> dict[str, str]:
     """Outsider: match each pseudonym to the address with the nearest weekly activity vector
-    (distinct persons written to and heard from, per week)."""
+    (distinct persons written to and heard from, per week). `chunk_rows` bounds memory."""
     edges = person_edges(release)
     if edges is None:
         return {}
@@ -65,7 +61,9 @@ def attack_a1(release: Release, aux_edges: pl.DataFrame) -> dict[str, str]:
     if not pids or not addresses:
         return {}
     best = nearest_rows(
-        activity_matrix(released, pids, weeks), activity_matrix(observed, addresses, weeks)
+        activity_matrix(released, pids, weeks),
+        activity_matrix(observed, addresses, weeks),
+        chunk_rows,
     )
     return {pid: addresses[i] for pid, i in zip(pids, best, strict=True)}
 
@@ -81,23 +79,25 @@ def activity_matrix(activity: pl.DataFrame, nodes: list[str], weeks: list[date])
     return matrix
 
 
-def nearest_rows(queries: np.ndarray, candidates: np.ndarray) -> list[int]:
-    """Index of the Euclidean-nearest candidate for each query row (first index on ties)."""
+def nearest_rows(queries: np.ndarray, candidates: np.ndarray, chunk_rows: int) -> list[int]:
+    """Index of the Euclidean-nearest candidate for each query row (first index on ties),
+    computing the distances of `chunk_rows` query rows at a time."""
     candidate_norms = np.sum(candidates.astype(np.float64) ** 2, axis=1)
     best: list[int] = []
-    for start in range(0, queries.shape[0], DISTANCE_CHUNK):
-        block = queries[start : start + DISTANCE_CHUNK].astype(np.float64)
+    for start in range(0, queries.shape[0], chunk_rows):
+        block = queries[start : start + chunk_rows].astype(np.float64)
         distances = candidate_norms[None, :] - 2.0 * (block @ candidates.T.astype(np.float64))
         best.extend(int(i) for i in np.argmin(distances, axis=1))
     return best
 
 
 def attack_a2(
-    release: Release, aux_edges: pl.DataFrame, seeds: Mapping[str, str]
+    release: Release, aux_edges: pl.DataFrame, seeds: Mapping[str, str], min_support: int
 ) -> dict[str, str]:
     """Insider: start from known seed identities and propagate through the release graph.
     A pseudonym is mapped to the address whose weekly contacts with already-mapped persons
-    best match its own; each round's matches become evidence for the next.
+    best match its own, sharing at least `min_support` of them; each round's matches become
+    evidence for the next.
 
     Returns new guesses only; the seeds themselves are not guesses.
     """
@@ -107,7 +107,7 @@ def attack_a2(
     released, observed = weekly_contacts(edges), weekly_contacts(aux_edges)
     mapping = {p: a for p, a in seeds.items() if p in released and a in observed}
     while True:
-        accepted = accept(propose(released, observed, mapping))
+        accepted = accept(propose(released, observed, mapping, min_support))
         if not accepted:
             break
         mapping.update(accepted)
@@ -118,7 +118,7 @@ Contacts = dict[str, set[tuple[date, str]]]
 
 
 def propose(
-    released: Contacts, observed: Contacts, mapping: dict[str, str]
+    released: Contacts, observed: Contacts, mapping: dict[str, str], min_support: int
 ) -> dict[str, tuple[str, float]]:
     """For each unmapped pseudonym, its single best-scoring unused address, if unambiguous.
 
@@ -136,11 +136,7 @@ def propose(
             if contact_week == week and address not in used
         )
         ranked = sorted(
-            (
-                (n / math.sqrt(len(observed[a])), a)
-                for a, n in support.items()
-                if n >= A2_MIN_SUPPORT
-            ),
+            ((n / math.sqrt(len(observed[a])), a) for a, n in support.items() if n >= min_support),
             reverse=True,
         )
         if ranked and (len(ranked) == 1 or ranked[0][0] > ranked[1][0]):

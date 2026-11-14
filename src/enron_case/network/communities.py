@@ -6,16 +6,14 @@ import networkx as nx
 import polars as pl
 
 from enron_case.config import Config
+from enron_case.contracts.vocab import PERSON, UNASSIGNED_COMMUNITY
 from enron_case.network.snapshots import (
     OBSERVED_SCOPE,
-    PERSON,
     between,
     person_network,
     sender_view,
     stable_sum,
 )
-
-UNASSIGNED = -1
 
 
 def baseline_graph(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -> nx.Graph:
@@ -50,6 +48,6 @@ def baseline_communities(
     return persons.select(
         "pid",
         pl.col("pid")
-        .replace_strict(labels, default=UNASSIGNED, return_dtype=pl.Int64)
+        .replace_strict(labels, default=UNASSIGNED_COMMUNITY, return_dtype=pl.Int64)
         .alias("community"),
     ).sort("pid")

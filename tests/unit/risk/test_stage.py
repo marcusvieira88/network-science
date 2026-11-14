@@ -8,15 +8,19 @@ import polars as pl
 import pytest
 
 import risk_fakes
+from enron_case import config
+from enron_case.config import Config
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
-from enron_case.pseudo import keys, pseudonymize
+from enron_case.pseudo import pseudonymize
 from enron_case.release import variants
 from enron_case.risk import attack, aux_public, score, stage
 from enron_case.synth import SynthOutput
 from enron_case.synth.fixtures import fixture_pid
 from enron_case.zones import Zone
 from helpers import TEST_KEY_HEX, ctx_with_fixtures
+
+CONFIG = Config()
 
 INPUTS = (
     "snapshots",
@@ -79,10 +83,10 @@ def test_reported_rates_equal_rates_from_ground_truth(outcome: tuple, synth: Syn
     aux = aux_public.load_aux_edges(ctx)
     pid_of_address, custodians = truth_pids(synth)
     targets = stage.node_level_persons(r0)
-    seeds = score.Scorer.from_context(ctx, fixture_pid).seeds(custodians & targets, stage.A2_SEEDS)
+    seeds = score.Scorer.from_context(ctx, fixture_pid).seeds(custodians & targets, CONFIG.a2_seeds)
     for attacker, guesses, scored in (
-        ("A1", attack.attack_a1(r0, aux), targets),
-        ("A2", attack.attack_a2(r0, aux, seeds), targets - set(seeds)),
+        ("A1", attack.attack_a1(r0, aux, CONFIG.distance_chunk_rows), targets),
+        ("A2", attack.attack_a2(r0, aux, seeds, CONFIG.a2_min_support), targets - set(seeds)),
     ):
         correct = sum(pid_of_address.get(guesses.get(p, "")) == p for p in scored)
         reported = row(results, "R0", attacker)
@@ -93,7 +97,7 @@ def test_reported_rates_equal_rates_from_ground_truth(outcome: tuple, synth: Syn
 def test_a1_reidentifies_most_active_custodians_in_r0(outcome: tuple, synth: SynthOutput) -> None:
     ctx, results, _ = outcome
     r0 = variants.build_r0(ctx.read("snapshots"))
-    guesses = attack.attack_a1(r0, aux_public.load_aux_edges(ctx))
+    guesses = attack.attack_a1(r0, aux_public.load_aux_edges(ctx), CONFIG.distance_chunk_rows)
     pid_of_address, custodians = truth_pids(synth)
     hits = sum(pid_of_address.get(guesses.get(p, "")) == p for p in custodians)
     assert hits / len(custodians) >= 0.9
@@ -163,7 +167,7 @@ def test_scorer_builds_the_keyed_pseudonym_function_itself(
 ) -> None:
     """Without an injected pid function, the scorer loads the run key and maps an address to
     `person_pid(key, entity_id)`: a seed's address must belong to its own pseudonym."""
-    monkeypatch.setenv(keys.KEY_ENV, TEST_KEY_HEX)
+    monkeypatch.setenv(config.KEY_ENV, TEST_KEY_HEX)
     ctx = fixture_context(synth, tmp_path, [])
     amap = ctx.read("address_map")
     key = bytes.fromhex(TEST_KEY_HEX)

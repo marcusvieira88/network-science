@@ -98,12 +98,12 @@ recipient is an excluded person before everything else.
 The decision rule, the robustness checks and the confidence rule are defined in
 `docs/hypotheses.md`, which is authoritative; this section restates them and must agree with it
 and with `src/enron_case/finding/select.py`. For each hypothesis, with its metric, scope and
-direction `d` (+1 up, −1 down), α = 0.05:
+direction `d` (+1 up, −1 down), α = 0.05 (`config.alpha`):
 
 | Check | Passes when |
 |-------|-------------|
 | (a) change point | CUSUM permutation p-value `p_perm` (enters (f); not a separate pass/fail check) |
-| (b) effect | the 95 % block-bootstrap interval (`ci_low`, `ci_high`) lies wholly on the hypothesised side (`d · ci_low > 0`) |
+| (b) effect | the 95 % (`config.ci_level`) block-bootstrap interval (`ci_low`, `ci_high`) lies wholly on the hypothesised side (`d · ci_low > 0`) |
 | (c) null model | `d · null_z > 1.645` (one-sided `z_{1−α}`; the change is not explained by volume alone) |
 | (d) leave-one-mailbox-out | every leave-one-out effect has the hypothesised sign (`loo_min_effect`, `loo_max_effect` report the range) |
 | (e) variants | at least one non-default variant exists and every variant passes (`robust_variants_passed = robust_variants_total > 0`); a variant passes when its own `p_perm < α` and its own interval lies wholly on the hypothesised side |

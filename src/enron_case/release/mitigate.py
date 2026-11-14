@@ -8,15 +8,11 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-# Weighted-degree buckets published per half-year: (label, lowest degree in the bucket).
-DEGREE_BUCKETS: tuple[tuple[str, int], ...] = (("1", 1), ("2-4", 2), ("5-9", 5), ("10+", 10))
+from enron_case.contracts.vocab import UNASSIGNED_COMMUNITY
+
 LAST_MONTH_OF_FIRST_HALF = 6
 GROUP_PREFIX = "G"
 OTHER_GROUP = "other"
-UNASSIGNED_COMMUNITY = -1
-# Scale of the Laplace noise added to counts and weights in release R2 (a sketch, not a
-# calibrated privacy budget; research R12).
-R2_NOISE_SCALE = 1.0
 
 
 def half_year(week: pl.Expr) -> pl.Expr:
@@ -25,16 +21,27 @@ def half_year(week: pl.Expr) -> pl.Expr:
     return pl.format("{}H{}", week.dt.year(), half)
 
 
-def degree_bucket(degree: pl.Expr) -> pl.Expr:
-    """Bucket label of a degree of at least 1."""
+def degree_buckets(floors: tuple[int, ...]) -> list[tuple[str, int]]:
+    """(label, lowest degree) per bucket from ascending floors: `(1, 2, 5, 10)` gives
+    `1`, `2-4`, `5-9` and `10+`."""
+    ceilings = [floor - 1 for floor in floors[1:]]
+    labels = [
+        str(low) if low == high else f"{low}-{high}"
+        for low, high in zip(floors, ceilings, strict=False)
+    ]
+    return list(zip([*labels, f"{floors[-1]}+"], floors, strict=True))
+
+
+def degree_bucket(degree: pl.Expr, floors: tuple[int, ...]) -> pl.Expr:
+    """Bucket label of a degree of at least the lowest floor."""
     expr: pl.Expr = pl.lit(None, dtype=pl.String)
-    for label, lowest in DEGREE_BUCKETS:
+    for label, lowest in degree_buckets(floors):
         expr = pl.when(degree >= lowest).then(pl.lit(label)).otherwise(expr)
     return expr
 
 
-def bucket_labels() -> list[str]:
-    return [label for label, _ in DEGREE_BUCKETS]
+def bucket_labels(floors: tuple[int, ...]) -> list[str]:
+    return [label for label, _ in degree_buckets(floors)]
 
 
 def group_labels(communities: pl.DataFrame, k: int) -> pl.DataFrame:

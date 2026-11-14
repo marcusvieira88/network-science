@@ -7,6 +7,7 @@ from collections import Counter, defaultdict
 
 import polars as pl
 
+from enron_case.config import Config
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.contracts.counts import IdentityCounts
@@ -25,8 +26,7 @@ def run(ctx: StageContext) -> None:
         amap,
         messages,
         rules.custodian_addresses(messages),
-        ctx.config.recipient_cap,
-        ctx.config.internal_domain,
+        ctx.config,
     )
     ctx.write("address_map", amap)
     ctx.write("entities", entities)
@@ -42,11 +42,10 @@ def build_entities(
     amap: pl.DataFrame,
     messages: pl.DataFrame,
     custodian_addresses: set[str],
-    recipient_cap: int,
-    internal_domain: str,
+    config: Config,
 ) -> pl.DataFrame:
     entity_of = dict(amap.select("addr", "entity_id").iter_rows())
-    behaviour = classify.entity_behaviour(messages, entity_of, recipient_cap)
+    behaviour = classify.entity_behaviour(messages, entity_of, config.recipient_cap)
     members: dict[str, list[str]] = defaultdict(list)
     for addr, entity in entity_of.items():
         members[entity].append(addr)
@@ -57,9 +56,11 @@ def build_entities(
         rows.append(
             {
                 "entity_id": entity,
-                "type": classify.entity_type(sorted(addrs), behaviour[entity]),
+                "type": classify.entity_type(
+                    sorted(addrs), behaviour[entity], config.role_min_mass_sends
+                ),
                 "org_domain": org,
-                "is_internal": org == internal_domain,
+                "is_internal": org == config.internal_domain,
                 "is_custodian": entity in custodians,
                 "n_addresses": len(addrs),
             }

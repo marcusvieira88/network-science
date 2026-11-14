@@ -14,7 +14,6 @@ WEEK = "week"
 MONTH = "month"
 PERIOD_INTERVALS = {WEEK: "1w", MONTH: "1mo"}
 CORE_SCOPE, OBSERVED_SCOPE = v.SCOPES
-PERSON = "person"
 
 
 def stable_sum(expr: pl.Expr) -> pl.Expr:
@@ -43,9 +42,9 @@ def sender_view(events: pl.DataFrame, entities_p: pl.DataFrame) -> pl.DataFrame:
     custodians = entities_p.filter(pl.col("is_custodian")).get_column("pid").implode()
     return events.filter(
         pl.col("in_network"),
-        pl.col("sender_type") == PERSON,
+        pl.col("sender_type") == v.PERSON,
         pl.col("sender_internal"),
-        pl.col("recipient_type") == PERSON,
+        pl.col("recipient_type") == v.PERSON,
         pl.col("sender_pid") != pl.col("recipient_pid"),
     ).with_columns(
         pl.col("sender_pid").is_in(custodians).alias("sender_custodian"),

@@ -12,20 +12,18 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import polars as pl
 
+from enron_case.config import Config
 from enron_case.context import StageContext
 from enron_case.contracts import vocab as v
 from enron_case.risk import aux_public, score, uniqueness, utility
 from enron_case.risk.attack import Release, attack_a1, attack_a2, node_edges, person_edges
 from enron_case.risk.features import NODE, node_features
 
-# A2 knows this many custodians' true identities (research R12).
-A2_SEEDS = 3
-
 BuildR0 = Callable[[pl.DataFrame], pl.DataFrame]
 BuildAggregate = Callable[[pl.DataFrame, pl.DataFrame], dict[str, pl.DataFrame]]
-BuildNoisy = Callable[[pl.DataFrame, pl.DataFrame, int], dict[str, pl.DataFrame]]
 
 
 @dataclass(frozen=True)
@@ -35,16 +33,16 @@ class Dependencies:
 
     build_r0: BuildR0
     build_r1: BuildAggregate
-    build_r2: BuildNoisy
+    build_r2: BuildAggregate
     effect_size: utility.EffectFn
     pid_of: score.PidOf | None
 
 
 def run(ctx: StageContext) -> None:
-    run_with(ctx, real_dependencies(ctx.read("communities"), ctx.config.k_min))
+    run_with(ctx, real_dependencies(ctx.read("communities"), ctx.config))
 
 
-def real_dependencies(communities: pl.DataFrame, k_min: int) -> Dependencies:
+def real_dependencies(communities: pl.DataFrame, config: Config) -> Dependencies:
     """Bind the other packages' public interfaces (release.variants, finding.stats)
     to the shapes this stage calls. R0 is the observed-scope snapshots; R1/R2 are built from
     those edges plus the baseline communities, exactly as the release stage builds what it
@@ -54,23 +52,27 @@ def real_dependencies(communities: pl.DataFrame, k_min: int) -> Dependencies:
 
     def build_r1(edges: pl.DataFrame, metric_series: pl.DataFrame) -> dict[str, pl.DataFrame]:
         tables: dict[str, pl.DataFrame] = variants.build_r1(
-            edges, metric_series, communities, k_min
+            edges, metric_series, communities, config
         )
         return tables
 
-    def build_r2(
-        edges: pl.DataFrame, metric_series: pl.DataFrame, seed: int
-    ) -> dict[str, pl.DataFrame]:
+    def build_r2(edges: pl.DataFrame, metric_series: pl.DataFrame) -> dict[str, pl.DataFrame]:
         tables: dict[str, pl.DataFrame] = variants.build_r2(
-            edges, metric_series, communities, k_min, seed
+            edges, metric_series, communities, config
         )
         return tables
+
+    def effect_size(before: np.ndarray, after: np.ndarray) -> float:
+        value: float = stats.effect_size(
+            before, after, min_baseline_weeks=config.min_baseline_weeks
+        )
+        return value
 
     return Dependencies(
         build_r0=variants.build_r0,
         build_r1=build_r1,
         build_r2=build_r2,
-        effect_size=stats.effect_size,
+        effect_size=effect_size,
         pid_of=None,
     )
 
@@ -82,13 +84,13 @@ def run_with(ctx: StageContext, deps: Dependencies) -> None:
     releases: dict[str, Release] = {
         "R0": r0,
         "R1": deps.build_r1(r0, metric_series),
-        "R2": deps.build_r2(r0, metric_series, ctx.config.seed),
+        "R2": deps.build_r2(r0, metric_series),
     }
     aux_edges = aux_public.load_aux_edges(ctx)
     scorer = score.Scorer.from_context(ctx, deps.pid_of)
     targets = node_level_persons(r0)
     custodians = set(entities_p.filter(pl.col("is_custodian")).get_column("pid")) & targets
-    seeds = scorer.seeds(custodians, A2_SEEDS)
+    seeds = scorer.seeds(custodians, ctx.config.a2_seeds)
     effects = variant_effects(ctx, releases, metric_series, deps.effect_size)
 
     rows: list[dict[str, Any]] = []
@@ -99,9 +101,11 @@ def run_with(ctx: StageContext, deps: Dependencies) -> None:
             ctx.log(f"[risk] {name}: no person-level records; attackers have nothing to match")
         for attacker in v.ATTACKERS:
             if attacker == "A1":
-                guesses, scored = attack_a1(release, aux_edges), targets
+                guesses = attack_a1(release, aux_edges, ctx.config.distance_chunk_rows)
+                scored = targets
             else:
-                guesses, scored = attack_a2(release, aux_edges, seeds), targets - set(seeds)
+                guesses = attack_a2(release, aux_edges, seeds, ctx.config.a2_min_support)
+                scored = targets - set(seeds)
             result = scorer.score(guesses, scored)
             ctx.log(
                 f"[risk] {name}/{attacker}: {result.n_correct} of {result.n_targets} re-identified"

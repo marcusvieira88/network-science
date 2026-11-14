@@ -11,7 +11,6 @@ from enron_case.contracts import schemas
 from enron_case.contracts import vocab as v
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import UsageError
-from enron_case.network.communities import UNASSIGNED
 from enron_case.network.snapshots import (
     CORE_SCOPE,
     MONTH,
@@ -122,9 +121,11 @@ def tie_stats(ties: pl.DataFrame, communities: pl.DataFrame) -> pl.DataFrame:
             "recipient_pid",
             "left",
         )
-        .with_columns(pl.col("src_c", "dst_c").fill_null(UNASSIGNED))
+        .with_columns(pl.col("src_c", "dst_c").fill_null(v.UNASSIGNED_COMMUNITY))
     )
-    assigned = (pl.col("src_c") != UNASSIGNED) & (pl.col("dst_c") != UNASSIGNED)
+    assigned = (pl.col("src_c") != v.UNASSIGNED_COMMUNITY) & (
+        pl.col("dst_c") != v.UNASSIGNED_COMMUNITY
+    )
     crossing = assigned & (pl.col("src_c") != pl.col("dst_c"))
     return labelled.group_by("week").agg(
         pl.len().cast(pl.Int64).alias("n_ties"),

@@ -24,7 +24,7 @@ def run_with(ctx: StageContext, recompute: Recompute) -> None:
     checks = artifacts.run_checks(evidence, network, recompute, ctx.config)
     ctx.write("artifact_results", artifacts.table(checks))
     failed = frozenset(artifacts.failed(checks))
-    table = ctx.write("hypothesis_results", select.results_table(evidence, failed))
+    table = ctx.write("hypothesis_results", select.results_table(evidence, ctx.config, failed))
     supported = table.filter(table["supported"] == select.YES).height
     ctx.log(
         f"[finding] {table.height} hypotheses tested, {supported} supported, "

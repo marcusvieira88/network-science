@@ -24,7 +24,6 @@ REJECT_OUTSIDE_MAILDIR = "outside_maildir"
 REJECT_NO_HEADER_END = "no_header_end"
 ADDRESS_SEPARATOR = ","
 # Rows per DataFrame batch; keeps Python row objects bounded on the 517k-member corpus.
-BATCH_ROWS = 50_000
 TABLE = "header_records"
 
 ADDRESS_FIELDS = {"To": "to_addrs", "Cc": "cc_addrs", "Bcc": "bcc_addrs"}
@@ -105,8 +104,9 @@ def parse_member(
     return record, block.names_seen, None
 
 
-def parse_archive(archive: Path) -> tuple[pl.DataFrame, IngestCounts]:
-    """Stream the archive once; return `header_records` (conformed) and the ingest counts."""
+def parse_archive(archive: Path, batch_rows: int) -> tuple[pl.DataFrame, IngestCounts]:
+    """Stream the archive once; return `header_records` (conformed) and the ingest counts.
+    Parsed rows become a table every `batch_rows` rows, which bounds memory."""
     schema = schemas.table(TABLE).polars_schema
     batches: list[pl.DataFrame] = []
     rows: list[Record] = []
@@ -131,7 +131,7 @@ def parse_archive(archive: Path) -> tuple[pl.DataFrame, IngestCounts]:
                 fields.update(allowlist.canonical(name) for name in names)
                 flags.update(record["parse_flags"])
                 rows.append(record)
-                if len(rows) >= BATCH_ROWS:
+                if len(rows) >= batch_rows:
                     batches.append(pl.DataFrame(rows, schema=schema))
                     rows = []
     except (tarfile.TarError, EOFError, OSError) as exc:

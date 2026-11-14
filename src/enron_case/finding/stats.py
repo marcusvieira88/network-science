@@ -1,7 +1,8 @@
 """Change point, effect size, block bootstrap interval and Holm correction (docs/hypotheses.md).
 
 Pure functions on numpy arrays. Every random draw comes from a generator built by `rng_for`
-from the configured seed, so results are reproducible.
+from the configured seed, so results are reproducible. The decision parameters (window lengths,
+interval level) are `Config` fields, passed in by the caller.
 """
 
 from __future__ import annotations
@@ -11,14 +12,6 @@ from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
-
-# Decision parameters fixed in docs/hypotheses.md before any real-data analysis. They belong in
-# config.py, which is frozen for work packages; see the WP-F report.
-ALPHA = 0.05
-CI_LEVEL = 0.95
-BLOCK_WEEKS = 4
-MIN_AFTER_WEEKS = 4
-MIN_BASELINE_WEEKS = 2
 
 FloatArray = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
@@ -40,9 +33,9 @@ def rng_for(seed: int, *stream: int) -> np.random.Generator:
     return np.random.default_rng([seed, *stream])
 
 
-def _candidates(n_weeks: int, first_candidate: int) -> IntArray:
+def _candidates(n_weeks: int, first_candidate: int, min_after_weeks: int) -> IntArray:
     first = max(first_candidate, 1)
-    last = n_weeks - MIN_AFTER_WEEKS
+    last = n_weeks - min_after_weeks
     if last < first:
         raise InsufficientData("no candidate change week leaves enough weeks after it")
     return np.arange(first, last + 1, dtype=np.int64)
@@ -69,10 +62,13 @@ def change_point(
     direction: int,
     permutations: int,
     rng: np.random.Generator,
+    *,
+    min_after_weeks: int,
 ) -> ChangePoint:
     """Most likely change week at or after `first_candidate` in `direction` (+1 up, -1 down),
-    with a permutation p-value over shuffled weeks."""
-    candidates = _candidates(len(values), first_candidate)
+    leaving at least `min_after_weeks` after it, with a permutation p-value over shuffled
+    weeks."""
+    candidates = _candidates(len(values), first_candidate, min_after_weeks)
     scores = _cusum_scores(values, candidates, direction)
     best = int(np.argmax(scores))
     observed = float(scores[best])
@@ -82,20 +78,22 @@ def change_point(
     return ChangePoint(int(candidates[best]), observed, (1 + exceed) / (1 + permutations))
 
 
-def effect_size(before: FloatArray, after: FloatArray) -> float:
+def effect_size(before: FloatArray, after: FloatArray, *, min_baseline_weeks: int) -> float:
     """(mean after − mean before) / sample sd before."""
-    if len(before) < MIN_BASELINE_WEEKS or len(after) == 0:
-        raise InsufficientData("effect needs two baseline weeks and one week after")
+    if len(before) < min_baseline_weeks or len(after) == 0:
+        raise InsufficientData("effect needs enough baseline weeks and one week after")
     spread = float(np.std(before, ddof=1))
     if spread == 0.0:
         raise InsufficientData("baseline is constant")
     return (float(np.mean(after)) - float(np.mean(before))) / spread
 
 
-def _block_resample(values: FloatArray, reps: int, rng: np.random.Generator) -> FloatArray:
-    """(reps, len) moving-block resamples: random 4-week blocks laid end to end."""
+def _block_resample(
+    values: FloatArray, reps: int, rng: np.random.Generator, block_weeks: int
+) -> FloatArray:
+    """(reps, len) moving-block resamples: random `block_weeks` blocks laid end to end."""
     n = len(values)
-    block = min(BLOCK_WEEKS, n)
+    block = min(block_weeks, n)
     n_blocks = -(-n // block)
     starts = rng.integers(0, n - block + 1, size=(reps, n_blocks))
     index = (starts[:, :, None] + np.arange(block)).reshape(reps, -1)[:, :n]
@@ -104,18 +102,26 @@ def _block_resample(values: FloatArray, reps: int, rng: np.random.Generator) -> 
 
 
 def block_bootstrap_ci(
-    before: FloatArray, after: FloatArray, reps: int, rng: np.random.Generator
+    before: FloatArray,
+    after: FloatArray,
+    reps: int,
+    rng: np.random.Generator,
+    *,
+    block_weeks: int,
+    ci_level: float,
+    min_baseline_weeks: int,
 ) -> tuple[float, float]:
     """Percentile interval of `effect_size`, resampling each period by moving blocks."""
-    effect_size(before, after)  # raises if the point estimate is undefined
-    base = _block_resample(before, reps, rng)
-    post = _block_resample(after, reps, rng)
+    # Raises if the point estimate is undefined.
+    effect_size(before, after, min_baseline_weeks=min_baseline_weeks)
+    base = _block_resample(before, reps, rng, block_weeks)
+    post = _block_resample(after, reps, rng, block_weeks)
     spread = base.std(axis=1, ddof=1)
     valid = spread > 0
     effects = (post.mean(axis=1)[valid] - base.mean(axis=1)[valid]) / spread[valid]
     if len(effects) == 0:
         raise InsufficientData("every bootstrap baseline is constant")
-    tail = (1.0 - CI_LEVEL) / 2.0
+    tail = (1.0 - ci_level) / 2.0
     low, high = np.quantile(effects, [tail, 1.0 - tail])
     return float(low), float(high)
 

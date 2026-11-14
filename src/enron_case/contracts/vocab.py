@@ -47,7 +47,9 @@ OTHER_HEADER_FIELD = "(other)"
 
 RECIPIENT_ROLES = ("to", "cc", "bcc")
 ROLE_STRENGTH = {"to": 3, "cc": 2, "bcc": 1}
-ENTITY_TYPES = ("person", "list", "system", "role", "unknown")
+PERSON = "person"
+ENTITY_TYPES = (PERSON, "list", "system", "role", "unknown")
+UNASSIGNED_COMMUNITY = -1  # `communities.community` of a person in no baseline community
 DEDUPE_RULES = ("none", "exact", "subset")
 IDENTITY_RULES = ("N1", "N2", "N3", "N4")
 MESSAGE_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailing", "bad_address")

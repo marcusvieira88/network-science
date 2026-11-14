@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enron_case.config import CORPUS_ARCHIVE, CORPUS_SHA256, CORPUS_URL
 from enron_case.context import StageContext
-from enron_case.ingest.fetch import fetch_archive
+from enron_case.ingest.fetch import fetch_archive, http_downloader
 from enron_case.ingest.parse import TABLE, parse_archive
 from enron_case.zones import Zone
 
@@ -13,12 +13,13 @@ COUNTS_NAME = "ingest_counts"
 
 def fetch(ctx: StageContext) -> None:
     target = ctx.path(Zone.RAW, CORPUS_ARCHIVE, "w")
-    fetch_archive(target, CORPUS_URL, CORPUS_SHA256)
+    download = http_downloader(ctx.config.download_timeout_seconds)
+    fetch_archive(target, CORPUS_URL, CORPUS_SHA256, download)
     ctx.log("[fetch] corpus archive verified")
 
 
 def parse(ctx: StageContext) -> None:
-    records, counts = parse_archive(ctx.archive)
+    records, counts = parse_archive(ctx.archive, ctx.config.batch_rows)
     ctx.write(TABLE, records)
     ctx.write_counts(COUNTS_NAME, dict(counts))
     ctx.log(

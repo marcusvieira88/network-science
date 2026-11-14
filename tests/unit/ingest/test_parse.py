@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from enron_case.config import Config
 from enron_case.contracts import vocab
 from enron_case.ingest.parse import member_location, parse_archive, parse_member
 from enron_case.ingest.stage import parse
@@ -138,7 +139,7 @@ def test_members_outside_maildir_are_rejected(tmp_path: Path) -> None:
         directory = tarfile.TarInfo("maildir/a-ann")
         directory.type = tarfile.DIRTYPE
         tar.addfile(directory)
-    records, counts = parse_archive(archive)
+    records, counts = parse_archive(archive, Config().batch_rows)
     assert records.height == 1
     assert counts["files_seen"] == 2
     assert counts["files_parsed"] == 1

@@ -10,7 +10,7 @@ Rules, applied in this order; the first that fires decides the type:
    - list: distribution lists (`all.*`, `*.desk`, `*.list`, `*.group`, `dl.*`).
 2. Behaviour (`entity_behaviour`):
    - role: sent more than `config.recipient_cap` recipients on at least
-     `ROLE_MIN_MASS_SENDS` messages.
+     `config.role_min_mass_sends` messages.
    (No behavioural list rule: with ~150 collected mailboxes most real people never appear
    as a sender, so "never sends" says nothing about being a list.)
 3. Otherwise person.
@@ -28,7 +28,8 @@ from dataclasses import dataclass
 
 import polars as pl
 
-PERSON = "person"
+from enron_case.contracts.vocab import PERSON
+
 LIST = "list"
 SYSTEM = "system"
 ROLE = "role"
@@ -61,7 +62,6 @@ LIST_PATTERN = re.compile(r"^(?:all|dl)[._-].+|.+[._-](?:desk|list|group)$")
 TOKEN_SPLIT = re.compile(r"[._-]")
 
 # Behaviour thresholds. "More than once" is the brief's definition of a role sender.
-ROLE_MIN_MASS_SENDS = 2
 # Not in config.py because the foundation is frozen for this work package; see the WP-C report.
 
 
@@ -108,12 +108,12 @@ def entity_behaviour(
     }
 
 
-def entity_type(addresses: Sequence[str], behaviour: Behaviour) -> str:
+def entity_type(addresses: Sequence[str], behaviour: Behaviour, role_min_mass_sends: int) -> str:
     """Type of one entity from its addresses (patterns) and behaviour, in documented order."""
     found = {pattern_type(addr.rsplit("@", 1)[0]) for addr in addresses if "@" in addr}
     for kind in (SYSTEM, ROLE, LIST):
         if kind in found:
             return kind
-    if behaviour.mass_sends >= ROLE_MIN_MASS_SENDS:
+    if behaviour.mass_sends >= role_min_mass_sends:
         return ROLE
     return PERSON
