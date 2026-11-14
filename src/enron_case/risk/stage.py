@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 import polars as pl
@@ -83,7 +82,7 @@ def run_with(ctx: StageContext, deps: Dependencies) -> None:
     seeds = scorer.seeds(custodians, ctx.config.a2_seeds)
     effects = variant_effects(ctx, releases, metric_series, deps.effect_size)
 
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, object]] = []
     for name, release in releases.items():
         exposure = measure_uniqueness(release)
         gain = utility.compare(effects["restricted"], effects[name])

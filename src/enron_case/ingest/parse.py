@@ -7,13 +7,13 @@ from collections import Counter
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import IO, Any
+from typing import IO
 
 import polars as pl
 
 from enron_case.contracts import schemas, vocab
 from enron_case.contracts.counts import IngestCounts
-from enron_case.errors import CorpusError
+from enron_case.errors import ContractViolation, CorpusError
 from enron_case.ingest import allowlist
 from enron_case.ingest.headers import read_header
 
@@ -36,7 +36,7 @@ OPTIONAL_FIELDS = {
     "Message-ID": "message_id",
 }
 
-Record = dict[str, Any]
+Record = dict[str, object]
 
 
 def member_location(member_path: str) -> tuple[str, str] | None:
@@ -130,7 +130,10 @@ def parse_archive(archive: Path, batch_rows: int) -> tuple[pl.DataFrame, IngestC
                     rejected[reason or REJECT_OUTSIDE_MAILDIR] += 1
                     continue
                 fields.update(allowlist.canonical(name) for name in names)
-                flags.update(record["parse_flags"])
+                parse_flags = record["parse_flags"]
+                if not isinstance(parse_flags, list):
+                    raise ContractViolation("header record: parse_flags is not a list")
+                flags.update(str(flag) for flag in parse_flags)
                 rows.append(record)
                 if len(rows) >= batch_rows:
                     batches.append(pl.DataFrame(rows, schema=schema))
