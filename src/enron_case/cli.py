@@ -209,6 +209,10 @@ def build_parser() -> argparse.ArgumentParser:
     stage.add_argument("--set", dest="sets", action="append", default=[], metavar="NAME=VALUE")
     sub.add_parser("verify", help="double-run determinism check on the sample")
     sub.add_parser("check-key", help="exit 0 if a usable key is configured, else 3")
+    sub.add_parser(
+        "review-merges",
+        help="T046: judge a seeded sample of identity merges in this terminal (counts only kept)",
+    )
     return parser
 
 
@@ -220,6 +224,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "check-key":
             load_key_fingerprint()
+            return 0
+        if args.command == "review-merges":
+            review = importlib.import_module("enron_case.identity.review")
+            ctx = StageContext("identity", Config(), Paths.for_run(REPO_ROOT, False), False)
+            checked, correct = review.review(ctx)
+            stderr_log(f"review-merges: {correct} of {checked} merges judged correct")
             return 0
         config = Config()
         if args.command == "verify":

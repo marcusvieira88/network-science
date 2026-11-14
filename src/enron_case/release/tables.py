@@ -18,6 +18,8 @@ STEP_DEDUPE = "deduplicate"
 STEP_IDENTITY = "resolve identities"
 RULE_DEDUPE = "exact+subset"
 RULE_IDENTITY = "N1-N4"
+STEP_MANUAL = "manual merge check"
+RULE_MANUAL = "seeded sample, judged by a person"
 
 
 def require(counts: dict[str, Any], file: str, key: str) -> Any:
@@ -28,7 +30,10 @@ def require(counts: dict[str, Any], file: str, key: str) -> Any:
 
 
 def data_quality(
-    ingest: dict[str, Any], clean: dict[str, Any], identity: dict[str, Any]
+    ingest: dict[str, Any],
+    clean: dict[str, Any],
+    identity: dict[str, Any],
+    manual: dict[str, Any] | None = None,
 ) -> pl.DataFrame:
     """One row per pipeline step: what went in, what came out, the rule and its measured
     precision and recall where ground truth exists."""
@@ -59,6 +64,12 @@ def data_quality(
             require(identity, "identity_counts", "recall"),
         ),
     ]
+    checked = (manual or {}).get("manual_checked")
+    if checked:
+        correct = int((manual or {})["manual_correct"])
+        rows.append(
+            (4, STEP_MANUAL, int(checked), correct, RULE_MANUAL, correct / int(checked), None)
+        )
     return pl.DataFrame(
         [
             {
