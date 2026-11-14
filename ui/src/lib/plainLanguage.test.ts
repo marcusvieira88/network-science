@@ -17,19 +17,19 @@ describe("plainVerdict, hypotheses stated before any data", () => {
     expect(verdict.sentence).toBe("In-degree concentration (Gini) in the core network changed, and the change held up under every check.");
   });
 
-  it("says a supported one whose artifact check fails is explained by the data, quoting the check", () => {
+  it("says a supported one whose artifact check fails is explained by a known artifact of the data or the method, quoting the check", () => {
     const row = preregistered("H2", { supported: "yes", metric: "external_share", scope: "observed" });
     const verdict = verdictOf([row], [], [check("H2", { passes: false, note: "drift explains it" })]);
     expect(verdict.verdict).toBe("artifact");
     expect(verdict.sentence).toBe(
-      "External share in the observed network looked like a real change, but a check showed a quirk of the data explains it: drift explains it.",
+      "External share in the observed network looked like a real change, but a check showed a known artifact of the data or the method explains it: drift explains it.",
     );
   });
 
   it("says a supported one whose check could not run is not claimed", () => {
     const verdict = verdictOf([preregistered("H2", { supported: "yes" })], [], [check("H2", { passes: null })]);
     expect(verdict.verdict).toBe("weak");
-    expect(verdict.sentence).toContain("the check for quirks of the data could not run");
+    expect(verdict.sentence).toContain("the check for a known artifact could not run");
   });
 
   it("says a supported one that passes its check but is not the headline is not robust enough", () => {
@@ -83,7 +83,7 @@ describe("executiveSummary", () => {
     expect(executiveSummary(entries)).toEqual({
       answer: "None of the 5 hypotheses held up under the checks.",
       points: [
-        "1 looked real at first but is explained by a quirk of the data (H2).",
+        "1 looked real at first but is explained by a known artifact of the data or the method (H2).",
         "1 gave mixed evidence (H7).",
         "1 could not be tested with this data (H5).",
         "2 showed no reliable change.",
@@ -98,14 +98,21 @@ describe("executiveSummary", () => {
 });
 
 describe("weekInPlainWords", () => {
-  it("names the busiest link of the week and how many links there were", () => {
+  it("names the busiest link between real groups and how many pairs of real groups there were", () => {
     const ties = [
       { a: "G06", b: "other", weightAB: 2, weightBA: 1, total: 3 },
       { a: "G01", b: "G02", weightAB: 1, weightBA: 0, total: 1 },
+      { a: "G03", b: "G04", weightAB: 0.5, weightBA: 0, total: 0.5 },
     ];
+    // The outside bucket is not a group: it is never named as the busiest link or counted as a pair.
     expect(weekInPlainWords("2001-10-22", ties)).toBe(
-      "In the week of 2001-10-22 the busiest link between groups was G06 ↔ other (weight 3); 2 pairs of groups exchanged mail.",
+      "In the week of 2001-10-22 the busiest link between groups was G01 ↔ G02 (weight 1); 2 pairs of groups exchanged mail.",
     );
+  });
+
+  it("says no mail ran between groups when the only ties are to the outside bucket", () => {
+    const ties = [{ a: "G06", b: "other", weightAB: 2, weightBA: 1, total: 3 }];
+    expect(weekInPlainWords("2001-10-22", ties)).toBe("In the week of 2001-10-22 no published mail ran between groups.");
   });
 
   it("says so when a week has no published link", () => {

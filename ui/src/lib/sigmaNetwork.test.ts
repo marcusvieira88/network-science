@@ -126,6 +126,15 @@ describe("layoutPositions", () => {
     expect([...layout.keys()]).toEqual(["G01", "G02", "G03"]);
   });
 
+  it("ignores ties to the outside bucket, so it pulls no group", () => {
+    const withOther = layoutPositions(groups, [
+      ...edges,
+      edge("2000-01-03", "G01", "other", 500),
+      edge("2000-01-10", "other", "G03", 400),
+    ]);
+    expect(withOther).toEqual(layout);
+  });
+
   it("is deterministic and independent of row order", () => {
     expect(layoutPositions([...groups].reverse(), [...edges].reverse())).toEqual(layout);
   });

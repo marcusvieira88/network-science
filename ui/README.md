@@ -70,5 +70,17 @@ The clusters view is a chord diagram of message weight between the published gro
 days falls inside the period. Data shaping is in `src/lib/clusters.ts`; the drawing uses
 `d3-chord` and `d3-shape` (already bundled through Recharts) with plain SVG, in the main chunk.
 
+The release's `other` bucket is not a group: it is everyone with no tie in the baseline period plus
+communities under k (on the real corpus almost all of it is people first seen in 2001–2002). The
+UI keeps the release label `other` in the data and shows it as "Outside the 2000 groups" (the year
+comes from the baseline period; "outside" where space is tight), with one sentence generated from
+`community_groups` (`src/lib/outside.ts`). The Network view never draws it: it is left out of the
+ForceAtlas2 and `d3-force` layouts, the overlap pairs and solver, the tie scale and the size legend
+(`namedGroups`, `publishedTies` in `src/lib/network.ts`); a box above the graph gives the week's
+share of `n_messages` on rows touching it (a share of per sender–recipient pair counts), and the
+strongest-ties table lists ties between real groups with one summary line for the ties to outside
+people. The Clusters view keeps it last as a hatched grey arc with grey ribbons, without a
+within-group share or partner groups, and gives the period's share of weight involving it.
+
 Regenerate the sample after a contract or fixture change:
 `UPDATE_UI_SAMPLE=1 uv run pytest tests/unit/uiexport -k committed_ui_sample`.

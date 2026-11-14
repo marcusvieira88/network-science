@@ -5,6 +5,7 @@
  */
 import { type ArtifactCheckRow, type CommunityEdgeRow, type CommunityGroupRow, DataError, type Period } from "@/lib/data";
 import { OTHER_GROUP, compareGroups } from "@/lib/network";
+import { outsideShare } from "@/lib/outside";
 
 export const PERIOD_OPTIONS = [
   { id: "baseline", label: "Baseline year" },
@@ -107,7 +108,12 @@ export interface GroupSummary {
   within: number;
   /** within / total; null when the group has no weight in the period. */
   withinShare: number | null;
-  /** The heaviest partner groups (both directions summed), at most TOP_PARTNERS. */
+  /**
+   * within / the weight among real groups (total minus weight with outside people); null for the
+   * outside bucket and for a group with no weight among real groups in the period.
+   */
+  withinNamedShare: number | null;
+  /** The heaviest partner groups (both directions summed), at most TOP_PARTNERS; never the outside bucket. */
   partners: Partner[];
 }
 
@@ -116,9 +122,12 @@ export function groupSummaries(matrix: ClusterMatrix): GroupSummary[] {
     const row = matrix.symmetric[i] ?? [];
     const total = row.reduce((sum, weight) => sum + weight, 0);
     const within = row[i] ?? 0;
-    const partners = matrix.groups
-      .map((other, j) => ({ group: other, weight: row[j] ?? 0 }))
-      .filter((p, j) => j !== i && p.weight > 0)
+    const outsideIndex = matrix.groups.indexOf(OTHER_GROUP);
+    const named = total - (outsideIndex >= 0 && outsideIndex !== i ? (row[outsideIndex] ?? 0) : 0);
+    // The outside bucket is no partner group, and it has none: it is not a community.
+    const partners = (group === OTHER_GROUP ? [] : matrix.groups)
+      .map((partner, j) => ({ group: partner, weight: row[j] ?? 0 }))
+      .filter((p, j) => j !== i && p.weight > 0 && p.group !== OTHER_GROUP)
       .sort((x, y) => y.weight - x.weight || compareGroups(x.group, y.group))
       .slice(0, TOP_PARTNERS);
     return {
@@ -127,35 +136,43 @@ export function groupSummaries(matrix: ClusterMatrix): GroupSummary[] {
       total,
       within,
       withinShare: total > 0 ? within / total : null,
+      withinNamedShare: group !== OTHER_GROUP && named > 0 ? within / named : null,
       partners,
     };
   });
 }
 
+/** The period's weight with the outside bucket at either end over all its weight (lib/outside.ts). */
+export function outsideWeightShare(edges: CommunityEdgeRow[], range: Period | null): number | null {
+  return outsideShare(edges, "weight", (week) => weekInPeriod(week, range));
+}
+
 export interface ShareChange {
   group: string;
-  /** Cross-group share (1 − within-group share) in each period. */
+  /** Cross-group share among real groups (1 − withinNamedShare) in each period. */
   before: number;
   after: number;
   change: number;
 }
 
 /**
- * The named group whose cross-group share changed most (either way); null if none is comparable.
- * `other` is skipped: it pools small communities, so its share describes no one group.
+ * The named group whose cross-group share among real groups changed most (either way); null if
+ * none is comparable. Weight with the outside bucket is left out: it is not a community but the
+ * people with no tie in the baseline period plus communities under k, and it grows after the
+ * baseline as new people appear, so counting it would read new arrivals as groups mixing.
  */
 export function largestCrossShareChange(before: GroupSummary[], after: GroupSummary[]): ShareChange | null {
-  const later = new Map(after.map((s) => [s.group, s.withinShare]));
+  const later = new Map(after.map((s) => [s.group, s.withinNamedShare]));
   let largest: ShareChange | null = null;
   for (const summary of before) {
+    const withinBefore = summary.withinNamedShare;
     const withinAfter = later.get(summary.group);
-    if (summary.group === OTHER_GROUP) continue;
-    if (summary.withinShare === null || withinAfter === null || withinAfter === undefined) continue;
+    if (withinBefore === null || withinAfter === null || withinAfter === undefined) continue;
     const candidate = {
       group: summary.group,
-      before: 1 - summary.withinShare,
+      before: 1 - withinBefore,
       after: 1 - withinAfter,
-      change: summary.withinShare - withinAfter,
+      change: withinBefore - withinAfter,
     };
     if (largest === null || Math.abs(candidate.change) > Math.abs(largest.change)) largest = candidate;
   }

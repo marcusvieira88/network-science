@@ -31,7 +31,7 @@ const weeks = ["2000-01-03", "2000-01-10", "2000-01-17"];
 
 function renderGraph(minGroupSize = 6) {
   return render(
-    <CommunityGraph groups={groups} edges={edges} weeks={weeks} events={[]} minGroupSize={minGroupSize} seed={3} webgl />,
+    <CommunityGraph groups={groups} edges={edges} weeks={weeks} events={[]} minGroupSize={minGroupSize} seed={3} baseline={null} webgl />,
   );
 }
 
@@ -76,6 +76,26 @@ describe("CommunityGraph with WebGL (Sigma.js)", () => {
     fireEvent.keyDown(slider, { key: "ArrowRight" });
     expect(view).toHaveAttribute("data-week", "2000-01-17");
     expect(screen.getByText("No published tie between groups this week.")).toBeInTheDocument();
+  });
+
+  it("never hands the outside bucket to the WebGL view, so it gets no disc, layout place, overlap or legend size", async () => {
+    render(
+      <CommunityGraph
+        groups={[...groups, { group: "other", n_persons: 25838 }]}
+        edges={[...edges, { week: "2000-01-03", src_group: "G01", dst_group: "other", weight: 40, n_messages: 90 }]}
+        weeks={weeks}
+        events={[]}
+        minGroupSize={6}
+        seed={3}
+        baseline={{ start: "2000-01-01", end: "2000-12-31" }}
+        webgl
+      />,
+    );
+    const view = await screen.findByTestId("sigma-view");
+    expect(screen.getAllByTestId("group-node").map((n) => n.getAttribute("data-size"))).toEqual(["14", "9", "6"]);
+    // The tie scale ignores the 40 to the outside bucket.
+    expect(view).toHaveAttribute("data-max-tie", "4");
+    expect(screen.getByTestId("outside-caption")).toHaveTextContent("90% of this week's mail");
   });
 
   it("keeps the play control and the group table", async () => {

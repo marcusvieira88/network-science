@@ -262,7 +262,10 @@ Rules for the UI:
    persons, at seeded random positions: decoration with no label, tooltip, hover text, tie or
    data (Sigma keys are opaque sequence numbers). The Overlap mode (WebGL only) draws the week's six
    heaviest group pairs by message count as intersecting outlined contours (one `@sigma/layer-webgl` layer, drawn from group nodes only); an overlap is mail
-   between groups, never shared members. There is
+   between groups, never shared members. The release's `other` bucket (people with no tie in the
+   baseline plus communities under k) is not a group: neither view draws or lays it out as one;
+   both call it "Outside the 2000 groups" and state the share of mail involving it
+   (`ui/src/lib/outside.ts`, docs/metrics.md). There is
    no person-level node, tooltip or table anywhere (`ui/src/privacy.test.ts`).
 3. No outside requests: fonts and assets are bundled; no analytics, no CDN.
    `ui/scripts/check-build.mjs` (run by `make ui-gate`) scans the build for external URLs.

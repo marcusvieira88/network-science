@@ -33,15 +33,16 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   {
     term: "Artifact check",
     meaning:
-      "A test of whether a known quirk of the data (for example, who happens to be in the archive) explains the result instead of a real change in behaviour.",
+      "A test of whether a known artifact of the data or the method (for example, who happens to be in the archive, or groups fixed on the baseline going stale) explains the result instead of a real change in behaviour.",
   },
   {
     term: "Placebo",
-    meaning: "The same test run on a calm period where nothing should change. If it also 'finds' a change, the method is picking up noise.",
+    meaning:
+      "The same test run on a calm period where nothing should change. If it also 'finds' a change, the method is picking up something other than the event, such as noise or a drift of its own.",
   },
   {
     term: "Leave-one-out",
-    meaning: "The test repeated leaving out each mailbox in turn, so that no single person can drive the result.",
+    meaning: "The test repeated leaving out each mailbox in turn, to check that no single person drives the result.",
   },
   {
     term: "Custodian",
@@ -50,7 +51,12 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   {
     term: "Group",
     meaning:
-      "A cluster of people who mostly email each other, found in the baseline period. Only groups above a minimum size are shown, never a single person.",
+      "A cluster of people who mostly email each other, found in the baseline period. Only groups of at least a minimum size are shown, never a single person.",
+  },
+  {
+    term: "Outside the baseline groups",
+    meaning:
+      "People with no tie in the baseline period (such as people who first appear later) or in clusters below the minimum size. They are counted together but are not a group, so the network does not draw them.",
   },
   {
     term: "Tie weight",

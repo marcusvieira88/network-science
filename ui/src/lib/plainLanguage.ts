@@ -6,14 +6,14 @@
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
 import { formatNumber, metricLabel } from "@/lib/format";
 import type { HypothesisEntry } from "@/lib/hypotheses";
-import type { GroupTie } from "@/lib/network";
+import { type GroupTie, OTHER_GROUP } from "@/lib/network";
 
 /** What a hypothesis came to, in plain terms. */
 export type Verdict = "held" | "artifact" | "weak" | "unclear" | "untestable" | "none" | "withheld";
 
 export const VERDICT_LABELS: Record<Verdict, string> = {
   held: "Held up",
-  artifact: "Explained by the data",
+  artifact: "Explained by an artifact",
   weak: "Not robust",
   unclear: "Unclear",
   untestable: "Could not be tested",
@@ -58,10 +58,10 @@ function preregisteredVerdict(row: HypothesisRow, checks: ArtifactCheckRow[], he
   if (row.supported === "no") return verdict("none", `${claim}: no reliable change.`);
   const failed = checks.find((c) => c.passes === false);
   if (failed) {
-    return verdict("artifact", `${claim} looked like a real change, but a check showed a quirk of the data explains it: ${failed.note}.`);
+    return verdict("artifact", `${claim} looked like a real change, but a check showed a known artifact of the data or the method explains it: ${failed.note}.`);
   }
   if (checks.some((c) => c.passes === null)) {
-    return verdict("weak", `${claim} looked like a real change, but the check for quirks of the data could not run, so it is not claimed.`);
+    return verdict("weak", `${claim} looked like a real change, but the check for a known artifact could not run, so it is not claimed.`);
   }
   return verdict("weak", `${claim} looked like a real change, but it is not robust enough to claim (${row.confidence} confidence).`);
 }
@@ -103,7 +103,7 @@ function summaryPoint(kind: Verdict, ids: string[]): string {
   const named = ` (${ids.join(", ")})`;
   switch (kind) {
     case "artifact":
-      return `${ids.length} looked real at first but ${one ? "is explained by a quirk" : "are explained by quirks"} of the data${named}.`;
+      return `${ids.length} looked real at first but ${one ? "is explained by a known artifact" : "are explained by known artifacts"} of the data or the method${named}.`;
     case "weak":
       return `${ids.length} looked real but ${one ? "is" : "are"} not robust enough to claim${named}.`;
     case "unclear":
@@ -138,9 +138,14 @@ export function executiveSummary(entries: HypothesisEntry[]): ExecutiveSummary {
   return { answer, points };
 }
 
-/** The week in one sentence: its busiest link between groups and how many pairs exchanged mail. */
-export function weekInPlainWords(week: string | null, ties: readonly GroupTie[]): string {
+/**
+ * The week in one sentence: its busiest link between real groups and how many pairs of real
+ * groups exchanged mail. Ties to the outside bucket are left out: it is not a group, and the
+ * Network view states its share of the week's mail separately.
+ */
+export function weekInPlainWords(week: string | null, allTies: readonly GroupTie[]): string {
   if (week === null) return "No week selected.";
+  const ties = allTies.filter((tie) => tie.a !== OTHER_GROUP && tie.b !== OTHER_GROUP);
   const [busiest] = ties;
   if (!busiest) return `In the week of ${week} no published mail ran between groups.`;
   return (

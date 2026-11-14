@@ -7,19 +7,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { type NetworkMode, type Point, NETWORK_MODES, anonymousPoints } from "@/lib/cells";
-import type { CommunityEdgeRow, CommunityGroupRow, PublicEvent } from "@/lib/data";
+import type { CommunityEdgeRow, CommunityGroupRow, Period, PublicEvent } from "@/lib/data";
 import { formatNumber } from "@/lib/format";
 import {
+  type GroupTie,
   type PlacedGroup,
   type WeekGraph,
   MEMBRANE_OPACITY,
   NETWORK_HEIGHT,
+  OTHER_GROUP,
   groupColor,
   groupRadius,
   layoutGroups,
   maxWeeklyTie,
+  namedGroups,
+  publishedTies,
   weekGraph,
 } from "@/lib/network";
+import {
+  OUTSIDE_SHORT,
+  outsideExplanation,
+  outsideLabel,
+  outsidePeople,
+  outsideTies,
+  outsideWeekCaption,
+  outsideWeekShare,
+} from "@/lib/outside";
 import { weekInPlainWords } from "@/lib/plainLanguage";
 import { supportsWebGL } from "@/lib/webgl";
 
@@ -49,6 +62,8 @@ interface CommunityGraphProps {
   minGroupSize: number;
   /** The run seed: scatters the illustrative points of the Individuals mode. */
   seed: number;
+  /** The baseline the groups were fixed on; names the outside bucket ("Outside the 2000 groups"). */
+  baseline: Period | null;
   /** Draw the WebGL (Sigma.js) view; defaults to whether the browser has WebGL. */
   webgl?: boolean;
 }
@@ -56,6 +71,8 @@ interface CommunityGraphProps {
 interface Network2DProps {
   placed: PlacedGroup[];
   graph: WeekGraph;
+  /** The week's ties between real groups. */
+  ties: GroupTie[];
   week: string | null;
   maxTie: number;
   /** Anonymous points per group label, relative to the group's centre; null in the Groups mode. */
@@ -85,7 +102,7 @@ function AnonymousPoints({ placed, points }: { placed: PlacedGroup[]; points: Ma
 }
 
 /** The SVG network: the fallback where WebGL is unavailable or the WebGL view fails. */
-function Network2D({ placed, graph, week, maxTie, points }: Network2DProps) {
+function Network2D({ placed, graph, ties, week, maxTie, points }: Network2DProps) {
   const order = placed.map((g) => g.group);
   const position = new Map(placed.map((g) => [g.group, g]));
   const edgeScale = MAX_EDGE_WIDTH / maxTie;
@@ -97,7 +114,7 @@ function Network2D({ placed, graph, week, maxTie, points }: Network2DProps) {
         role="img"
         aria-label={`Group network for the week of ${week ?? "none"}`}
       >
-        {graph.ties.map((tie) => {
+        {ties.map((tie) => {
           const a = position.get(tie.a);
           const b = position.get(tie.b);
           if (!a || !b) return null;
@@ -166,22 +183,48 @@ function LoadingNetwork() {
   );
 }
 
-export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, seed, webgl }: CommunityGraphProps) {
+interface OutsideCaptionProps {
+  edges: CommunityEdgeRow[];
+  week: string | null;
+  people: number;
+  minGroupSize: number;
+  baseline: Period | null;
+}
+
+/** Above the graph: how much of the week's mail involves the outside bucket, and what it is. */
+function OutsideCaption({ edges, week, people, minGroupSize, baseline }: OutsideCaptionProps) {
+  return (
+    <div data-testid="outside-caption" className="space-y-1 rounded-lg border border-dashed px-3 py-2 text-sm">
+      <p className="font-medium">{outsideWeekCaption(outsideWeekShare(edges, week), baseline)}</p>
+      <p className="text-muted-foreground">
+        {outsideLabel(baseline)}: {outsideExplanation(people, minGroupSize, baseline)} They are not drawn.
+      </p>
+    </div>
+  );
+}
+
+export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, seed, baseline, webgl }: CommunityGraphProps) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [mode, setMode] = useState<NetworkMode>("groups");
   // Starts from WebGL support; turns false if the WebGL view fails, so the hint follows.
   const [useWebGL, setUseWebGL] = useState(() => webgl ?? supportsWebGL());
-  const placed = useMemo(() => layoutGroups(groups, edges, WIDTH, HEIGHT), [groups, edges]);
+  // The outside bucket is not a group: it is never drawn, laid out or sized, only described.
+  const named = useMemo(() => namedGroups(groups), [groups]);
+  const outside = outsidePeople(groups);
+  const labels = useMemo(() => named.map((g) => g.group), [named]);
+  const placed = useMemo(() => layoutGroups(named, edges, WIDTH, HEIGHT), [named, edges]);
   // One scale for all weeks, so a thicker line always means a heavier tie.
-  const maxTie = useMemo(() => maxWeeklyTie(edges, weeks), [edges, weeks]);
+  const maxTie = useMemo(() => maxWeeklyTie(edges, weeks, labels), [edges, weeks, labels]);
   const week = weeks[index] ?? null;
   const graph = useMemo(() => weekGraph(edges, week), [edges, week]);
+  const ties = useMemo(() => publishedTies(edges, week, labels), [edges, week, labels]);
+  const toOutside = useMemo(() => outsideTies(edges, week), [edges, week]);
   const order = useMemo(() => placed.map((g) => g.group), [placed]);
   const individuals = mode === "individuals";
-  const points2D = useMemo(() => anonymousPoints(groups, seed, groupRadius), [groups, seed]);
+  const points2D = useMemo(() => anonymousPoints(named, seed, groupRadius), [named, seed]);
   const flat = (
-    <Network2D placed={placed} graph={graph} week={week} maxTie={maxTie} points={individuals ? points2D : null} />
+    <Network2D placed={placed} graph={graph} ties={ties} week={week} maxTie={maxTie} points={individuals ? points2D : null} />
   );
 
   return (
@@ -202,11 +245,20 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
             <li>A line between two circles means the groups exchanged mail that week; a thicker line means more mail.</li>
             <li>Move the slider (or press play) to watch the pattern change week by week; marks on it are known events.</li>
             <li>Hover a circle, or search for its label, to see only that group&apos;s links.</li>
+            {outside !== null && (
+              <li>
+                People {outsideLabel(baseline).toLowerCase()} are not a group and are not drawn; the box above the
+                graph says how much of the week&apos;s mail involves them.
+              </li>
+            )}
           </ul>
         </details>
         <p data-testid="week-summary" className="text-sm font-medium">
-          {weekInPlainWords(week, graph.ties)}
+          {weekInPlainWords(week, ties)}
         </p>
+        {outside !== null && (
+          <OutsideCaption edges={edges} week={week} people={outside} minGroupSize={minGroupSize} baseline={baseline} />
+        )}
         <div className="space-y-2">
           <Tabs value={mode} onValueChange={(value) => isNetworkMode(value) && setMode(value)}>
             <TabsList aria-label="Draw">
@@ -239,7 +291,7 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
           <div className="space-y-2">
             <RenderFallback fallback={flat} onFailure={() => setUseWebGL(false)}>
               <Suspense fallback={<LoadingNetwork />}>
-                <SigmaNetwork groups={groups} edges={edges} week={week} maxTie={maxTie} mode={mode} seed={seed} />
+                <SigmaNetwork groups={named} edges={edges} week={week} maxTie={maxTie} mode={mode} seed={seed} />
               </Suspense>
             </RenderFallback>
             <p className="text-xs text-muted-foreground">
@@ -260,8 +312,10 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
         />
         <div className="grid gap-6 md:grid-cols-2">
           <div>
-            <h3 className="mb-2 text-sm font-medium">Strongest ties this week</h3>
-            <Table>
+            <h3 id="strongest-ties" className="mb-2 text-sm font-medium">
+              Strongest ties this week
+            </h3>
+            <Table aria-labelledby="strongest-ties">
               <TableHeader>
                 <TableRow>
                   <TableHead>Groups</TableHead>
@@ -269,14 +323,14 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {graph.ties.length === 0 && (
+                {ties.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={2} className="text-muted-foreground">
                       No published tie between groups this week.
                     </TableCell>
                   </TableRow>
                 )}
-                {graph.ties.slice(0, TOP_TIES).map((tie) => (
+                {ties.slice(0, TOP_TIES).map((tie) => (
                   <TableRow key={`${tie.a}-${tie.b}`}>
                     <TableCell>
                       {tie.a} ↔ {tie.b}
@@ -284,12 +338,22 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
                     <TableCell className="text-right font-mono tabular-nums">{formatNumber(tie.total)}</TableCell>
                   </TableRow>
                 ))}
+                {toOutside.groups > 0 && (
+                  <TableRow data-outside="true" className="text-muted-foreground">
+                    <TableCell>
+                      Any group ↔ {OUTSIDE_SHORT} ({toOutside.groups} {toOutside.groups === 1 ? "group" : "groups"})
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{formatNumber(toOutside.weight)}</TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
           <div>
-            <h3 className="mb-2 text-sm font-medium">Groups</h3>
-            <Table>
+            <h3 id="network-groups" className="mb-2 text-sm font-medium">
+              Groups
+            </h3>
+            <Table aria-labelledby="network-groups">
               <TableHeader>
                 <TableRow>
                   <TableHead>Group</TableHead>
@@ -304,12 +368,24 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: groupColor(node.group, order) }} aria-hidden />
                       {node.group}
                     </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{node.nPersons}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{formatNumber(node.nPersons)}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
                       {formatNumber(graph.internal[node.group] ?? 0)}
                     </TableCell>
                   </TableRow>
                 ))}
+                {outside !== null && (
+                  <TableRow data-outside="true" className="text-muted-foreground">
+                    <TableCell className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full border border-dashed border-muted-foreground" aria-hidden />
+                      {outsideLabel(baseline)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{formatNumber(outside)}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {formatNumber(graph.internal[OTHER_GROUP] ?? 0)}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>

@@ -4,7 +4,7 @@
  *
  * One layer draws every group. The package's `createContoursProgram` draws one colour per layer,
  * so it would need a layer per group, and every layer is its own WebGL context: with the
- * release's 24 groups plus Sigma's 3 contexts that passes the browsers' cap of 16 live contexts
+ * release's 23 drawn groups plus Sigma's 3 contexts that passes the browsers' cap of 16 live contexts
  * (Chrome then drops the oldest, Sigma's own). Contours are therefore drawn by this one program,
  * with the same look: the group's colour, a solid border and a translucent fill.
  */

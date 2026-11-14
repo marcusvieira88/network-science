@@ -1,7 +1,9 @@
 import type { ReleaseData } from "@/lib/data";
-import { formatShare } from "@/lib/format";
+import { formatNumber, formatShare } from "@/lib/format";
+import { namedGroups } from "@/lib/network";
+import { outsideLabel, outsidePeople } from "@/lib/outside";
 import { minimumGroupSize } from "@/lib/privacy";
-import { analysisWeeks } from "@/lib/series";
+import { analysisWeeks, baselinePeriod } from "@/lib/series";
 
 export interface KeyNumber {
   label: string;
@@ -13,6 +15,21 @@ export interface KeyNumber {
 export function worstReid(data: ReleaseData, variant: "R0" | "R1"): number | null {
   const rates = data.tables.risk.filter((row) => row.release_variant === variant).flatMap((row) => (row.reid_top1 === null ? [] : [row.reid_top1]));
   return rates.length ? Math.max(...rates) : null;
+}
+
+/** The groups card's note: k, and the outside bucket's size apart, since it is not a group. */
+function groupsNote(data: ReleaseData): string {
+  const note = `each at least ${minimumGroupSize(data)} people`;
+  const outside = outsidePeople(data.tables.community_groups);
+  if (outside === null) return note;
+  return `${note}; ${formatNumber(outside)} more people are ${outsideLabel(baselinePeriod(data)).toLowerCase()}`;
+}
+
+/** The published rate is 0 by construction (no person-level record to match), never measured. */
+function reidNote(published: number | null): string {
+  return published === 0
+    ? "strongest attacker; the published tables hold no person to match"
+    : "strongest attacker, person-level data vs published";
 }
 
 export function keyNumbers(data: ReleaseData): KeyNumber[] {
@@ -31,13 +48,13 @@ export function keyNumbers(data: ReleaseData): KeyNumber[] {
     },
     {
       label: "Groups in the network view",
-      value: String(data.tables.community_groups.length),
-      note: `each at least ${minimumGroupSize(data)} people`,
+      value: String(namedGroups(data.tables.community_groups).length),
+      note: groupsNote(data),
     },
     {
       label: "Re-identification, naive vs published",
       value: `${formatShare(worstReid(data, "R0"))} → ${formatShare(worstReid(data, "R1"))}`,
-      note: "strongest attacker, R0 vs R1",
+      note: reidNote(worstReid(data, "R1")),
     },
   ];
 }

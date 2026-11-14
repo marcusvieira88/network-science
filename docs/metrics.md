@@ -55,6 +55,18 @@ numbered 0, 1, … by decreasing size, ties broken by their smallest `pid`.
 The table lists every internal person in `entities_p`; a person with no tie in the baseline gets
 `community = -1`. Communities are frozen: every variant and every week uses this one table.
 
+In the release (`community_groups`, `community_graph`), communities with at least k persons become
+`G01…`; everyone else — persons with `community = -1` and communities under k — is pooled as
+`other`, published only if it reaches k. `other` is a leftover bucket, not a community: on the real
+corpus nearly all of it is people with no tie in the baseline year who first appear in 2001–2002,
+so its size and its share of the weekly mail grow after the baseline. The Network and Clusters
+views therefore never draw it as a group: they call it "Outside the 2000 groups" (the baseline
+year, from the run parameters), keep it out of the layout, the overlaps, the tie scale and the size
+legend, and state instead the week's share of `n_messages` on rows touching it (Network) or the
+period's share of weight involving it (Clusters, where it stays as the last, hatched grey arc with
+no partner groups). The report's Limits section states its size. `cross_community_share` is
+unaffected: it leaves out `community = -1` and never uses the release labels.
+
 ## Metrics
 
 Notation for one scope and one period: A is the set of active persons (sender or recipient of at

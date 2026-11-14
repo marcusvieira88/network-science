@@ -10,14 +10,21 @@ import { executiveSummary } from "@/lib/plainLanguage";
 import { minimumGroupSize } from "@/lib/privacy";
 import type { ViewId } from "@/lib/views";
 
-/** The privacy result in one sentence, or null when the risk table lacks either release. */
+/**
+ * The privacy result, or null when the risk table lacks either release. The published rate is 0
+ * by construction (R1 has no person-level record to match) and no group-level attack was run
+ * (docs/architecture.md), so the text says that rather than claiming a measured protection.
+ */
 function privacyLine(data: ReleaseData): string | null {
   const naive = worstReid(data, "R0");
   const published = worstReid(data, "R1");
   if (naive === null || published === null) return null;
+  const before = `On person-level pseudonymised data the strongest attack re-identifies ${formatShare(naive)} of people`;
+  if (published > 0) return `${before}; on the published release, ${formatShare(published)}.`;
   return (
-    `Publishing groups of at least ${minimumGroupSize(data)} people instead of individuals cuts the strongest ` +
-    `attacker's re-identification rate from ${formatShare(naive)} to ${formatShare(published)}.`
+    `${before}. ` +
+    `The published release holds only groups of at least ${minimumGroupSize(data)} people, so that attack has ` +
+    `no person to match there (${formatShare(published)}, by construction); no attack on the group tables was run.`
   );
 }
 

@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { View } from "@/App";
 import { CommunityGraph } from "@/components/CommunityGraph";
 import { totalPoints } from "@/lib/cells";
+import { baselinePeriod } from "@/lib/series";
 import { TABLE_COLUMNS } from "@/lib/data";
 import { LEAK_PATTERN, PERSON_COUNT_COLUMNS, identifierCount, minimumGroupSize, smallPersonCounts } from "@/lib/privacy";
 import { type LabelCanvas, drawGroupHover, networkPalette } from "@/lib/sigmaNetwork";
@@ -161,6 +162,7 @@ describe("privacy of what the views render", () => {
         events: [],
         minGroupSize: k,
         seed: data.run.seed,
+        baseline: baselinePeriod(data),
         webgl: true,
       }),
     );
@@ -228,6 +230,7 @@ describe("privacy of what the views render", () => {
         events: [],
         minGroupSize: minimumGroupSize(data),
         seed: data.run.seed,
+        baseline: baselinePeriod(data),
         webgl: true,
       }),
     );

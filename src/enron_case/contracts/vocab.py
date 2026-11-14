@@ -50,6 +50,9 @@ ROLE_STRENGTH = {"to": 3, "cc": 2, "bcc": 1}
 PERSON = "person"
 ENTITY_TYPES = (PERSON, "list", "system", "role", "unknown")
 UNASSIGNED_COMMUNITY = -1  # `communities.community` of a person in no baseline community
+# Release group label of everyone in no published group: unassigned persons and communities
+# under k. A leftover bucket, not a community (data-contracts.md, community_graph).
+OTHER_GROUP = "other"
 DEDUPE_RULES = ("none", "exact", "subset")
 IDENTITY_RULES = ("N1", "N2", "N3", "N4")
 MESSAGE_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailing", "bad_address")

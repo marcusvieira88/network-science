@@ -23,7 +23,7 @@ describe("CommunityGraph when the WebGL view fails", () => {
   it("falls back to the SVG network with the same explanation", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { container } = render(
-      <CommunityGraph groups={groups} edges={edges} weeks={["2000-01-03"]} events={[]} minGroupSize={5} seed={1} webgl />,
+      <CommunityGraph groups={groups} edges={edges} weeks={["2000-01-03"]} events={[]} minGroupSize={5} seed={1} baseline={null} webgl />,
     );
     expect(await screen.findAllByTestId("group-node")).toHaveLength(2);
     expect(container).toHaveTextContent("Each circle is a group of at least 5 people, never an individual.");
@@ -33,7 +33,7 @@ describe("CommunityGraph when the WebGL view fails", () => {
 
   it("does not offer the Overlap mode in the SVG network, and says so", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    render(<CommunityGraph groups={groups} edges={edges} weeks={["2000-01-03"]} events={[]} minGroupSize={5} seed={1} webgl />);
+    render(<CommunityGraph groups={groups} edges={edges} weeks={["2000-01-03"]} events={[]} minGroupSize={5} seed={1} baseline={null} webgl />);
     await screen.findAllByTestId("group-node");
     expect(screen.getByRole("tab", { name: "Overlap" })).toBeDisabled();
     expect(screen.getByText(/The Overlap mode needs WebGL/)).toBeInTheDocument();
