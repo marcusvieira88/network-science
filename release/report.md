@@ -47,7 +47,7 @@ Every header field name seen in the corpus, how often, and how it was ruled. Onl
 
 ## The finding
 
-No finding about 2001 is claimed. H2, H3 passed every pre-registered test, but each failed its check against a known artifact of the data (see below): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed below.
+No finding about the crisis year is claimed. H2, H3 passed every pre-registered test, but each failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
 
 ### Checks against known artifacts
 
@@ -108,3 +108,4 @@ Before and after mitigation:
 - Identity resolution is rule-based and favours precision; aliases it misses split one person into several nodes.
 - Pseudonymization is not anonymization: person-level pseudonymized data must be treated as re-identifiable (see the attack on R0), so only aggregates are published; the noise variant is a sketch, not a formal privacy budget.
 - Observational design: a structural change near public events does not show what people knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.
+- The artifact checks were added after the first real-data run, because two hypotheses passed every pre-registered check yet looked implausibly strong. They are documented as a post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.

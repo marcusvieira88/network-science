@@ -56,19 +56,21 @@ measured on a synthetic corpus with known answers.
 
 ---
 
-## The headline metric over time
+## The strongest signal, over time
 
 {{headline_chart}}
 
+The jump comes right after the baseline year used to fit the groups ends.
+
 ---
 
-## Confidence and threats
+## Why we do not believe it
 
-- Chance baseline: permutation test and a rewiring null model that keeps every person's volume
-- Robustness: leave each mailbox out in turn; vary the recipient cap and the window
-- Threats: retention differs by person and period; the mailboxes are mostly senior staff; the
-  collection was shaped by an investigation
-- Holm correction across all hypotheses
+{{artifact_table}}
+
+- A calm half-year, out of sample, already jumps: groups fixed on a baseline go stale
+- Custodians did not change their own external share: the aggregate moved with who is in the data
+- Checks added after the first real run, and labelled as such
 
 ---
 
@@ -77,6 +79,8 @@ measured on a synthetic corpus with known answers.
 {{risk_summary}}
 
 {{risk_verdicts}}
+
+"Survives" needs a headline to recompute; with no finding claimed it does not apply.
 
 ---
 

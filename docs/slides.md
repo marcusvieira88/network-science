@@ -50,7 +50,7 @@ measured on a synthetic corpus with known answers.
 
 ## The finding
 
-No finding about 2001 is claimed. H2, H3 passed every pre-registered test, but each failed its check against a known artifact of the data (see below): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed below.
+No finding about the crisis year is claimed. H2, H3 passed every pre-registered test, but each failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
 
 ---
 
@@ -65,19 +65,29 @@ No finding about 2001 is claimed. H2, H3 passed every pre-registered test, but e
 
 ---
 
-## The headline metric over time
+## The strongest signal, over time
 
-No hypothesis is supported, so there is no headline series to chart.
+```mermaid
+xychart-beta
+    title "H2: cross_community_share, observed network, weekly"
+    x-axis ["1999-12-27", "2000-01-03", "2000-01-10", "2000-01-17", "2000-01-24", "2000-01-31", "2000-02-07", "2000-02-14", "2000-02-21", "2000-02-28", "2000-03-06", "2000-03-13", "2000-03-20", "2000-03-27", "2000-04-03", "2000-04-10", "2000-04-17", "2000-04-24", "2000-05-01", "2000-05-08", "2000-05-15", "2000-05-22", "2000-05-29", "2000-06-05", "2000-06-12", "2000-06-19", "2000-06-26", "2000-07-03", "2000-07-10", "2000-07-17", "2000-07-24", "2000-07-31", "2000-08-07", "2000-08-14", "2000-08-21", "2000-08-28", "2000-09-04", "2000-09-11", "2000-09-18", "2000-09-25", "2000-10-02", "2000-10-09", "2000-10-16", "2000-10-23", "2000-10-30", "2000-11-06", "2000-11-13", "2000-11-20", "2000-11-27", "2000-12-04", "2000-12-11", "2000-12-18", "2000-12-25", "2001-01-01", "2001-01-08", "2001-01-15", "2001-01-22", "2001-01-29", "2001-02-05", "2001-02-12", "2001-02-19", "2001-02-26", "2001-03-05", "2001-03-12", "2001-03-19", "2001-03-26", "2001-04-02", "2001-04-09", "2001-04-16", "2001-04-23", "2001-04-30", "2001-05-07", "2001-05-14", "2001-05-21", "2001-05-28", "2001-06-04", "2001-06-11", "2001-06-18", "2001-06-25", "2001-07-02", "2001-07-09", "2001-07-16", "2001-07-23", "2001-07-30", "2001-08-06", "2001-08-13", "2001-08-20", "2001-08-27", "2001-09-03", "2001-09-10", "2001-09-17", "2001-09-24", "2001-10-01", "2001-10-08", "2001-10-15", "2001-10-22", "2001-10-29", "2001-11-05", "2001-11-12", "2001-11-19", "2001-11-26", "2001-12-03", "2001-12-10", "2001-12-17", "2001-12-24", "2001-12-31", "2002-01-07", "2002-01-14", "2002-01-21", "2002-01-28", "2002-02-04", "2002-02-11", "2002-02-18", "2002-02-25", "2002-03-04", "2002-03-11", "2002-03-18", "2002-03-25"]
+    line [0.222, 0.194, 0.213, 0.175, 0.163, 0.137, 0.166, 0.203, 0.182, 0.17, 0.158, 0.152, 0.134, 0.11, 0.152, 0.163, 0.169, 0.172, 0.165, 0.145, 0.143, 0.133, 0.196, 0.21, 0.205, 0.175, 0.178, 0.183, 0.191, 0.158, 0.159, 0.176, 0.166, 0.178, 0.171, 0.171, 0.203, 0.175, 0.172, 0.191, 0.179, 0.157, 0.172, 0.167, 0.181, 0.191, 0.147, 0.18, 0.176, 0.188, 0.215, 0.162, 0.226, 0.214, 0.241, 0.302, 0.282, 0.252, 0.261, 0.249, 0.295, 0.251, 0.254, 0.291, 0.297, 0.34, 0.337, 0.315, 0.359, 0.347, 0.373, 0.526, 0.439, 0.453, 0.379, 0.42, 0.481, 0.49, 0.563, 0.521, 0.536, 0.539, 0.509, 0.516, 0.524, 0.472, 0.468, 0.482, 0.528, 0.479, 0.499, 0.44, 0.465, 0.451, 0.471, 0.479, 0.479, 0.498, 0.495, 0.496, 0.434, 0.583, 0.417, 0.444, 0.429, 0.49, 0.488, 0.519, 0.468, 0.511, 0.601, 0.486, 0.441, 0.526, 0.441, 0.537, 0.542, 0.613]
+```
+
+The jump comes right after the baseline year used to fit the groups ends.
 
 ---
 
-## Confidence and threats
+## Why we do not believe it
 
-- Chance baseline: permutation test and a rewiring null model that keeps every person's volume
-- Robustness: leave each mailbox out in turn; vary the recipient cap and the window
-- Threats: retention differs by person and period; the mailboxes are mostly senior staff; the
-  collection was shaped by an investigation
-- Holm correction across all hypotheses
+| Hypothesis | Check | Statistic | Interval | Units | Result | Reading |
+|---|---|---|---|---|---|---|
+| H2 | baseline placebo | 10.8 | 8.2 to 17.4 | 52 | fails | a calm half-year out of sample already jumps: the test effect is baseline drift |
+| H3 | within custodian | -0.00987 | -0.0874 to 0.0675 | 42 | fails | no within-custodian change: the aggregate shift is a change in who is in the data |
+
+- A calm half-year, out of sample, already jumps: groups fixed on a baseline go stale
+- Custodians did not change their own external share: the aggregate moved with who is in the data
+- Checks added after the first real run, and labelled as such
 
 ---
 
@@ -97,6 +107,8 @@ No hypothesis is supported, so there is no headline series to chart.
 - R2 against A1: re-identified share 0.267 on R0, 0 on R2 (at least halved); finding survives: —.
 - R2 against A2: re-identified share 0.591 on R0, 0 on R2 (at least halved); finding survives: —.
 
+"Survives" needs a headline to recompute; with no finding claimed it does not apply.
+
 ---
 
 ## Limits
@@ -107,6 +119,7 @@ No hypothesis is supported, so there is no headline series to chart.
 - Identity resolution is rule-based and favours precision; aliases it misses split one person into several nodes.
 - Pseudonymization is not anonymization: person-level pseudonymized data must be treated as re-identifiable (see the attack on R0), so only aggregates are published; the noise variant is a sketch, not a formal privacy budget.
 - Observational design: a structural change near public events does not show what people knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.
+- The artifact checks were added after the first real-data run, because two hypotheses passed every pre-registered check yet looked implausibly strong. They are documented as a post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.
 
 ---
 

@@ -78,6 +78,9 @@ LIMITS = (
     "is a sketch, not a formal privacy budget.",
     "Observational design: a structural change near public events does not show what people "
     "knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.",
+    "The artifact checks were added after the first real-data run, because two hypotheses "
+    "passed every pre-registered check yet looked implausibly strong. They are documented as a "
+    "post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.",
 )
 
 HYPOTHESIS_HEADERS = (
@@ -188,11 +191,13 @@ def headline_statement(
         if failed:
             names = ", ".join(sorted(failed))
             return (
-                f"No finding about 2001 is claimed. {names} passed every pre-registered test, "
-                "but each failed its check against a known artifact of the data (see below): "
+                f"No finding about the crisis year is claimed. {names} passed every pre-registered "
+                "test, "
+                "but each failed its check against a known artifact of the data "
+                "(release/artifact_checks.csv): "
                 "the apparent change is explained by how the data was collected and analysed, "
                 "not by a detectable change in how people communicated. Every outcome is "
-                "listed below."
+                "listed in the report."
             )
         return (
             "No hypothesis is supported. Every outcome is listed below; a null result is a "
@@ -434,11 +439,33 @@ def _row_values(prefix: str, row: Mapping[str, Any], skip: tuple[str, ...]) -> d
     return {f"{prefix}_{col}": format_value(v) for col, v in row.items() if col not in skip}
 
 
+def utility_phrase(risk: pl.DataFrame, top: Mapping[str, Any] | None) -> str:
+    if top is None:
+        return "With no finding claimed, there is no effect whose loss to measure."
+    row = _risk_row(risk, "R1", "A1")
+    return (
+        f"The headline effect keeps a ratio of {format_value(row['utility_effect_ratio'])} of its "
+        "restricted value."
+    )
+
+
+def charted_row(hypotheses: pl.DataFrame) -> dict[str, Any] | None:
+    """The headline; failing that, the supported hypothesis with the largest effect (an
+    apparent signal that failed its artifact check); None when nothing is supported."""
+    row = headline(hypotheses)
+    if row is not None:
+        return row
+    supported = hypotheses.filter(pl.col("supported") == "yes")
+    if supported.is_empty():
+        return None
+    return supported.sort(pl.col("effect").abs(), descending=True).row(0, named=True)
+
+
 def headline_chart(tables: ReleaseTables) -> str:
     """Mermaid line chart of the headline metric over the weeks, or a sentence if none."""
-    row = headline(tables.hypotheses)
+    row = charted_row(tables.hypotheses)
     if row is None:
-        return "No hypothesis is supported, so there is no headline series to chart."
+        return "No hypothesis is supported, so there is no series to chart."
     series = tables.weekly_metrics.filter(
         (pl.col("scope") == row["scope"])
         & (pl.col("metric") == row["metric"])
@@ -451,7 +478,7 @@ def headline_chart(tables: ReleaseTables) -> str:
         (
             "```mermaid",
             "xychart-beta",
-            f'    title "{row["metric"]}, {row["scope"]} network, weekly"',
+            f'    title "{row["hypothesis"]}: {row["metric"]}, {row["scope"]} network, weekly"',
             f"    x-axis [{weeks}]",
             f"    line [{values}]",
             "```",
@@ -478,7 +505,9 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
     values.update(
         {
             "headline_statement": headline_statement(top, tables.artifact_checks),
+            "utility_phrase": utility_phrase(tables.risk, top),
             "headline_chart": headline_chart(tables),
+            "artifact_table": artifact_section(tables.artifact_checks).split("\n\n", 2)[2],
             "quality_table": quality.funnel_table(tables.data_quality),
             "header_table": quality.header_table(tables.header_fields),
             "hypotheses_table": hypotheses_table(tables.hypotheses),

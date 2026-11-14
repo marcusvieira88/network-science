@@ -29,8 +29,8 @@ injected from release tables; none is typed.
 
 - **Strict content line, including `Subject`.** Content fields ({{fields_content}}) are never
   stored. We lose threads and reply times and dedupe on sender, second and recipients alone:
-  {{dq_deduplicate_removed}} copies removed, measured precision {{dq_deduplicate_precision}},
-  recall {{dq_deduplicate_recall}} on synthetic ground truth.
+  {{dq_deduplicate_removed}} copies removed. Precision and recall are measured in the test suite
+  against the synthetic corpus's ground truth; the real corpus has none.
 - **Rule-based identity resolution.** Deterministic, explainable rules weighted to precision,
   because a false merge invents a central person while a false split only dilutes one:
   {{dq_resolve_identities_count_in}} addresses to {{dq_resolve_identities_count_out}} entities.
@@ -42,8 +42,7 @@ injected from release tables; none is typed.
   {{risk_r0_a2_reid_top1}} for the insider.
 - **Aggregates-only release.** So nothing person-level is published. Every cell meets
   k = {{k_min}}. On the aggregate release (R1) the shares fall to {{risk_r1_a1_reid_top1}} and
-  {{risk_r1_a2_reid_top1}}; the headline effect keeps a ratio of
-  {{risk_r1_a1_utility_effect_ratio}} of its restricted value.
+  {{risk_r1_a2_reid_top1}}. {{utility_phrase}}
 
 **Finding.** {{headline_statement}}
 
@@ -63,7 +62,9 @@ injected from release tables; none is typed.
 
 ## Not done, and why
 
-<!-- DRAFT: the lead confirms this list after the real-corpus judgments (T062, T077). -->
-The dedupe-rule sensitivity variant was dropped for time. The noise release (R2) is a sketch,
-not a formal privacy budget. On the real corpus, identity precision rests on a manual sample,
-not on ground truth. The report lists every limit.
+- **No finding claimed.** The two apparent crisis-year signals failed checks against known artifacts;
+  those checks were added after the first real run and are labelled post hoc.
+- **Dropped for time**: the dedupe-rule sensitivity variant.
+- **A sketch, not a guarantee**: the noise release (R2) has no formal privacy budget.
+- **Identity precision on real data** rests on a manual sample judged by a person, not on ground
+  truth. The report lists every limit.

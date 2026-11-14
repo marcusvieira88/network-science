@@ -29,8 +29,8 @@ injected from release tables; none is typed.
 
 - **Strict content line, including `Subject`.** Content fields (Subject, X-Folder) are never
   stored. We lose threads and reply times and dedupe on sender, second and recipients alone:
-  266827 copies removed, measured precision —,
-  recall — on synthetic ground truth.
+  266827 copies removed. Precision and recall are measured in the test suite
+  against the synthetic corpus's ground truth; the real corpus has none.
 - **Rule-based identity resolution.** Deterministic, explainable rules weighted to precision,
   because a false merge invents a central person while a false split only dilutes one:
   85388 addresses to 84759 entities.
@@ -42,10 +42,9 @@ injected from release tables; none is typed.
   0.591 for the insider.
 - **Aggregates-only release.** So nothing person-level is published. Every cell meets
   k = 5. On the aggregate release (R1) the shares fall to 0 and
-  0; the headline effect keeps a ratio of
-  — of its restricted value.
+  0. With no finding claimed, there is no effect whose loss to measure.
 
-**Finding.** No finding about 2001 is claimed. H2, H3 passed every pre-registered test, but each failed its check against a known artifact of the data (see below): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed below.
+**Finding.** No finding about the crisis year is claimed. H2, H3 passed every pre-registered test, but each failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
 
 ## What changes with real customer data
 
@@ -63,7 +62,9 @@ injected from release tables; none is typed.
 
 ## Not done, and why
 
-<!-- DRAFT: the lead confirms this list after the real-corpus judgments (T062, T077). -->
-The dedupe-rule sensitivity variant was dropped for time. The noise release (R2) is a sketch,
-not a formal privacy budget. On the real corpus, identity precision rests on a manual sample,
-not on ground truth. The report lists every limit.
+- **No finding claimed.** The two apparent crisis-year signals failed checks against known artifacts;
+  those checks were added after the first real run and are labelled post hoc.
+- **Dropped for time**: the dedupe-rule sensitivity variant.
+- **A sketch, not a guarantee**: the noise release (R2) has no formal privacy budget.
+- **Identity precision on real data** rests on a manual sample judged by a person, not on ground
+  truth. The report lists every limit.
