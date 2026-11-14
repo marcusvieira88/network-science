@@ -6,7 +6,7 @@ An engineering case study: a privacy-first pipeline that reads **only the header
 Enron email corpus. It cleans and pseudonymizes them, tests pre-stated hypotheses about how the
 organization's communication network changed in 2001, attacks its own output to measure
 re-identification risk, and publishes only aggregates. An optional dark-themed explorer UI shows
-the published results.
+the published results, opening on a plain-language executive summary for non-specialists.
 
 The corpus is public; the pipeline is built as if it were not.
 
