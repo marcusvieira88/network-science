@@ -11,6 +11,7 @@ written or logged; only counts leave this module.
 
 from __future__ import annotations
 
+import re
 import tarfile
 from datetime import UTC, date, timedelta
 from email.utils import parsedate_to_datetime
@@ -26,6 +27,8 @@ ATTACKER_FIELDS = ("from", "to", "cc", "date")
 RECIPIENT_FIELDS = ("to", "cc")
 HEADER_ENCODING = "latin-1"
 ADDRESS_SEPARATOR = ","
+# RFC 5322 field name: printable ASCII except colon, no whitespace.
+HEADER_NAME = re.compile(r"[\x21-\x39\x3b-\x7e]+")
 
 MessageKey = tuple[str, str, tuple[str, ...]]
 
@@ -62,19 +65,23 @@ def parse_archive(archive: Path) -> pl.DataFrame:
 
 def read_headers(stream: IO[bytes]) -> dict[str, str]:
     """The attacker's fields from one member, reading no further than the end of the header
-    block. Folded continuation lines are joined; every other field is discarded unread."""
+    block: a blank or whitespace-only line, or the first line that is not a header line.
+    Folded continuation lines are joined; every other field is discarded unread."""
     fields: dict[str, str] = {}
     current: str | None = None
     for raw in iter(stream.readline, b""):
         line = raw.decode(HEADER_ENCODING).rstrip("\r\n")
-        if not line:
+        if not line.strip():
             break
         if line[0] in " \t":
             if current is not None:
                 fields[current] += " " + line.strip()
             continue
-        name, _, value = line.partition(":")
-        current = name.strip().lower()
+        name, colon, value = line.partition(":")
+        if not colon or not HEADER_NAME.fullmatch(name):
+            # Not a header line, so the body has begun without a blank line: stop unread.
+            break
+        current = name.lower()
         if current in ATTACKER_FIELDS:
             fields[current] = value.strip()
         else:
@@ -118,9 +125,9 @@ def parse_week(date_text: str) -> date | None:
     """Monday of the UTC calendar week of a Date header, or None if it does not parse."""
     try:
         moment = parsedate_to_datetime(date_text)
-    except (TypeError, ValueError):
+        if moment.tzinfo is None:
+            return None
+        day = moment.astimezone(UTC).date()
+    except (TypeError, ValueError, IndexError, OverflowError):
         return None
-    if moment.tzinfo is None:
-        return None
-    day = moment.astimezone(UTC).date()
     return day - timedelta(days=day.weekday())

@@ -145,3 +145,10 @@ def test_members_outside_maildir_are_rejected(tmp_path: Path) -> None:
     assert counts["files_parsed"] == 1
     assert counts["rejected"] == {"outside_maildir": 1}
     assert counts["header_rulings"] == {"From": "identifier"}
+
+
+def test_date_beyond_datetime_range_is_flagged_not_a_crash() -> None:
+    # Parses as a local time, but lies past datetime.max once converted to UTC.
+    record = _member("Date: Fri, 31 Dec 9999 23:00:00 -0200\nFrom: a@x.org\n\nbody\n")
+    assert record["ts_utc"] is None
+    assert record["parse_flags"] == ["bad_date"]
