@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, XAxis, YAxis } from "recharts";
 
+import { ChartHeadline } from "@/components/ChartHeadline";
+import { Explain } from "@/components/Explain";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { METRICS, type Period, type PublicEvent, SCOPES, type HypothesisRow, type Scope, type WeeklyMetricRow } from "@/lib/data";
+import { metricCaption, metricHeadline } from "@/lib/executive";
 import { formatNumber, metricLabel } from "@/lib/format";
 import {
   DEFAULT_VARIANT,
@@ -54,8 +57,11 @@ export function MetricChart({ rows, hypotheses, events, baseline, initialMetric,
         <div className="space-y-1.5">
           <CardTitle>{metricLabel(metric)}</CardTitle>
           <CardDescription>
-            Weekly value, {SCOPE_LABELS[scope].toLowerCase()}, variant <span className="font-mono">{variant}</span>.
-            {suppressed > 0 && ` ${suppressed} weeks below the minimum group size are shown as gaps.`}
+            Weekly value, {SCOPE_LABELS[scope].toLowerCase()}
+            <Explain term="Core and observed network" />, variant <span className="font-mono">{variant}</span>
+            <Explain term="Robustness variants" />.
+            {suppressed > 0 &&
+              ` ${suppressed} ${suppressed === 1 ? "week" : "weeks"} below the minimum group size ${suppressed === 1 ? "is" : "are"} shown as gaps.`}
           </CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -94,7 +100,8 @@ export function MetricChart({ rows, hypotheses, events, baseline, initialMetric,
           </Select>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <ChartHeadline headline={metricHeadline(series, metric, scope)} caption={metricCaption(baseline)} />
         <ChartContainer config={config} className="aspect-auto h-[340px] w-full">
           <LineChart data={series} margin={{ top: 16, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
@@ -142,11 +149,14 @@ export function MetricChart({ rows, hypotheses, events, baseline, initialMetric,
           )}
           <li className="flex items-center gap-2">
             <span className="w-5 border-t-2 border-dashed border-primary" aria-hidden />
-            {changeWeek
-              ? `Estimated change point: week of ${changeWeek} (${tested?.hypothesis})`
-              : tested
-                ? `No change point estimated (${tested.hypothesis})`
-                : "This metric is not a pre-registered hypothesis in this scope"}
+            <span>
+              {changeWeek
+                ? `Estimated change point: week of ${changeWeek} (${tested?.hypothesis})`
+                : tested
+                  ? `No change point estimated (${tested.hypothesis})`
+                  : "This metric is not a pre-registered hypothesis in this scope"}
+              <Explain term="Change point" />
+            </span>
           </li>
           {eventMarkers.map((event) => (
             <li key={event.date} className="flex items-center gap-2">

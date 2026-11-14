@@ -40,6 +40,25 @@
     --chart-marker: #8a8984;
   }
 
+  /* Print: black on white, so the one-page summary reads on paper and saves toner. */
+  @media print {
+    :root {
+      color-scheme: light;
+      --background: 0 0% 100%;
+      --foreground: 0 0% 8%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 8%;
+      --muted-foreground: 0 0% 28%;
+      --primary: 213 80% 36%;
+      --border: 0 0% 78%;
+    }
+
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+  }
+
   * {
     @apply border-border;
   }

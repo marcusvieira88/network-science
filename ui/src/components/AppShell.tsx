@@ -1,7 +1,9 @@
 import {
   AlertTriangle,
   BarChart3,
+  BookOpen,
   CheckSquare,
+  ClipboardList,
   Filter,
   LayoutDashboard,
   type LucideIcon,
@@ -17,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { VIEWS, type ViewId } from "@/lib/views";
 
 const ICONS: Record<ViewId, LucideIcon> = {
+  summary: ClipboardList,
   overview: LayoutDashboard,
   metrics: BarChart3,
   network: Share2,
@@ -25,6 +28,7 @@ const ICONS: Record<ViewId, LucideIcon> = {
   quality: Filter,
   risk: ShieldCheck,
   limits: AlertTriangle,
+  glossary: BookOpen,
 };
 
 interface AppShellProps {
@@ -44,7 +48,13 @@ export function AppShell({ active, onSelect, run, contractVersion, source, child
   const activeLabel = VIEWS.find((view) => view.id === active)?.label ?? "";
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="border-b md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:border-b-0 md:border-r">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+      >
+        Skip to content
+      </a>
+      <aside className="print:hidden border-b md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:border-b-0 md:border-r">
         <div className="flex items-center gap-2 px-5 py-4">
           <span className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden />
           <span className="text-sm font-semibold tracking-tight">Enron network case</span>
@@ -61,7 +71,7 @@ export function AppShell({ active, onSelect, run, contractVersion, source, child
                     onClick={() => onSelect(view.id)}
                     aria-current={current ? "page" : undefined}
                     className={cn(
-                      "flex w-full items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                      "flex w-full items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       current
                         ? "bg-accent text-foreground"
                         : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
@@ -77,7 +87,7 @@ export function AppShell({ active, onSelect, run, contractVersion, source, child
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
+        <header className="flex items-center justify-between gap-4 border-b px-6 py-4 print:px-0 print:py-1">
           <h1 className="text-lg font-semibold tracking-tight">{activeLabel}</h1>
           {source === "sample" ? (
             <Badge variant="outline" className="border-amber-500/40 text-amber-300">
@@ -87,8 +97,10 @@ export function AppShell({ active, onSelect, run, contractVersion, source, child
             <Badge variant="secondary">Release data</Badge>
           )}
         </header>
-        <main className="flex-1 px-6 py-6">{children}</main>
-        <footer className="border-t px-6 py-4 text-xs text-muted-foreground">
+        <main id="main" tabIndex={-1} className="flex-1 px-6 py-6 focus:outline-none print:px-0 print:py-1">
+          {children}
+        </main>
+        <footer className="border-t px-6 py-4 text-xs text-muted-foreground print:px-0 print:py-1 print:text-[7pt]">
           <div className="flex flex-wrap gap-x-6 gap-y-1">
             <span>
               Seed <span className="font-mono text-foreground">{run.seed}</span>
@@ -101,7 +113,7 @@ export function AppShell({ active, onSelect, run, contractVersion, source, child
             </span>
             <span>{run.sample ? "Synthetic sample corpus" : "Public Enron corpus"}</span>
           </div>
-          <details className="mt-2">
+          <details className="mt-2 print:hidden">
             <summary className="cursor-pointer select-none hover:text-foreground">Run parameters</summary>
             <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-0.5 sm:grid-cols-[max-content_1fr_max-content_1fr]">
               {Object.entries(run.parameters).map(([name, value]) => (

@@ -1,5 +1,8 @@
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { AnalystDetails } from "@/components/AnalystDetails";
+import { ChartHeadline } from "@/components/ChartHeadline";
+import { Explain } from "@/components/Explain";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   type ChartConfig,
@@ -12,7 +15,13 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ATTACKERS, type RiskRow } from "@/lib/data";
 import { formatFloat, formatShare } from "@/lib/format";
+import { riskHeadline } from "@/lib/executive";
 import { ATTACKER_LABELS, VARIANT_LABELS, reidByVariant } from "@/lib/risk";
+
+const RISK_CAPTION =
+  "Each group of bars is one release, each bar one simulated attacker; a taller bar means more people correctly identified. " +
+  "R0 is person-level data under pseudonyms and was never published; R1 holds only group totals and is what is published; " +
+  "R2 adds random noise to R1.";
 
 const config: ChartConfig = {
   A1: { label: ATTACKER_LABELS.A1, color: "var(--chart-1)" },
@@ -27,11 +36,14 @@ export function RiskPanel({ rows }: { rows: RiskRow[] }) {
         <CardHeader>
           <CardTitle>Re-identification rate by release</CardTitle>
           <CardDescription>
-            Share of people an attacker re-identifies correctly (top-1) from each release. R0 is the naive
-            pseudonymised output, kept in the restricted zone; R1 is what is published.
+            Share of people an attacker re-identifies correctly (top-1) from each release
+            <Explain term="Re-identification" />. Releases
+            <Explain term="Releases R0, R1, R2" /> and attackers
+            <Explain term="Attackers A1, A2, A3" /> in plain words.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <ChartHeadline headline={riskHeadline(rows)} caption={RISK_CAPTION} />
           <ChartContainer config={config} className="aspect-auto h-[280px] w-full">
             <BarChart data={reidByVariant(rows)} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barGap={2}>
               <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
@@ -59,6 +71,7 @@ export function RiskPanel({ rows }: { rows: RiskRow[] }) {
           </ChartContainer>
         </CardContent>
       </Card>
+      <AnalystDetails>
       <Card>
         <CardHeader>
           <CardTitle>Risk and analytical cost side by side</CardTitle>
@@ -74,7 +87,10 @@ export function RiskPanel({ rows }: { rows: RiskRow[] }) {
                 <TableHead>Attacker</TableHead>
                 <TableHead className="text-right">Targets</TableHead>
                 <TableHead className="text-right">Unique share</TableHead>
-                <TableHead className="text-right">Median anonymity set</TableHead>
+                <TableHead className="text-right">
+                  Median anonymity set
+                  <Explain term="Anonymity set and unique share" />
+                </TableHead>
                 <TableHead className="text-right">Re-identified</TableHead>
                 <TableHead>95% interval</TableHead>
                 <TableHead className="text-right">Utility</TableHead>
@@ -105,6 +121,7 @@ export function RiskPanel({ rows }: { rows: RiskRow[] }) {
           </Table>
         </CardContent>
       </Card>
+      </AnalystDetails>
     </div>
   );
 }
