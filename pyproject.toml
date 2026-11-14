@@ -8,6 +8,8 @@ dependencies = [
     "networkx==3.7",
     "numpy==2.5.4",
     "scipy==1.18.1",
+    # Windows has no system time-zone database; zoneinfo needs this one there.
+    "tzdata==2026.6; sys_platform == 'win32'",
 ]
 
 [project.scripts]
