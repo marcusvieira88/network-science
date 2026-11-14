@@ -8,10 +8,21 @@ the published results.
 
 The corpus is public; the pipeline is built as if it were not.
 
-**Result in one line:** two of four pre-registered hypotheses passed every planned test, then
-failed checks against known artifacts of the data (stale baseline groups and a change in which
-mailboxes hold mail), so **no finding about 2001 is claimed**. Details, numbers and limits are in
-[release/report.md](release/report.md); every number there is produced by the run.
+**Results in brief.**
+
+- **Pre-registered (H1–H4):** two of four hypotheses passed every planned test, then failed
+  checks against known artifacts of the data (stale baseline groups; a change in which mailboxes
+  hold mail). **No pre-registered finding is claimed.**
+- **Exploratory (E1–E20):** two further families, each committed before it was computed and
+  corrected together. One result reached the confident standard: **communication became more
+  mutual in the crisis** (E12). Of the people a custodian wrote to, a larger share also wrote
+  back than in the same weeks a year earlier, and the effect holds with mail volume equalised. It
+  is presented as an exploratory lead, not a pre-registered finding.
+- **Found along the way:** the reference-year timestamps in the corpus are shifted by several
+  hours, and every Bcc line repeats the Cc line.
+
+Numbers and limits are in [release/report.md](release/report.md); every number there is produced
+by the run.
 
 ---
 
@@ -132,7 +143,7 @@ flowchart TB
     subgraph Z2["Zone 2 · restricted — pseudonyms only (git-ignored)"]
         PS["pseudo<br/>keyed HMAC per person"]
         N["network<br/>weekly snapshots,<br/>communities, 8 metrics"]
-        F["finding<br/>H1–H4, statistics,<br/>artifact checks"]
+        F["finding<br/>H1–H4 + artifact checks,<br/>exploratory E1–E20"]
         RK["risk<br/>attack our own output"]
     end
     subgraph Z3["Zone 3 · release — aggregates, every group ≥ 5 (committed)"]
@@ -171,7 +182,7 @@ two runs with one key can be compared byte for byte.
 | identity | `identity` | `messages`, `header_records` | `entities`, `address_map` |
 | pseudo | `pseudo` | the three above, the key | `events`, `entities_p` |
 | network | `network` | `events`, `entities_p` | `snapshots`, `communities`, `metric_series` |
-| finding | `finding` | metric series and network | `hypothesis_results`, `artifact_results` |
+| finding | `finding` | metric series and network | `hypothesis_results`, `artifact_results`, `exploratory_results` |
 | risk | `risk` | release variants, public corpus (as the attacker would) | `risk_results` |
 | release | `release` | restricted aggregates and counts | `release/*.csv` |
 | report | `report` | `release/` only | `release/report.md`, `docs/*.md` |
@@ -250,7 +261,7 @@ external URL: no CDN, no web fonts, no analytics.
 | **d3-force** | the group network layout | One force layout computed once and kept stable while the week slider moves. |
 | **lucide-react**, **@fontsource-variable/inter** | icons, bundled font | Bundled assets, so no external request. |
 | `class-variance-authority`, `clsx`, `tailwind-merge` | component variants and class composition | The standard shadcn helpers. |
-| **Vitest** + **Testing Library** + **jsdom** | 60 UI tests, including a privacy test | Checks the data contains no `@`, no pseudonym and no group below five, and that no view renders per person. |
+| **Vitest** + **Testing Library** + **jsdom** | UI tests, including a privacy test | Checks the data contains no `@`, no pseudonym and no group below five, and that no view renders per person. |
 | **ESLint** (+ React hooks rules) | lint | Part of `make ui-gate`. |
 
 ---
@@ -262,7 +273,7 @@ flowchart LR
     T["task with owned paths,<br/>contract and fixtures"] --> A["agent implements,<br/>tests first"]
     A --> G{"make gate<br/>lint · types · tests ·<br/>canary · import boundary"}
     G -- red --> A
-    G -- green --> R["independent review:<br/>/code-review +<br/>/data-privacy-review"]
+    G -- green --> R["independent review:<br/>/code-review +<br/>/data-privacy-review +<br/>/code-quality-review"]
     R -- findings --> A
     R -- approve --> M["merge, run on the real corpus"]
     M --> D["determinism check:<br/>two runs, one key,<br/>identical fingerprints"]
@@ -271,9 +282,18 @@ flowchart LR
 - **Ground truth no agent produced.** A synthetic corpus in the same layout as the real one, with
   known duplicates, aliases, noise, a planted change and canary markers. It has a reference answer
   for every table.
-- **Pre-registered hypotheses.** H1–H4 were committed before any real data was analysed. All
-  outcomes are published, and "none supported" is an allowed result. The extra artifact checks
-  were added after the first real run and are labelled as such.
+- **Hypotheses before results.** H1–H4 were committed before any real data was analysed; each
+  exploratory family (E1–E10, E11–E20) was committed before it was computed, and Holm's
+  correction runs across all twenty, so adding hypotheses makes each one harder to pass. All
+  outcomes are published. Checks added after seeing a result (the artifact checks, mail-volume
+  equalisation) are labelled as such.
+- **Identity checked by a person.** A seeded sample of real identity merges was judged in a
+  terminal by a person (`enron-case review-merges`); only the two counts are kept and published
+  in `data_quality.csv`, so real identifiers never entered an AI conversation.
+- **Typed and reviewed.** `mypy --strict` checks `src/` and `tests/`, with no `Any` in a
+  signature. Every change is reviewed with three skills: `/code-review` (correctness),
+  `/data-privacy-review` (the content and identifier promises) and the project's own
+  `/code-quality-review` (AGENTS.md rules, typing, and a gate whose exit code was checked).
 - **Reproducibility.** One command, a pinned lockfile and corpus checksum, and seeded randomness.
   Two full real runs with one key give identical fingerprints for every output.
 - **Numbers are never typed.** The report, decision record and slides are rendered from release
@@ -351,8 +371,9 @@ out of reach of the service entirely.
    would change with real customer data.
 3. [docs/slides.md](docs/slides.md): the 15-minute presentation (Marp-compatible).
 4. [docs/ai-workflow.md](docs/ai-workflow.md): how AI agents built this and what kept them correct.
-5. [docs/hypotheses.md](docs/hypotheses.md) and [docs/metrics.md](docs/metrics.md): the
-   pre-registered hypotheses, the metric definitions and the decision rules.
+5. [docs/hypotheses.md](docs/hypotheses.md), [docs/hypotheses-exploratory.md](docs/hypotheses-exploratory.md)
+   and [docs/metrics.md](docs/metrics.md): the pre-registered and exploratory hypotheses, the
+   metric definitions and the decision rules.
 6. [docs/architecture.md](docs/architecture.md): every architecture diagram.
 7. [specs/001-enron-network-analysis/](specs/001-enron-network-analysis/): the specification, plan,
    research decisions, data contracts and task list the code was built from.
@@ -376,5 +397,5 @@ tests/            unit, contract, privacy and integration tests, all on syntheti
 ui/               the explorer (React, TypeScript, Vite, Tailwind, shadcn/ui)
 docs/             architecture, hypotheses, metrics, decision record, slides, AI-workflow note
 specs/            Spec Kit specification, plan, research, contracts and tasks
-.claude/skills/   Spec Kit skills and the project's data-privacy-review skill
+.claude/skills/   Spec Kit skills and the project's data-privacy-review and code-quality-review skills
 ```
