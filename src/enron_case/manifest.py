@@ -112,16 +112,31 @@ class RunManifest:
 
 
 def write_stage_timings(path: Path, seconds: dict[str, float], merge: bool = False) -> None:
-    """Write the seconds each stage of this run took, in run order, to the run log. With
-    `merge`, a partial run keeps the previous timings of the stages it did not run, as the
-    manifest keeps their records."""
+    """Write the seconds each stage of this run took to the run log. With `merge`, a partial
+    run keeps the previous timings of the stages it did not run, as the manifest keeps their
+    records: those come first, then this run's stages in run order."""
     stages: list[JsonObject] = []
     if merge and path.exists():
-        previous = json_object(path.read_text(encoding="utf-8"), "stage timings")
-        stages = [s for s in _objects(previous, "stages") if s["stage"] not in seconds]
+        stages = [s for s in _previous_timings(path) if s["stage"] not in seconds]
     stages += [{"stage": name, "seconds": round(value, 2)} for name, value in seconds.items()]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"stages": stages}, indent=2) + "\n", encoding="utf-8")
+
+
+def _previous_timings(path: Path) -> list[JsonObject]:
+    """The stage timings an earlier run wrote, each checked to be a stage name and its seconds."""
+    previous = json_object(path.read_text(encoding="utf-8"), "stage timings")
+    entries = previous.get("stages", [])
+    if not isinstance(entries, list):
+        raise ContractViolation("stage timings: 'stages' is not a list")
+    timings: list[JsonObject] = []
+    for entry in entries:
+        stage = entry.get("stage") if isinstance(entry, dict) else None
+        value = entry.get("seconds") if isinstance(entry, dict) else None
+        if not isinstance(stage, str) or not isinstance(value, int | float):
+            raise ContractViolation("stage timings: an entry is not a stage name and its seconds")
+        timings.append({"stage": stage, "seconds": value})
+    return timings
 
 
 def _stage_record(name: str, version: str) -> JsonObject:

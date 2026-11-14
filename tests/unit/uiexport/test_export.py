@@ -39,7 +39,7 @@ def write_manifest(ctx: StageContext, code_version: str = FIXTURE_CODE_VERSION) 
         "corpus_sha256": None,
         "tables": {},
         "counts": {},
-        "stages": [{"stage": "release", "seconds": 1.23}],
+        "stages": [{"stage": "release", "code_version": code_version}],
     }
     path = ctx.paths.dir(Zone.RELEASE) / "run_manifest.json"
     path.write_text(json.dumps(manifest), encoding="utf-8")

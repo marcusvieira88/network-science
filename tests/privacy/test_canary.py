@@ -40,7 +40,7 @@ def test_pipeline_ran_something(sample_run: SampleRun) -> None:
 def test_no_content_marker_anywhere(sample_run: SampleRun) -> None:
     """Content markers appear in no zone at all, the ingest zone included, nor in logs."""
     paths = sample_run.paths
-    for zone in (Zone.INGEST, Zone.RESTRICTED, Zone.RELEASE, Zone.UI, Zone.DOCS):
+    for zone in (Zone.INGEST, Zone.RESTRICTED, Zone.RELEASE, Zone.UI, Zone.DOCS, Zone.LOGS):
         assert scan(paths.dir(zone), CONTENT_MARKERS) == {}, zone
     assert not any(m.lower() in line.lower() for line in sample_run.logs for m in CONTENT_MARKERS)
 
@@ -48,7 +48,9 @@ def test_no_content_marker_anywhere(sample_run: SampleRun) -> None:
 def test_no_identifier_past_the_boundary(sample_run: SampleRun, synth: SynthOutput) -> None:
     needles = identifiers(synth.truth())
     paths = sample_run.paths
-    for zone in (Zone.RESTRICTED, Zone.RELEASE, Zone.UI, Zone.DOCS):
+    # The logs zone holds the stage timings: checked as well, and it must exist to be checked.
+    assert any(paths.dir(Zone.LOGS).iterdir())
+    for zone in (Zone.RESTRICTED, Zone.RELEASE, Zone.UI, Zone.DOCS, Zone.LOGS):
         assert scan(paths.dir(zone), needles) == {}, zone
     manifest = paths.dir(Zone.RELEASE) / "run_manifest.json"
     if manifest.exists():

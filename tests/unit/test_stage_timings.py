@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from enron_case.config import MANIFEST_FILE, STAGE_TIMINGS_FILE
+from enron_case.errors import ContractViolation
 from enron_case.manifest import RunManifest, write_stage_timings
 from enron_case.zones import Zone
 from helpers import run_sample
@@ -62,3 +63,10 @@ def test_a_partial_run_keeps_the_timings_of_stages_it_did_not_run(tmp_path: Path
     assert json.loads(path.read_text(encoding="utf-8"))["stages"] == [
         {"stage": "fetch", "seconds": 1.0}
     ]
+
+
+def test_a_malformed_timings_log_is_a_contract_violation(tmp_path: Path) -> None:
+    path = tmp_path / STAGE_TIMINGS_FILE
+    path.write_text(json.dumps({"stages": [{"seconds": 1.0}]}), encoding="utf-8")
+    with pytest.raises(ContractViolation, match="stage timings"):
+        write_stage_timings(path, {"report": 1.0}, merge=True)
