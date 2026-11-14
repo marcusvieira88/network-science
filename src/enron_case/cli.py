@@ -240,9 +240,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             load_key_fingerprint(sample=False)
             return 0
         if args.command == "review-merges":
-            review = importlib.import_module("enron_case.identity.review")
+            from enron_case.identity.review import review  # noqa: PLC0415 - this command only
+
             ctx = StageContext("identity", Config(), Paths.for_run(REPO_ROOT, False), False)
-            checked, correct = review.review(ctx)
+            checked, correct = review(ctx)
             stderr_log(f"review-merges: {correct} of {checked} merges judged correct")
             return 0
         config = Config()
