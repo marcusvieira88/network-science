@@ -11,6 +11,7 @@ import polars as pl
 
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import PrivacyViolation
 
 # Release columns that count persons; a published value must be at least k.
@@ -78,6 +79,9 @@ def _check_metric_values(df: pl.DataFrame, k: int) -> None:
     small = df.filter((pl.col("metric") == PERSON_COUNT_METRIC) & (pl.col("value") < k))
     if small.height:
         raise PrivacyViolation(f"weekly_metrics: {small.height} person counts below k")
+    variants = df.filter(pl.col("variant") != DEFAULT_VARIANT)
+    if variants.height:
+        raise PrivacyViolation(f"weekly_metrics: {variants.height} rows of a non-default variant")
 
 
 def _check_differencing(df: pl.DataFrame, count_col: str, partition: str) -> None:

@@ -27,6 +27,7 @@ import numpy as np
 import polars as pl
 
 from enron_case.config import Config
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.finding import stats
 from enron_case.finding.hypotheses import HYPOTHESES, Evidence, Network, Recompute
 from enron_case.network.communities import baseline_communities
@@ -79,7 +80,7 @@ def baseline_placebo(network: Network, recompute: Recompute, config: Config) -> 
     values = series.filter(
         (pl.col("metric") == "cross_community_share")
         & (pl.col("scope") == "observed")
-        & (pl.col("variant") == "default")
+        & (pl.col("variant") == DEFAULT_VARIANT)
         & pl.col("value").is_not_null()
     )
     before = _values(values, config.baseline_start, mid)

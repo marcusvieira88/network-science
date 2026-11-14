@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.release import kanon, mitigate
 
 PERSON_TYPE = "person"
@@ -85,7 +86,11 @@ def build_r2(
 
 
 def weekly_metrics(metric_series: pl.DataFrame, k: int) -> pl.DataFrame:
-    return kanon.suppress_below(metric_series, "n_active", k, dependents=("value",))
+    """The default series only: a sensitivity variant published next to it would let default
+    minus variant `n_active` reveal groups smaller than k. Variants stay restricted and feed the
+    finding's robustness check."""
+    default = metric_series.filter(pl.col("variant") == DEFAULT_VARIANT)
+    return kanon.suppress_below(default, "n_active", k, dependents=("value",))
 
 
 def degree_distribution(edges: pl.DataFrame, k: int) -> pl.DataFrame:

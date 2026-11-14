@@ -651,7 +651,8 @@ class FixtureBuilder:
                 for f, n in c["ingest_counts"]["header_fields"].items()
             ]
         )
-        weekly = self.metric_series_table().with_columns(
+        default = self.metric_series_table().filter(pl.col("variant") == "default")
+        weekly = default.with_columns(
             pl.when(pl.col("n_active") >= k).then(pl.col("value")).alias("value"),
             pl.when(pl.col("n_active") >= k).then(pl.col("n_active")).alias("n_active"),
         )

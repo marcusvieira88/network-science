@@ -202,3 +202,34 @@ def test_laplace_noise_is_unbiased_on_weights() -> None:
     true = pl.Series([2.5] * 20_000)
     noisy = mitigate.add_laplace(true, scale=1.0, rng=rng)
     assert abs(float(noisy.mean()) - 2.5) < 0.05
+
+
+def test_weekly_metrics_publishes_default_variant_only() -> None:
+    # A variant next to the default lets default minus variant n_active reveal small groups.
+    metrics = pl.DataFrame(
+        {
+            "scope": ["core"] * 3,
+            "week": [H1_WEEK] * 3,
+            "metric": ["density"] * 3,
+            "value": [0.2, 0.3, 0.4],
+            "n_active": [9, 7, 6],
+            "variant": ["default", "cap=20", "window=month"],
+        }
+    )
+    out = variants.build_r1(edges([]), metrics, communities({0: 5}), K)["weekly_metrics"]
+    assert out.select("variant", "n_active").rows() == [("default", 9)]
+
+
+def test_kanon_rejects_a_non_default_variant_in_weekly_metrics() -> None:
+    metrics = pl.DataFrame(
+        {
+            "scope": ["core"],
+            "week": [H1_WEEK],
+            "metric": ["density"],
+            "value": [0.3],
+            "n_active": [7],
+            "variant": ["cap=20"],
+        }
+    )
+    with pytest.raises(PrivacyViolation):
+        kanon.enforce("weekly_metrics", metrics, K)

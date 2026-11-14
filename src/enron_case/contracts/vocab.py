@@ -53,6 +53,8 @@ IDENTITY_RULES = ("N1", "N2", "N3", "N4")
 MESSAGE_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailing", "bad_address")
 PARSE_FLAGS = ("no_header_end", "bad_date", "folded", "decode_error")
 SCOPES = ("core", "observed")
+# metric_series label of the main analysis; every other label is a sensitivity variant.
+DEFAULT_VARIANT = "default"
 METRICS = (
     "volume",
     "active_persons",

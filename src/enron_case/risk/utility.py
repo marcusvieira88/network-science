@@ -16,11 +16,10 @@ import numpy as np
 import polars as pl
 
 from enron_case.config import Config
+from enron_case.contracts.vocab import DEFAULT_VARIANT
 
 EffectFn = Callable[[np.ndarray, np.ndarray], float]
 
-# metric_series / weekly_metrics label of the main (non-sensitivity) series.
-DEFAULT_VARIANT = "default"
 CI_LOW_PERCENTILE = 2.5
 CI_HIGH_PERCENTILE = 97.5
 

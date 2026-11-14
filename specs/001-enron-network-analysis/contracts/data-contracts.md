@@ -203,7 +203,7 @@ Written only by S8 (WP-H) through `release/kanon.py`; rendered by S9 (WP-I).
 |------|---------|
 | `release/data_quality.csv` | order, step, count_in, count_out, removed, rule, precision, recall |
 | `release/header_fields.csv` | field name, occurrences, ruling |
-| `release/weekly_metrics.csv` | scope, week, metric, value, n_active (suppressed if < k) |
+| `release/weekly_metrics.csv` | scope, week, metric, value, n_active (suppressed if < k), variant. Only `variant = default` is published: a sensitivity variant next to it would let default minus variant `n_active` reveal groups below k. The variants stay restricted and feed `robust_variants_*` |
 | `release/hypotheses.csv` | `hypothesis_results` without per-mailbox detail |
 | `release/risk.csv` | `risk_results` |
 | `release/degree_distribution.csv` | period (half-year), degree bucket (`1`, `2-4`, `5-9`, `10+`; degree = number of distinct contacts in either direction), persons (≥ k or suppressed; a lone suppressed cell per period forces a second suppression) |
