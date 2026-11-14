@@ -369,3 +369,42 @@ def record_profile(profile: pl.DataFrame, k_min: int) -> pl.DataFrame:
         *[pl.when(small_sending).then(None).otherwise(pl.col(c)).alias(c) for c in sending],
         *[pl.when(small_receiving).then(None).otherwise(pl.col(c)).alias(c) for c in receiving],
     )
+
+
+def departures(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
+    """H26 counts by window. A count below k is suppressed with the hazard derived from it; an
+    at-risk count below k takes every count of its row; record ends are also suppressed where
+    at risk minus departures minus record ends (the custodians who stayed) is between 1 and
+    k - 1. The two parts of the crisis window are published only if both reach k, so the
+    window total minus one part cannot reveal the other."""
+    split = pl.col("period").is_in(schemas.DEPARTURE_SPLITS)
+    small_risk = pl.col("at_risk") < k_min
+    small_departures = small_risk | (pl.col("departures") < k_min)
+    small_split = split & (small_departures.cast(pl.Int64).sum().over(split) > 0)
+    stayed = pl.col("at_risk") - pl.col("departures") - pl.col("record_ends")
+    small_ends = small_risk | (pl.col("record_ends") < k_min) | ((stayed > 0) & (stayed < k_min))
+    return results.with_columns(
+        pl.when(small_risk).then(None).otherwise(pl.col("at_risk")).alias("at_risk"),
+        *[
+            pl.when(small_departures | small_split).then(None).otherwise(pl.col(c)).alias(c)
+            for c in ("departures", "hazard")
+        ],
+        pl.when(small_ends).then(None).otherwise(pl.col("record_ends")).alias("record_ends"),
+    )
+
+
+def departure_tests(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
+    """H26 tests. A p-value is published only for the primary definition and only when every
+    count it is computed from reaches k (otherwise its band alone); variants publish no counts
+    or p-values, because their counts are nested in the primary's. A variant with a window of
+    fewer than k custodians at risk publishes none of its comparisons."""
+    primary = pl.col("variant") == schemas.DEPARTURE_PRIMARY
+    small = pl.col("smallest_at_risk") < k_min
+    hide_p = ~primary | small | (pl.col("smallest_cell") < k_min)
+    hide_placebo_p = ~primary | small | (pl.col("placebo_smallest_cell") < k_min)
+    compared = ("crisis_above_reference", "p_band", "placebo_p_band", "above_rolling")
+    return results.with_columns(
+        pl.when(hide_p).then(None).otherwise(pl.col("p")).alias("p"),
+        pl.when(hide_placebo_p).then(None).otherwise(pl.col("placebo_p")).alias("placebo_p"),
+        *[pl.when(small).then(None).otherwise(pl.col(c)).alias(c) for c in compared],
+    ).drop(schemas.DEPARTURE_SUPPRESSION_COLUMNS)

@@ -15,7 +15,7 @@ from enron_case.contracts import vocab as v
 from enron_case.errors import ContractViolation
 from enron_case.zones import Zone
 
-CONTRACT_VERSION = "1.6"
+CONTRACT_VERSION = "1.7"
 
 STR = pl.String()
 INT = pl.Int64()
@@ -189,6 +189,59 @@ def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
     )
 
 
+# H26 (O1): custodian departures (finding/departures.py; docs/hypotheses-exploratory.md).
+DEPARTURE_WINDOWS = ("crisis", "reference", "placebo after", "placebo before")
+# The crisis window cut at `config.CRISIS_SPLIT`; descriptive, published only together.
+DEPARTURE_SPLITS = ("crisis before the split", "crisis from the split")
+DEPARTURE_PERIODS = DEPARTURE_WINDOWS + DEPARTURE_SPLITS
+DEPARTURE_OUTCOMES = ("high", "moderate", "low", "not established")
+# The variant holding the stated definition; the others are robustness variants.
+DEPARTURE_PRIMARY = "primary"
+# A p-value's band: below alpha over the hypotheses stated, below alpha, at or above it.
+P_BANDS = ("below the family bound", "below alpha", "alpha or above", "not computable")
+
+
+def _departure_cols(counts_nullable: bool) -> tuple[Col, ...]:
+    """One row per window of the primary definition: custodians at risk at its start, how many
+    stopped sending while their mailbox kept receiving (departures), how many stopped with
+    their mailbox (record ends), and departures over at risk."""
+    return (
+        Col("order", INT),
+        Col("period", STR, enum=DEPARTURE_PERIODS),
+        Col("period_start", DATE),
+        Col("period_end", DATE),
+        Col("at_risk", INT, nullable=counts_nullable),
+        Col("departures", INT, nullable=counts_nullable),
+        Col("record_ends", INT, nullable=True),
+        Col("hazard", FLOAT, nullable=True),
+    )
+
+
+# One row per variant: the crisis-against-reference test, its placebo, the rolling placebo
+# windows, leave-one-out (primary only) and the outcome of the decision rule (primary only).
+_DEPARTURE_TEST_COLS = (
+    Col("order", INT),
+    Col("variant", STR),
+    Col("in_rule", BOOL),
+    Col("crisis_above_reference", BOOL, nullable=True),
+    Col("p", FLOAT, nullable=True),
+    Col("p_band", STR, nullable=True, enum=P_BANDS),
+    Col("placebo_p", FLOAT, nullable=True),
+    Col("placebo_p_band", STR, nullable=True, enum=P_BANDS),
+    Col("rolling_windows", INT),
+    Col("above_rolling", BOOL, nullable=True),
+    Col("loo_stable", BOOL, nullable=True),
+    Col("outcome", STR, nullable=True, enum=DEPARTURE_OUTCOMES),
+)
+# Restricted only: the person counts the release needs to decide what it may publish.
+_DEPARTURE_TEST_SUPPRESSION_COLS = (
+    Col("smallest_at_risk", INT),
+    Col("smallest_cell", INT),
+    Col("placebo_smallest_cell", INT),
+)
+DEPARTURE_SUPPRESSION_COLUMNS = tuple(c.name for c in _DEPARTURE_TEST_SUPPRESSION_COLS)
+
+
 TABLES: dict[str, Table] = {
     t.name: t
     for t in (
@@ -313,6 +366,14 @@ TABLES: dict[str, Table] = {
         _t("artifact_results", Zone.RESTRICTED, ("hypothesis",), *_artifact_cols(False)),
         _t("exploratory_results", Zone.RESTRICTED, ("order",), *_exploratory_cols(False)),
         _t("profile_results", Zone.RESTRICTED, ("month",), *_profile_cols(False)),
+        _t("departure_results", Zone.RESTRICTED, ("order",), *_departure_cols(False)),
+        _t(
+            "departure_test_results",
+            Zone.RESTRICTED,
+            ("order",),
+            *_DEPARTURE_TEST_COLS,
+            *_DEPARTURE_TEST_SUPPRESSION_COLS,
+        ),
         # ---- Zone 3: release (aggregates, k-thresholded; committed) ----
         _t(
             "data_quality",
@@ -359,6 +420,8 @@ TABLES: dict[str, Table] = {
         _t("artifact_checks", Zone.RELEASE, ("hypothesis",), *_artifact_cols(True), fmt="csv"),
         _t("exploratory", Zone.RELEASE, ("order",), *_exploratory_cols(True), fmt="csv"),
         _t("record_profile", Zone.RELEASE, ("month",), *_profile_cols(True), fmt="csv"),
+        _t("departures", Zone.RELEASE, ("order",), *_departure_cols(True), fmt="csv"),
+        _t("departure_tests", Zone.RELEASE, ("order",), *_DEPARTURE_TEST_COLS, fmt="csv"),
         _t(
             "degree_distribution",
             Zone.RELEASE,
@@ -399,6 +462,7 @@ PERSON_COUNT_COLUMNS: dict[str, tuple[str, ...]] = {
     "risk": ("n_targets",),
     "exploratory": ("custodians", "placebo_custodians"),
     "record_profile": ("custodians_sending", "custodians_receiving"),
+    "departures": ("at_risk", "departures", "record_ends"),
 }
 # The weekly metric whose value is itself a person count.
 PERSON_COUNT_METRIC = "active_persons"

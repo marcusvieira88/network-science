@@ -18,7 +18,14 @@ from typing import TypedDict
 
 import polars as pl
 
-from enron_case.config import Config
+from enron_case.config import (
+    CRISIS_SPLIT,
+    CRISIS_WINDOW,
+    PLACEBO_AFTER_WINDOW,
+    PLACEBO_BEFORE_WINDOW,
+    REFERENCE_WINDOW,
+    Config,
+)
 from enron_case.contracts import schemas
 from enron_case.contracts import vocab as v
 from enron_case.contracts.counts import (
@@ -607,6 +614,61 @@ class FixtureBuilder:
         spec = schemas.table("profile_results")
         return schemas.conform(pl.DataFrame(rows, schema=spec.polars_schema), spec.name)
 
+    def departure_results_table(self) -> pl.DataFrame:
+        """Reference shape only: H26 counts by window, a wave in the crisis window (twelve of
+        forty custodians at risk) against two in each other window."""
+        windows = (
+            CRISIS_WINDOW,
+            REFERENCE_WINDOW,
+            PLACEBO_AFTER_WINDOW,
+            PLACEBO_BEFORE_WINDOW,
+            (CRISIS_WINDOW[0], CRISIS_SPLIT - timedelta(days=1)),
+            (CRISIS_SPLIT, CRISIS_WINDOW[1]),
+        )
+        departed = (12, 2, 2, 2, 7, 5)
+        rows = [
+            {
+                "order": order,
+                "period": period,
+                "period_start": window[0],
+                "period_end": window[1],
+                "at_risk": 40,
+                "departures": n,
+                "record_ends": None if order > len(schemas.DEPARTURE_WINDOWS) else 1,
+                "hazard": n / 40,
+            }
+            for order, (period, window, n) in enumerate(
+                zip(schemas.DEPARTURE_PERIODS, windows, departed, strict=True), start=1
+            )
+        ]
+        spec = schemas.table("departure_results")
+        return schemas.conform(pl.DataFrame(rows, schema=spec.polars_schema), spec.name)
+
+    def departure_test_results_table(self) -> pl.DataFrame:
+        """Reference shape only: the primary definition and one variant, both passing."""
+        rows = [
+            {
+                "order": order,
+                "variant": variant,
+                "in_rule": True,
+                "crisis_above_reference": True,
+                "p": 0.0011,
+                "p_band": schemas.P_BANDS[1],
+                "placebo_p": 0.69,
+                "placebo_p_band": schemas.P_BANDS[2],
+                "rolling_windows": 69,
+                "above_rolling": True,
+                "loo_stable": True if order == 1 else None,
+                "outcome": schemas.DEPARTURE_OUTCOMES[1] if order == 1 else None,
+                "smallest_at_risk": 40,
+                "smallest_cell": 2,
+                "placebo_smallest_cell": 2,
+            }
+            for order, variant in enumerate((schemas.DEPARTURE_PRIMARY, "silence 8"), start=1)
+        ]
+        spec = schemas.table("departure_test_results")
+        return schemas.conform(pl.DataFrame(rows, schema=spec.polars_schema), spec.name)
+
     def artifact_results_table(self) -> pl.DataFrame:
         """Planted change is behavioural and communities never drift: both checks pass."""
         rows = [
@@ -823,6 +885,12 @@ class FixtureBuilder:
             "artifact_checks": self.artifact_results_table(),
             "exploratory": self.exploratory_results_table(),
             "record_profile": self.profile_results_table(),
+            "departures": release_tables.departures(
+                self.departure_results_table(), self.config.k_min
+            ),
+            "departure_tests": release_tables.departure_tests(
+                self.departure_test_results_table(), self.config.k_min
+            ),
             "degree_distribution": degree,
             "community_graph": graph,
             "community_groups": groups,
@@ -898,6 +966,8 @@ class FixtureBuilder:
             "artifact_results": self.artifact_results_table(),
             "exploratory_results": self.exploratory_results_table(),
             "profile_results": self.profile_results_table(),
+            "departure_results": self.departure_results_table(),
+            "departure_test_results": self.departure_test_results_table(),
         }
         tables.update(self.release_tables())
         return tables

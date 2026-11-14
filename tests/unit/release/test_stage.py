@@ -23,6 +23,8 @@ INPUTS = (
     "artifact_results",
     "exploratory_results",
     "profile_results",
+    "departure_results",
+    "departure_test_results",
     "snapshots",
     "communities",
     "events",
@@ -40,6 +42,8 @@ RELEASE_TABLES = (
     "artifact_checks",
     "exploratory",
     "record_profile",
+    "departures",
+    "departure_tests",
 )
 EXACT = (
     "data_quality",
