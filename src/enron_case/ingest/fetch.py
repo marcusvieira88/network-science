@@ -3,7 +3,6 @@ pinned SHA-256."""
 
 from __future__ import annotations
 
-import hashlib
 import shutil
 import urllib.request
 from collections.abc import Callable
@@ -11,6 +10,7 @@ from http import HTTPStatus
 from pathlib import Path
 
 from enron_case.errors import CorpusError
+from enron_case.manifest import file_sha256
 
 PARTIAL_SUFFIX = ".part"
 HASH_CHUNK_BYTES = 1 << 20
@@ -21,11 +21,6 @@ Downloader = Callable[[str, Path, int], None]
 
 def partial_path(target: Path) -> Path:
     return target.with_name(target.name + PARTIAL_SUFFIX)
-
-
-def sha256_of(path: Path) -> str:
-    with path.open("rb") as handle:
-        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
 def http_downloader(timeout_seconds: int) -> Downloader:
@@ -52,7 +47,7 @@ def http_download(url: str, target: Path, offset: int, timeout_seconds: int) -> 
 def fetch_archive(target: Path, url: str, sha256: str, download: Downloader) -> None:
     """Make `target` hold the archive with checksum `sha256`, or raise CorpusError (exit 4)."""
     if target.exists():
-        if sha256_of(target) != sha256:
+        if file_sha256(target) != sha256:
             raise CorpusError("corpus archive on disk does not match the pinned SHA-256")
         return
     partial = partial_path(target)
@@ -61,7 +56,7 @@ def fetch_archive(target: Path, url: str, sha256: str, download: Downloader) -> 
         download(url, partial, offset)
     except OSError as exc:
         raise CorpusError("corpus download failed; rerun to resume") from exc
-    if sha256_of(partial) != sha256:
+    if file_sha256(partial) != sha256:
         partial.unlink()
         raise CorpusError("downloaded corpus does not match the pinned SHA-256")
     partial.replace(target)

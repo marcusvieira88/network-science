@@ -24,6 +24,12 @@ def fingerprint(df: pl.DataFrame) -> str:
     return hashlib.sha256(df.write_ndjson().encode("utf-8")).hexdigest()
 
 
+def file_sha256(path: Path) -> str:
+    """SHA-256 of a file's bytes, read in chunks (the corpus archive is about 440 MB)."""
+    with path.open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
 def fingerprint_json(payload: object) -> str:
     text = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()

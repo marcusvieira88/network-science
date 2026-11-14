@@ -210,7 +210,7 @@ Written only by S8 (WP-H) through `release/kanon.py`; rendered by S9 (WP-I).
 | `release/community_graph.csv` | week, src_group, dst_group, weight, n_messages; plus `community_groups.csv`: group, n_persons. Groups are baseline communities with ≥ k persons, labelled `G01…` in an order unrelated to pseudonyms; smaller communities are merged into `other`; a weekly tie is dropped when it has fewer than k distinct senders in `src_group` (the number of distinct recipients is not limited). `weight` and `n_messages` sum the person-pair edges between the two groups, so `n_messages` counts per-pair messages: one message from a sender to three members of the other group counts three |
 | `ui/public/data/release.json` | written by S10 (WP-J) from the files above and nothing else; same content, one file, for the explorer UI |
 | `release/report.md` | the report: quality, finding, risk, limits |
-| `release/run_manifest.json` | parameters, seed, code version, fingerprints per table |
+| `release/run_manifest.json` | parameters, seed, code version, key fingerprint, `corpus_sha256` (the archive checksum verified by fetch; the synthetic archive's on sample runs), fingerprints per table |
 
 No release file contains a `pid`, `org_pid`, address, name, or any row describing fewer than k
 persons.

@@ -41,6 +41,8 @@ class StageContext:
     log: LogFn = stderr_log
     outputs: dict[str, str] = field(default_factory=dict)
     count_outputs: dict[str, str] = field(default_factory=dict)
+    # Set by the fetch stage once the archive matches its pinned checksum (run manifest).
+    corpus_sha256: str | None = None
 
     # ---- tables -------------------------------------------------------------------------
     def read(self, name: str) -> pl.DataFrame:
