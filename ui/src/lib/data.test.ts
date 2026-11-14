@@ -128,6 +128,30 @@ describe("parseRelease", () => {
     expect(() => parseRelease(doc)).toThrow(/format_version/);
   });
 
+  it("rejects a table whose value is not a list", () => {
+    const doc = rawSample();
+    (doc.tables as Record<string, unknown>).risk = {};
+    expect(() => parseRelease(doc)).toThrow(new DataError("table risk is not a list"));
+  });
+
+  it("rejects a malformed run block", () => {
+    const doc = rawSample();
+    doc.run = { ...(doc.run as Record<string, unknown>), seed: "20011202" };
+    expect(() => parseRelease(doc)).toThrow(new DataError("run block is malformed"));
+  });
+
+  it("rejects a malformed public event", () => {
+    const doc = rawSample();
+    doc.events = [{ date: "2001-08-14", label: "first" }, { date: "14 August 2001", label: "second" }];
+    expect(() => parseRelease(doc)).toThrow(new DataError("event 1 is malformed"));
+  });
+
+  it("rejects a missing contract version", () => {
+    const doc = rawSample();
+    delete doc.contract_version;
+    expect(() => parseRelease(doc)).toThrow(new DataError("contract_version is missing"));
+  });
+
   it("rejects identifier-shaped values and small person counts", () => {
     const leaky = rawSample();
     firstRow(leaky, "header_fields").ruling = "a@b.example";
@@ -174,6 +198,22 @@ describe("loadRelease", () => {
       );
       expect(result).toEqual({ status: "error", message: `release.json could not be loaded (HTTP ${status})` });
     }
+  });
+
+  it("counts an HTML fallback page for the sample as missing too", async () => {
+    const result = await loadRelease(async (url) => (url.endsWith(RELEASE_URL) ? new Response("", { status: 404 }) : htmlResponse()), "/");
+    expect(result).toEqual({ status: "error", message: "No release data found. Run `make ui` or `make ui-sample` first." });
+  });
+
+  it("reads a release.json served without a content type", async () => {
+    const body = new TextEncoder().encode(JSON.stringify(rawSample()));
+    const result = await loadRelease(async () => new Response(body), "/");
+    expect(result).toMatchObject({ status: "ok", source: "release" });
+  });
+
+  it("reports a failure that is not an Error by its text", async () => {
+    const result = await loadRelease(() => Promise.reject("offline"), "/");
+    expect(result).toEqual({ status: "error", message: "offline" });
   });
 
   it("reports when neither file exists", async () => {
