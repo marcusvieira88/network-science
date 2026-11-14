@@ -27,8 +27,8 @@ library error message), each only in its own context; see `NON_REQUEST_LITERALS`
 
 The clusters view is a chord diagram of message weight between the published groups
 (`community_groups`, `community_graph`) over the baseline year, the exploratory crisis weeks
-(`windows.crisis` in the data, from `config.CRISIS_WINDOW`) or all weeks; a week counts when its
-Monday falls inside the period. Data shaping is in `src/lib/clusters.ts`; the drawing uses
+(`windows.crisis` in the data, from `config.CRISIS_WINDOW`) or all weeks; a week counts when any of its
+days falls inside the period. Data shaping is in `src/lib/clusters.ts`; the drawing uses
 `d3-chord` and `d3-shape` (already bundled through Recharts) with plain SVG, in the main chunk.
 
 Regenerate the sample after a contract or fixture change:

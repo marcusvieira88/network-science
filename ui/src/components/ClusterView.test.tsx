@@ -2,9 +2,11 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { View } from "@/App";
 import { ClusterView } from "@/components/ClusterView";
 import type { ClusterPeriods } from "@/lib/clusters";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
+import { sampleData } from "@/test/sample";
 
 const groups: CommunityGroupRow[] = [
   { group: "G01", n_persons: 6 },
@@ -33,9 +35,16 @@ const periods: ClusterPeriods = {
   crisis: { start: "2001-08-14", end: "2001-12-02" },
 };
 
-function renderView(rows: CommunityEdgeRow[] = edges, onShowHypotheses = vi.fn()) {
+function renderView(rows: CommunityEdgeRow[] = edges, onShowHypotheses = vi.fn(), driftCheck: boolean | null = false) {
   render(
-    <ClusterView groups={groups} edges={rows} periods={periods} minGroupSize={5} onShowHypotheses={onShowHypotheses} />,
+    <ClusterView
+      groups={groups}
+      edges={rows}
+      periods={periods}
+      minGroupSize={5}
+      driftCheck={driftCheck}
+      onShowHypotheses={onShowHypotheses}
+    />,
   );
   return onShowHypotheses;
 }
@@ -73,7 +82,7 @@ describe("ClusterView", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("tab", { name: "Baseline year" }));
     expect(screen.getByTestId("period-weeks")).toHaveTextContent(
-      "2000-01-01 to 2000-12-31, weeks starting inside it · 2 weeks with published ties",
+      "2000-01-01 to 2000-12-31, weeks overlapping it · 2 weeks with published ties",
     );
     // G02: total 3 + (2 + 1) + 1 = 7, within 3 -> 42.9%; partners G01 (3), other (1).
     expect(within(tableRow("G02")).getAllByRole("cell").map((c) => c.textContent)).toEqual([
@@ -128,10 +137,20 @@ describe("ClusterView", () => {
     );
     expect(line).toHaveTextContent("it does not say why they changed");
     expect(line).toHaveTextContent("The groups were fixed on the baseline year");
-    expect(line).toHaveTextContent("H2 artifact check");
+    expect(line).toHaveTextContent("The H2 artifact check (baseline placebo) found this drift large enough to explain H2");
     expect(line.textContent ?? "").not.toMatch(/\b(caused|because of|due to|led to)\b/i);
     fireEvent.click(within(line).getByRole("button", { name: "Hypotheses view" }));
     expect(onShowHypotheses).toHaveBeenCalledOnce();
+  });
+
+  it("reports the drift check as the release has it", () => {
+    renderView(edges, vi.fn(), true);
+    expect(screen.getByTestId("what-changed")).toHaveTextContent("did not find drift that large, but the caveat still applies");
+  });
+
+  it("says when the drift check did not run", () => {
+    renderView(edges, vi.fn(), null);
+    expect(screen.getByTestId("what-changed")).toHaveTextContent("did not run in this release");
   });
 
   it("says when there is nothing to compare or draw", async () => {
@@ -141,5 +160,12 @@ describe("ClusterView", () => {
     await user.click(screen.getByRole("tab", { name: "Crisis weeks" }));
     expect(screen.getByText("No published tie between groups in this period.")).toBeInTheDocument();
     expect(screen.queryAllByTestId("group-arc")).toHaveLength(0);
+  });
+
+  it("explains instead of crashing when the release lacks the baseline period", () => {
+    const data = sampleData();
+    const parameters = { ...data.run.parameters, baseline_start: undefined };
+    render(<View view="clusters" data={{ ...data, run: { ...data.run, parameters } }} onSelect={vi.fn()} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("lack the baseline period");
   });
 });

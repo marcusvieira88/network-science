@@ -3,13 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   type ClusterPeriods,
   clusterMatrix,
+  driftCheckPasses,
   groupSummaries,
   largestCrossShareChange,
   periodRange,
   periodWeeks,
+  weekEnd,
   weekInPeriod,
 } from "@/lib/clusters";
-import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
+import type { ArtifactCheckRow, CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
 
 const groups: CommunityGroupRow[] = [
   { group: "other", n_persons: 5 },
@@ -28,8 +30,8 @@ const edges: CommunityEdgeRow[] = [
   edge("2000-01-10", "G02", "G02", 3),
   edge("2000-01-10", "G02", "other", 1),
   edge("2000-01-10", "other", "G02", null),
-  // Monday before the crisis start (a Tuesday): outside the crisis weeks.
-  edge("2001-08-13", "G02", "G02", 9),
+  // A week that ends before the crisis starts.
+  edge("2001-08-06", "G02", "G02", 9),
   edge("2001-08-20", "G01", "G02", 3),
   edge("2001-08-20", "G01", "G01", 1),
   // Monday after the crisis end.
@@ -48,13 +50,21 @@ describe("periods", () => {
     expect(periodRange("all", periods)).toBeNull();
   });
 
-  it("puts a week in a period when its Monday falls inside it, ends included", () => {
-    expect(weekInPeriod("2001-08-13", periods.crisis)).toBe(false);
-    expect(weekInPeriod("2001-08-20", periods.crisis)).toBe(true);
+  it("ends a week on the Sunday after its Monday, across months and years", () => {
+    expect(weekEnd("2001-08-13")).toBe("2001-08-19");
+    expect(weekEnd("2000-02-28")).toBe("2000-03-05");
+    expect(weekEnd("1999-12-27")).toBe("2000-01-02");
+  });
+
+  it("puts a week in a period when any of its days falls inside it", () => {
+    // The crisis starts on Tuesday 2001-08-14 and ends on Sunday 2001-12-02.
+    expect(weekInPeriod("2001-08-06", periods.crisis)).toBe(false);
+    expect(weekInPeriod("2001-08-13", periods.crisis)).toBe(true);
+    expect(weekInPeriod("2001-11-26", periods.crisis)).toBe(true);
     expect(weekInPeriod("2001-12-03", periods.crisis)).toBe(false);
-    expect(weekInPeriod("2000-12-31", periods.baseline)).toBe(true);
-    expect(weekInPeriod("1999-12-27", periods.baseline)).toBe(false);
-    expect(weekInPeriod("1999-12-27", null)).toBe(true);
+    expect(weekInPeriod("1999-12-27", periods.baseline)).toBe(true);
+    expect(weekInPeriod("1999-12-20", periods.baseline)).toBe(false);
+    expect(weekInPeriod("1999-12-20", null)).toBe(true);
   });
 
   it("lists the distinct weeks with published ties in a period, in order", () => {
@@ -141,6 +151,21 @@ describe("groupSummaries", () => {
   });
 });
 
+describe("driftCheckPasses", () => {
+  function check(hypothesis: "H2" | "H3", name: string, passes: boolean | null): ArtifactCheckRow {
+    return { hypothesis, check: name, statistic: 1, ci_low: 0, ci_high: 2, n_units: 26, passes, note: "" };
+  }
+
+  it("reads the H2 baseline placebo result, null when it could not run or is absent", () => {
+    expect(driftCheckPasses([check("H3", "within_custodian", true), check("H2", "baseline_placebo", false)])).toBe(
+      false,
+    );
+    expect(driftCheckPasses([check("H2", "baseline_placebo", true)])).toBe(true);
+    expect(driftCheckPasses([check("H2", "baseline_placebo", null)])).toBeNull();
+    expect(driftCheckPasses([check("H3", "within_custodian", false)])).toBeNull();
+  });
+});
+
 describe("largestCrossShareChange", () => {
   it("finds the group whose cross-group share moved most between two periods", () => {
     const before = groupSummaries(clusterMatrix(groups, edges, periods.baseline));
@@ -158,6 +183,18 @@ describe("largestCrossShareChange", () => {
     const after = groupSummaries(clusterMatrix(groups, edges, periods.baseline));
     expect(largestCrossShareChange(before, after)).toMatchObject({ group: "G02", before: 1 });
     expect(largestCrossShareChange(before, after)?.change).toBeCloseTo(-3 / 7);
+  });
+
+  it("never names the pooled other group", () => {
+    const pooled = [edge("2000-01-03", "other", "other", 1), edge("2000-01-03", "G01", "G01", 1)];
+    const later = [edge("2000-01-03", "other", "G01", 1), edge("2000-01-03", "G01", "G01", 1)];
+    // other: 0% -> 100% cross-group; G01: 0% -> 50% (within 1, with other 1). G01 is named.
+    const change = largestCrossShareChange(
+      groupSummaries(clusterMatrix(groups, pooled, null)),
+      groupSummaries(clusterMatrix(groups, later, null)),
+    );
+    expect(change?.group).toBe("G01");
+    expect(change?.change).toBeCloseTo(1 / 2);
   });
 
   it("is null when no group has weight in both periods", () => {

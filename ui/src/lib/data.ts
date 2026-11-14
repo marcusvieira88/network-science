@@ -5,7 +5,7 @@
  */
 import { assertReleasePrivacy } from "@/lib/privacy";
 
-export const FORMAT_VERSION = 1;
+export const FORMAT_VERSION = 2;
 export const RELEASE_URL = "data/release.json";
 export const SAMPLE_URL = "data/release.sample.json";
 
@@ -271,6 +271,13 @@ function parseWindows(value: unknown): Windows {
   return { crisis: parsePeriod(windows.crisis, "crisis"), reference: parsePeriod(windows.reference, "reference") };
 }
 
+/** Every group a tie names must be a published group (release/variants.py builds it so). */
+function checkGraphGroups(tables: ReleaseData["tables"]): void {
+  const published = new Set(tables.community_groups.map((row) => row.group));
+  const unknown = tables.community_graph.filter((row) => !published.has(row.src_group) || !published.has(row.dst_group));
+  if (unknown.length) throw new DataError(`community_graph has ${unknown.length} ties to unpublished groups`);
+}
+
 /** Validate an untrusted JSON value as a release document; throws DataError. */
 export function parseRelease(value: unknown): ReleaseData {
   const doc = requireRecord(value, "release data");
@@ -285,6 +292,7 @@ export function parseRelease(value: unknown): ReleaseData {
   const tables = Object.fromEntries(
     names.map((name) => [name, parseRows(name, rawTables[name])]),
   ) as ReleaseData["tables"];
+  checkGraphGroups(tables);
   const data: ReleaseData = {
     format_version: FORMAT_VERSION,
     contract_version: doc.contract_version,

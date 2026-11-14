@@ -12,11 +12,10 @@ from typing import Any
 import polars as pl
 import pytest
 
-from enron_case.config import CRISIS_WINDOW, PUBLIC_EVENTS, REFERENCE_WINDOW
+from enron_case.config import PUBLIC_EVENTS
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.errors import ContractViolation, PrivacyViolation
-from enron_case.finding import exploratory
 from enron_case.release import kanon
 from enron_case.synth import SynthOutput
 from enron_case.uiexport import export
@@ -113,15 +112,13 @@ def test_shape_matches_documented_layout(synth: SynthOutput, tmp_path: Path) -> 
 
 
 def test_exploratory_windows_are_exported(synth: SynthOutput, tmp_path: Path) -> None:
-    """The crisis and reference windows of docs/hypotheses-exploratory.md, from the same
-    constants the exploratory analysis uses."""
+    """The crisis and reference windows of docs/hypotheses-exploratory.md."""
     ctx = release_ctx(synth, tmp_path)
     run(ctx)
     assert output(ctx)["windows"] == {
         "crisis": {"start": "2001-08-14", "end": "2001-12-02"},
         "reference": {"start": "2000-08-14", "end": "2000-12-02"},
     }
-    assert (exploratory.CRISIS, exploratory.REFERENCE) == (CRISIS_WINDOW, REFERENCE_WINDOW)
 
 
 def test_values_round_trip_with_nulls_and_iso_dates(synth: SynthOutput, tmp_path: Path) -> None:

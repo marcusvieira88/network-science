@@ -45,8 +45,6 @@ CAVEATS = {
 }
 
 Window = tuple[date, date]
-CRISIS: Window = CRISIS_WINDOW
-REFERENCE: Window = REFERENCE_WINDOW
 PLACEBO_AFTER: Window = (date(2001, 1, 1), date(2001, 4, 30))
 PLACEBO_BEFORE: Window = (date(2000, 1, 1), date(2000, 4, 30))
 
@@ -458,7 +456,7 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
     for index, hyp in enumerate(FAMILY):
         measure = MEASURES[hyp.id]
         minimum = config.exploratory_min_messages
-        d = paired_differences(tables, measure, CRISIS, REFERENCE, minimum)
+        d = paired_differences(tables, measure, CRISIS_WINDOW, REFERENCE_WINDOW, minimum)
         crisis = compare(d, config, index)
         placebo = compare(
             paired_differences(tables, measure, PLACEBO_AFTER, PLACEBO_BEFORE, minimum),
@@ -482,7 +480,12 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
             outcome = NOT_SUPPORTED
         equalised = (
             volume_equalised(
-                tables, MEASURES[hyp.id], CRISIS, REFERENCE, config, EQUALISED_STREAM + order
+                tables,
+                MEASURES[hyp.id],
+                CRISIS_WINDOW,
+                REFERENCE_WINDOW,
+                config,
+                EQUALISED_STREAM + order,
             )
             if outcome != NOT_SUPPORTED and valid
             else None

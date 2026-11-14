@@ -46,6 +46,12 @@ describe("parseRelease", () => {
     expect(() => parseRelease(reversed)).toThrow(/window crisis/);
   });
 
+  it("rejects a tie to a group that is not published", () => {
+    const doc = rawSample();
+    firstRow(doc, "community_graph").dst_group = "G99";
+    expect(() => parseRelease(doc)).toThrow(/1 ties to unpublished groups/);
+  });
+
   it("keeps suppressed cells as null", () => {
     const data = parseRelease(rawSample());
     const tenPlus = data.tables.degree_distribution.filter((row) => row.degree_bucket === "10+");
@@ -103,7 +109,7 @@ describe("parseRelease", () => {
 
   it("rejects an unknown format version", () => {
     const doc = rawSample();
-    doc.format_version = 2;
+    doc.format_version = 1;
     expect(() => parseRelease(doc)).toThrow(/format_version/);
   });
 

@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 import numpy as np
 import polars as pl
 
-from enron_case.config import Config
+from enron_case.config import CRISIS_WINDOW, REFERENCE_WINDOW, Config
 from enron_case.finding import exploratory as ex
 
 A, B, C, D = "p_aaaaaaaaaaaaaaaa", "p_bbbbbbbbbbbbbbbb", "p_cccccccccccccccc", "p_dddddddddddddddd"
@@ -168,8 +168,8 @@ def _family_events(planted: bool) -> pl.DataFrame:
     custodians = [f"p_{chr(97 + i) * 16}" for i in range(20)]
     rows = []
     windows = {
-        "crisis": ex.CRISIS,
-        "reference": ex.REFERENCE,
+        "crisis": CRISIS_WINDOW,
+        "reference": REFERENCE_WINDOW,
         "p1": ex.PLACEBO_AFTER,
         "p0": ex.PLACEBO_BEFORE,
     }

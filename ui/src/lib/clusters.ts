@@ -3,8 +3,8 @@
  * period. Inputs are only `community_groups` and `community_graph`, so nothing finer than a group
  * of at least k people can appear.
  */
-import { type CommunityEdgeRow, type CommunityGroupRow, DataError, type Period } from "@/lib/data";
-import { OTHER_GROUP } from "@/lib/network";
+import { type ArtifactCheckRow, type CommunityEdgeRow, type CommunityGroupRow, DataError, type Period } from "@/lib/data";
+import { OTHER_GROUP, compareGroups } from "@/lib/network";
 
 export const PERIOD_OPTIONS = [
   { id: "baseline", label: "Baseline year" },
@@ -16,6 +16,15 @@ export type PeriodId = (typeof PERIOD_OPTIONS)[number]["id"];
 
 export const TOP_PARTNERS = 3;
 
+/** The H2 artifact check for drift of groups fixed on the baseline (finding/artifacts.py). */
+export const DRIFT_CHECK = { hypothesis: "H2", check: "baseline_placebo" } as const;
+
+/** Whether the release's drift check passed; null when it could not run or is absent. */
+export function driftCheckPasses(checks: ArtifactCheckRow[]): boolean | null {
+  const row = checks.find((c) => c.hypothesis === DRIFT_CHECK.hypothesis && c.check === DRIFT_CHECK.check);
+  return row?.passes ?? null;
+}
+
 export interface ClusterPeriods {
   baseline: Period;
   crisis: Period;
@@ -26,9 +35,21 @@ export function periodRange(id: PeriodId, periods: ClusterPeriods): Period | nul
   return id === "all" ? null : periods[id];
 }
 
-/** A week belongs to a period when its Monday falls inside it, as in finding/hypotheses.py. */
+const DAYS_AFTER_MONDAY = 6;
+
+/** The Sunday ending the week that starts on this Monday (ISO dates). */
+export function weekEnd(monday: string): string {
+  const day = new Date(`${monday}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + DAYS_AFTER_MONDAY);
+  return day.toISOString().slice(0, 10);
+}
+
+/**
+ * A week belongs to a period when any of its days falls inside it, so the week of an event that
+ * starts a window midweek (the crisis begins on a Tuesday) is counted.
+ */
 export function weekInPeriod(week: string, range: Period | null): boolean {
-  return range === null || (range.start <= week && week <= range.end);
+  return range === null || (week <= range.end && weekEnd(week) >= range.start);
 }
 
 /** The weeks with at least one published tie in the period, in order. */
@@ -46,11 +67,6 @@ export interface ClusterMatrix {
   symmetric: number[][];
 }
 
-function groupOrder(a: string, b: string): number {
-  if (a === OTHER_GROUP || b === OTHER_GROUP) return Number(a === OTHER_GROUP) - Number(b === OTHER_GROUP);
-  return a.localeCompare(b);
-}
-
 function requireIndex(index: Map<string, number>, group: string): number {
   const found = index.get(group);
   if (found === undefined) throw new DataError(`community_graph has a tie to unpublished group ${group}`);
@@ -62,7 +78,7 @@ export function clusterMatrix(
   edges: CommunityEdgeRow[],
   range: Period | null,
 ): ClusterMatrix {
-  const sorted = [...groupRows].sort((x, y) => groupOrder(x.group, y.group));
+  const sorted = [...groupRows].sort((x, y) => compareGroups(x.group, y.group));
   const groups = sorted.map((g) => g.group);
   const index = new Map(groups.map((group, i) => [group, i]));
   const directed = groups.map(() => groups.map(() => 0));
@@ -103,7 +119,7 @@ export function groupSummaries(matrix: ClusterMatrix): GroupSummary[] {
     const partners = matrix.groups
       .map((other, j) => ({ group: other, weight: row[j] ?? 0 }))
       .filter((p, j) => j !== i && p.weight > 0)
-      .sort((x, y) => y.weight - x.weight || groupOrder(x.group, y.group))
+      .sort((x, y) => y.weight - x.weight || compareGroups(x.group, y.group))
       .slice(0, TOP_PARTNERS);
     return {
       group,
@@ -124,12 +140,16 @@ export interface ShareChange {
   change: number;
 }
 
-/** The group whose cross-group share changed most (either way); null if none is comparable. */
+/**
+ * The named group whose cross-group share changed most (either way); null if none is comparable.
+ * `other` is skipped: it pools small communities, so its share describes no one group.
+ */
 export function largestCrossShareChange(before: GroupSummary[], after: GroupSummary[]): ShareChange | null {
   const later = new Map(after.map((s) => [s.group, s.withinShare]));
   let largest: ShareChange | null = null;
   for (const summary of before) {
     const withinAfter = later.get(summary.group);
+    if (summary.group === OTHER_GROUP) continue;
     if (summary.withinShare === null || withinAfter === null || withinAfter === undefined) continue;
     const candidate = {
       group: summary.group,

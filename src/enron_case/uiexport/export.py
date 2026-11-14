@@ -1,9 +1,9 @@
 """Release tables to one JSON document for the explorer UI (research R14).
 
-Shape of `release.json` (format_version 1); `ui/src/lib/data.ts` mirrors it:
+Shape of `release.json` (format_version 2; 2 added `windows`); `ui/src/lib/data.ts` mirrors it:
 
     {
-      "format_version": 1,
+      "format_version": 2,
       "contract_version": "<schemas.CONTRACT_VERSION>",
       "run": {"code_version": str, "sample": bool, "seed": int, "parameters": {...}},
       "events": [{"date": "YYYY-MM-DD", "label": str}, ...],      # config.PUBLIC_EVENTS
@@ -41,7 +41,7 @@ from enron_case.contracts import schemas
 from enron_case.contracts.vocab import LEAK_PATTERNS
 from enron_case.errors import ContractViolation, PrivacyViolation
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 
 RELEASE_TABLES = (
     "data_quality",

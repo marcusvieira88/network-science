@@ -28,7 +28,21 @@ interface ClusterViewProps {
   edges: CommunityEdgeRow[];
   periods: ClusterPeriods;
   minGroupSize: number;
+  /** The H2 baseline placebo result in this release; null when it could not run. */
+  driftCheck: boolean | null;
   onShowHypotheses: () => void;
+}
+
+const DRIFT_RESULT = {
+  failed: "The H2 artifact check (baseline placebo) found this drift large enough to explain H2, and the same caveat applies here",
+  passed:
+    "In this release the H2 artifact check (baseline placebo) did not find drift that large, but the caveat still applies to any comparison with the baseline year",
+  unknown: "The H2 artifact check (baseline placebo) did not run in this release, so the size of this drift is not known",
+} as const;
+
+function driftText(passes: boolean | null): string {
+  if (passes === null) return DRIFT_RESULT.unknown;
+  return passes ? DRIFT_RESULT.passed : DRIFT_RESULT.failed;
 }
 
 function isPeriodId(value: string): value is PeriodId {
@@ -44,7 +58,13 @@ function pointChange(change: number): string {
   return `${change >= 0 ? "+" : "−"}${points} percentage points`;
 }
 
-function WhatChanged({ change, onShowHypotheses }: { change: ShareChange | null; onShowHypotheses: () => void }) {
+interface WhatChangedProps {
+  change: ShareChange | null;
+  driftCheck: boolean | null;
+  onShowHypotheses: () => void;
+}
+
+function WhatChanged({ change, driftCheck, onShowHypotheses }: WhatChangedProps) {
   return (
     <p className="text-sm text-muted-foreground" data-testid="what-changed">
       <span className="font-medium text-foreground">What changed. </span>
@@ -59,8 +79,7 @@ function WhatChanged({ change, onShowHypotheses }: { change: ShareChange | null;
         </>
       )}
       The groups were fixed on the baseline year, and a grouping fits the period it was fitted on best, so cross-group
-      share tends to rise afterwards whatever happens. The H2 artifact check found this drift large enough to explain
-      H2, and the same caveat applies here; see the{" "}
+      share tends to rise afterwards whatever happens. {driftText(driftCheck)}; see the{" "}
       <button
         type="button"
         onClick={onShowHypotheses}
@@ -73,7 +92,7 @@ function WhatChanged({ change, onShowHypotheses }: { change: ShareChange | null;
   );
 }
 
-export function ClusterView({ groups, edges, periods, minGroupSize, onShowHypotheses }: ClusterViewProps) {
+export function ClusterView({ groups, edges, periods, minGroupSize, driftCheck, onShowHypotheses }: ClusterViewProps) {
   const [period, setPeriod] = useState<PeriodId>(DEFAULT_PERIOD);
   const range = periodRange(period, periods);
   const matrix = useMemo(() => clusterMatrix(groups, edges, range), [groups, edges, range]);
@@ -110,7 +129,7 @@ export function ClusterView({ groups, edges, periods, minGroupSize, onShowHypoth
             </TabsList>
           </Tabs>
           <p className="text-xs text-muted-foreground" data-testid="period-weeks">
-            {range === null ? "Every week" : `${range.start} to ${range.end}, weeks starting inside it`} ·{" "}
+            {range === null ? "Every week" : `${range.start} to ${range.end}, weeks overlapping it`} ·{" "}
             {weeks.length} {weeks.length === 1 ? "week" : "weeks"} with published ties
           </p>
         </div>
@@ -174,7 +193,7 @@ export function ClusterView({ groups, edges, periods, minGroupSize, onShowHypoth
             </Table>
           </div>
         </div>
-        <WhatChanged change={change} onShowHypotheses={onShowHypotheses} />
+        <WhatChanged change={change} driftCheck={driftCheck} onShowHypotheses={onShowHypotheses} />
       </CardContent>
     </Card>
   );
