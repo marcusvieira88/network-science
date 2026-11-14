@@ -171,3 +171,38 @@ true; neither can make one confident.
 
 E12 measures whether a contact sent the custodian anything in the same window, not whether they
 replied: headers carry no thread.
+
+---
+
+# Post-hoc hypothesis E21 (= H25): a replication test of prior work
+
+**Status: post hoc. Stated and committed on 2026-11-14, after every result of H1–H24 was known
+and after prior work on the corpus was read, and before E21 was computed.** It is not a fresh
+prediction of ours: it tests, at the scope our design can defend, the best-known published result
+on how this network changed in 2001. Diesner, Frantz & Carley (2005) compare monthly networks
+among Enron employees and report that during the crisis the network became denser and more
+connected. Our pre-registered H1–H4 do not test density, and the network-level density of the
+observed or core network moves with how much mail was kept, so it cannot be read as behaviour.
+
+| ID | Measure per custodian and window | Direction in crisis | Reasoning |
+|----|----------------------------------|---------------------|-----------|
+| E21 | share of the other custodians with whom the custodian exchanged at least one message, in either direction, in the window (core ego density; any surviving copy counts) | up | Diesner, Frantz & Carley (2005): denser, more connected communication in the crisis |
+
+- **Units, windows, test and rule**: exactly as E1–E20 (crisis against the same weeks a year
+  earlier; pre-crisis placebo; leave-one-out; Wilcoxon signed-rank; median with a bootstrap
+  interval). A custodian enters with at least 20 sent **and** 20 received messages in each window
+  (n is the smaller of the two counts). The denominator is the number of custodians minus one.
+- **Multiple testing**: Holm's correction runs across E1–E21 (H5–H25, twenty-one hypotheses), so
+  adding E21 makes every hypothesis harder to pass, not easier.
+- **Retention check**: the same measure counting only the custodians this custodian *sent* to,
+  which no inbox can move. It must pass as the E12 check does (crisis interval on the
+  hypothesised side over at least k custodians, and the placebo passes), or E21 is at most
+  inconclusive.
+- **Volume equalisation** is reported next to it, as for the others.
+- **Known threat stated before computing**: a monthly profile of custodians' sent mail (published
+  as `release/record_profile.csv`) shows that the hour-of-day convention of the `Date` header
+  changes between May and August 2001, consistent with a change of mail system. The crisis
+  window lies after that change and the reference window before it; the placebo windows both lie
+  before it. Any E21 outcome, like every E1–E20 outcome, compares two recording regimes, and
+  the placebo cannot detect an artifact of that change. A confident E21 would therefore be
+  reported as a lead, not as a finding.
