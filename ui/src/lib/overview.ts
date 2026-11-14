@@ -1,9 +1,9 @@
-import type { ReleaseData } from "@/lib/data";
+import type { ReleaseData, RiskRow } from "@/lib/data";
 import { formatNumber, formatShare } from "@/lib/format";
 import { namedGroups } from "@/lib/network";
 import { outsideLabel, outsidePeople } from "@/lib/outside";
 import { minimumGroupSize } from "@/lib/privacy";
-import { worstReidentification } from "@/lib/risk";
+import { PERSON_LEVEL, PUBLISHED, worstReidentification } from "@/lib/risk";
 import { analysisWeeks, baselinePeriod } from "@/lib/series";
 
 export interface KeyNumber {
@@ -13,7 +13,7 @@ export interface KeyNumber {
 }
 
 /** The strongest attacker's re-identification rate against one release variant, or null if none ran. */
-export function worstReid(data: ReleaseData, variant: "R0" | "R1"): number | null {
+export function worstReid(data: ReleaseData, variant: RiskRow["release_variant"]): number | null {
   return worstReidentification(data.tables.risk, variant)?.rate ?? null;
 }
 
@@ -53,8 +53,8 @@ export function keyNumbers(data: ReleaseData): KeyNumber[] {
     },
     {
       label: "Re-identification, naive vs published",
-      value: `${formatShare(worstReid(data, "R0"))} → ${formatShare(worstReid(data, "R1"))}`,
-      note: reidNote(worstReid(data, "R1")),
+      value: `${formatShare(worstReid(data, PERSON_LEVEL))} → ${formatShare(worstReid(data, PUBLISHED))}`,
+      note: reidNote(worstReid(data, PUBLISHED)),
     },
   ];
 }
