@@ -49,6 +49,12 @@ by the run.
 - [Libraries and why each is here](#libraries-and-why-each-is-here)
 - [How correctness is kept](#how-correctness-is-kept)
 - [Next steps](#next-steps)
+  - [Toward real customer data](#toward-real-customer-data)
+  - [Serving the explorer: Polars writes, DuckDB reads](#serving-the-explorer-polars-writes-duckdb-reads)
+  - [Securing the explorer as a product](#securing-the-explorer-as-a-product)
+  - [Load and penetration tests](#load-and-penetration-tests)
+  - [Multi-tenant SaaS: database constraints and scale](#multi-tenant-saas-database-constraints-and-scale)
+  - [Analysis follow-ups](#analysis-follow-ups)
 - [Reading order](#reading-order)
 - [What is and is not committed](#what-is-and-is-not-committed)
 - [Layout](#layout)
@@ -150,8 +156,9 @@ flowchart LR
 content. Body bytes still pass through the gzip decompressor on the way to being skipped, and the
 downloaded archive on disk contains them. With real customer data the equivalent control is a
 connector that requests metadata fields only where the provider offers such a scope (Gmail,
-Outlook), so mail content never leaves the source. Teams and Slack offer none: their text reaches
-our connector and is dropped in memory, a weaker guarantee (see [next steps](#next-steps)).
+Outlook), so bodies and attachments never leave the source; `Subject` still arrives and is
+discarded at the allowlist. Teams and Slack offer none: their text reaches our connector and is
+dropped in memory, a weaker guarantee (see [Toward real customer data](#toward-real-customer-data)).
 
 ---
 
@@ -627,97 +634,158 @@ The full story, including what was rejected and why, is in
 
 ## Next steps
 
-The order is the README's roadmap, each step a gate for the next: connectors, a query API
-(Polars for processing, DuckDB for serving), security on that API, load and penetration tests,
-deployment on AWS, then further analysis. How to run all of this on AWS (zones as buckets and IAM roles, the key in KMS, Step Functions and
-Fargate, CloudFront, per-tenant accounts, monitoring with CloudWatch, Prometheus and Grafana) is
-in [docs/deployment-aws.md](deployment-aws.md); the sections below stay cloud-neutral.
+*Proposal; none of this is implemented.* The order is the README's roadmap; each step is a gate
+for the next:
 
-### Many users on the UI: when DuckDB makes sense
+1. **Connectors instead of a file:** Gmail / Google Workspace (`gmail.metadata` scope, enforced
+   by the provider), Microsoft 365 Outlook (Graph `Mail.ReadBasic.All`, Graph Data Connect),
+   Teams and Slack (no metadata-only scope: text dropped in memory, a weaker promise stated as
+   such). See [Toward real customer data](#toward-real-customer-data).
+2. **An API to serve the explorer**, replacing the static `release.json`: Polars stays the
+   processing engine and writes Parquet, DuckDB serves it read-only, and every answer passes
+   k ≥ 5, a differencing guard and a query budget. See
+   [Serving the explorer: Polars writes, DuckDB reads](#serving-the-explorer-polars-writes-duckdb-reads).
+3. **Security on the API:** JWT through the customer's identity provider via OIDC (for example
+   Microsoft Entra ID, Okta or Google Workspace), roles viewer / analyst / admin, rate limits and
+   a query budget per user and tenant, HTTPS only, encryption with per-tenant keys, an audit log.
+   See [Securing the explorer as a product](#securing-the-explorer-as-a-product).
+4. **Load and penetration tests:** k6 or Locust, an external penetration test, and
+   re-identification abuse tests through the API, extending `risk/`. See
+   [Load and penetration tests](#load-and-penetration-tests).
+5. **Deploy on AWS:** CloudFront + WAF, API Gateway, a DuckDB query service and PostgreSQL for
+   users, roles, budget and audit; the pipeline on Step Functions + Fargate (Polars) in a private
+   tenant account with egress to provider APIs only; zone buckets with a KMS key each and the
+   HMAC key in the customer's KMS (`GenerateMac`); CloudWatch, Prometheus and Grafana inside the
+   tenant account with counts-only telemetry; infrastructure as code with Pulumi in Python; an
+   account per tenant. The README draws it; [docs/deployment-aws.md](deployment-aws.md) has the
+   detail. The tenant model is under
+   [Multi-tenant SaaS](#multi-tenant-saas-database-constraints-and-scale).
+6. **Analysis follow-ups:** a record-profile view in the explorer, differential privacy for
+   releases, a group-level attack. See [Analysis follow-ups](#analysis-follow-ups).
 
-Today the UI is a static site over one pre-aggregated JSON file. **For that, many users need no
-database:** any static host or CDN serves the same file to everyone, and nothing person-level can
-leak because nothing person-level is in it.
+The subsections below add what the README and the AWS document do not say; they name an AWS
+service only where the choice matters to the argument.
 
-DuckDB becomes the right tool when the UI must **query** rather than display:
+### Toward real customer data
+
+Step 1. Each connector is a new ingest-side package: addresses and names stay behind the
+pseudonymization boundary, and the header allowlist runs on connector output as it does on the
+archive today.
+
+| Source | Scope | What reaches our code |
+|--------|-------|-----------------------|
+| Gmail / Google Workspace | `gmail.metadata`, granted by admin consent | Headers only, enforced by Google: the scope cannot return bodies or attachments. `Subject` still arrives and is discarded at the allowlist |
+| Microsoft 365 (Outlook) | Graph `Mail.ReadBasic.All`, granted by admin consent; Graph Data Connect for bulk export inside the customer's tenant | Mail without body or attachments, enforced by Microsoft. `Subject` discarded as above |
+| Microsoft Teams, Slack | none metadata-only: the message APIs return text, and Slack event payloads carry text too | Sender, recipients or channel, time and thread IDs; the text is dropped in memory before anything is written. The promise rests on our code, not on the provider, and is stated to the customer as weaker. The privacy canary is extended to feed known text through each connector and fail if any of it is written |
+
+Common to all connectors: OAuth admin consent for the narrowest scope the provider offers,
+tokens in a secrets manager (never in configuration or logs), and incremental sync from webhooks
+or delta queries instead of full re-downloads.
+
+| Step | What changes |
+|------|--------------|
+| Key custody and an entity registry | The key lives in the customer's KMS. A persisted registry of surrogate IDs keeps pseudonyms stable when identity rules change. |
+| Retention, residency, works council | Restricted data expires on a schedule, processing stays in the customer's region, and the questions and thresholds are reviewed before the first run. |
+| Better identity resolution | A public-suffix list instead of the short table; an evaluated probabilistic model alongside the explainable rules. |
+
+**Orchestration: Step Functions, not Kafka.** The batch pipeline runs on Step Functions because it
+is a fixed stage order (`cli.STAGES`) with one rule that must hold on every failure: the ingest
+purge sits in a catch branch every state routes to, as the `finally` in `cli.run_pipeline` does
+today. A streaming log adds nothing to a fixed-order batch and would keep whatever it carries for
+its retention period. Kafka or SQS is used only for connector change notifications, and those
+carry resource IDs, not headers, so identifiers never sit on a topic; the connector fetches the
+headers itself. The run manifest stays the lineage record.
+
+### Serving the explorer: Polars writes, DuckDB reads
+
+Step 2. Today the UI is a static site over one pre-aggregated JSON file. For that, many users
+need no database: any static host or CDN serves the same file to everyone, and nothing
+person-level can leak because nothing person-level is in it. The API replaces the file because a
+product needs what one file cannot give:
 
 - several releases, tenants or customers;
 - filters and drill-downs that cannot all be pre-computed;
 - re-aggregation on demand (other windows, departments as groups);
 - an audit trail of who asked what.
 
-DuckDB fits that well, with Polars staying the pipeline's processing engine and writing the
-release tables as Parquet. DuckDB runs in-process with no server to operate and reads Parquet in place, so
-the release tables need no load step. Many processes can open it **read-only** at once, and only
-one process writes. That matches this workload: the pipeline writes once per run, and many viewers
-read.
+Polars stays the pipeline's processing engine; the release stage writes the release tables as
+Parquet (it writes CSV today, so this is a small addition). DuckDB runs in-process in the query
+service with no database server to operate, reads Parquet in place with no load step, and opens
+it read-only: the pipeline writes once per run, many viewers read. PostgreSQL holds only users,
+roles, the budget ledger and the audit log, which are small, transactional and not
+person-level. No analytical table goes into PostgreSQL.
 
 ```mermaid
 flowchart LR
     subgraph Pipeline["Pipeline (one writer)"]
-        RUN["enron-case run"] --> PQ[("release/*.parquet<br/>aggregates, k ≥ 5")]
+        RUN["enron-case run<br/>Polars"] --> PQ[("release/*.parquet<br/>aggregates, k ≥ 5")]
     end
     subgraph Service["Read-only query service"]
         API["small API<br/>(e.g. FastAPI)"]
         DB[("DuckDB<br/>read-only, over Parquet")]
-        K["k-threshold and<br/>differencing guard<br/>on every answer"]
-        AUD[("audit log:<br/>who asked what")]
+        K["k ≥ 5, differencing guard,<br/>query budget<br/>on every answer"]
+        PG[("PostgreSQL<br/>users, roles,<br/>budget ledger, audit log")]
     end
     PQ --> DB
     API --> DB --> K --> API
-    API --> AUD
+    API --> PG
     U1[viewer] --> API
-    U2[viewer] --> API
-    U3[viewer] --> API
+    U2[analyst] --> API
 ```
 
-The condition that matters is in the middle box. Once users can ask their own questions,
-**suppression has to run on every query result, not only on pre-built tables**, and repeated
-queries open the door to differencing attacks. A service like this needs a query budget or
-differential privacy, not only a minimum group size. The person-level restricted zone should stay
-out of reach of the service entirely.
-
-### Toward real customer data
-
-| Step | What changes |
-|------|--------------|
-| Metadata-only connectors | Gmail (`gmail.metadata` scope) and Microsoft 365 (Graph `Mail.ReadBasic.All`) return headers without bodies, so content never leaves the source instead of being skipped after download. Teams and Slack have no metadata-only scope: their connectors drop the text in memory before anything is written, a weaker promise stated as such. |
-| Key custody and an entity registry | The key lives in the customer's KMS. A persisted registry of surrogate IDs keeps pseudonyms stable when identity rules change. |
-| Formal privacy budget | Replace the noise sketch (release R2) with differential privacy accounted across every published output. |
-| Group-level attack | Attack the published group graph itself (communities matched to the public corpus), not only person-level releases. |
-| Retention, residency, works council | Restricted data expires on a schedule, processing stays in the customer's region, and the questions and thresholds are reviewed before the first run. |
-| Orchestration and monitoring | Run the stages under a scheduler (e.g. Dagster or Prefect; Step Functions on AWS) with the run manifest as the lineage record, and alert on contract or privacy violations. |
-| Better identity resolution | A public-suffix list instead of the short table; an evaluated probabilistic model alongside the explainable rules. |
+The condition that matters is in the middle box. Once users ask their own questions,
+**suppression has to run on every query result, not only on pre-built tables**. A minimum group
+size alone is not enough: two answers that each pass k ≥ 5 can differ by fewer than five people.
+The differencing guard refuses an answer whose difference from what the same user or tenant has
+already received falls below k, and the query budget caps how many overlapping answers anyone can
+combine. Neither is differential privacy, which step 6 adds for releases. The person-level
+restricted zone stays out of reach of the service entirely: its role can read the release only.
 
 ### Securing the explorer as a product
 
-*Proposal; none of this is implemented.* Today the explorer is a static site over public
-aggregates: it has a Content-Security-Policy and a build check against external URLs, but no
-login, roles or server. Before it serves real customer data:
+Step 3. Today the explorer is a static site over public aggregates: it has a
+Content-Security-Policy and a build check against external URLs, but no login, roles or server.
+Before it serves real customer data:
 
 ```mermaid
 flowchart LR
-    B["browser"] -->|HTTPS only, HSTS| T["TLS termination"]
-    T --> G["API gateway<br/>JWT signature and expiry,<br/>rate limit per user and tenant"]
-    G --> Q["query service<br/>role check on every query,<br/>k-threshold and query budget"]
-    Q --> S[("encrypted store<br/>per-tenant KMS key")]
-    Q --> A[("audit log<br/>who queried what")]
+    B["browser"] -->|"sign-in, OIDC"| IDP["customer IdP<br/>Entra ID, Okta,<br/>Google Workspace"]
+    IDP -->|"short-lived JWT"| B
+    B -->|"HTTPS only, HSTS"| G["API gateway<br/>JWT signature, expiry, tenant;<br/>rate limit per user and tenant"]
+    G --> Q["query service<br/>role check on every route,<br/>k ≥ 5 and query budget"]
+    Q --> S[("release Parquet<br/>per-tenant KMS key")]
+    Q --> A[("PostgreSQL<br/>users, roles,<br/>budget, audit log")]
 ```
 
 | Control | What changes |
 |---------|--------------|
-| Transport | HTTPS everywhere: TLS termination at the edge, HSTS, TLS between internal services too. The existing CSP stays. |
-| Authentication | Sign-in through the customer's identity provider (OIDC/SSO). Short-lived signed JWTs (minutes), refresh through the provider, signing-key rotation, and revocation on offboarding or suspected theft. |
-| Authorisation | Roles such as viewer (published aggregates), analyst (re-aggregation within thresholds), admin (users, no data access beyond viewer) and auditor (audit log only), checked server-side on every query, never only in the UI. Least privilege by default; the role definitions are agreed with the works council before go-live. |
-| Rate limits and budgets | Per user and per tenant. Besides protecting the service, a query budget is a privacy control: it limits differencing attacks that combine many overlapping aggregates. |
-| Encryption | At rest for every store (Parquet, database, backups, logs) with KMS-managed keys per tenant; the pseudonymisation key held by the customer, in their KMS. In transit everywhere. |
-| Audit | Append-only log of who asked which query, with which role, and how much budget it used; readable by the auditor role and the customer. |
+| Transport | HTTPS only: TLS termination at the edge, HSTS, TLS between internal services too. The existing CSP stays. |
+| Authentication | JWT through the customer's own identity provider via OIDC, for example Microsoft Entra ID, Okta or Google Workspace (on AWS, Cognito federated with it). Short-lived signed tokens (minutes), refresh through the provider, signing-key rotation, revocation on offboarding or suspected theft, and the tenant claim checked on every request. |
+| Authorisation | Three roles, checked server-side on every route, never only in the UI: viewer (published aggregates), analyst (re-aggregation within the thresholds and the budget), admin (users and roles of the tenant and the audit log, no data access beyond viewer). Roles are mapped from IdP groups; least privilege by default; the role definitions are agreed with the works council before go-live. |
+| Rate limits and budgets | Per user and per tenant. Besides protecting the service, the query budget is a privacy control: it limits differencing attacks that combine many overlapping aggregates. |
+| Encryption | At rest for every store (Parquet, PostgreSQL, backups, logs) with a KMS key per tenant; the pseudonymisation key held by the customer, in their KMS. In transit everywhere. |
+| Audit | Append-only log of who asked which query, with which role, and how much budget it used; readable by the tenant's admins and the customer. |
 | Supply chain | Dependency and container image scanning in CI, pinned versions (as today), signed images. |
-| Testing | Load tests (for example k6 or Locust) with realistic query mixes and tenant counts; an external penetration test before go-live and periodically after; abuse tests that try to re-identify people through the query interface, extending the attacks in `risk/` from releases to live queries. |
+
+### Load and penetration tests
+
+Step 4, against the API before it serves customer data:
+
+- **Load**: k6 or Locust with realistic query mixes, tenant counts and corpus sizes; latency per
+  role and the effect of one heavy tenant on the others (the noisy-neighbour limits below).
+- **Penetration**: an external test before go-live and periodically after, including a token of
+  one tenant used against another and role escalation from viewer to analyst.
+- **Re-identification abuse**: the attacks in `risk/` move from releases to queries. An attacker
+  with the analyst role issues overlapping queries to isolate a person, alone or across several
+  users of one tenant; the test passes only if the differencing guard and the budget refuse the
+  query that would reveal a group below k. As today, the attacks run on the synthetic corpus,
+  whose ground truth says who was exposed.
 
 ### Multi-tenant SaaS: database constraints and scale
 
-*Proposal; the current pipeline serves one corpus on one machine.*
+Step 5 deploys this on AWS with an account per tenant
+([deployment-aws.md, Multi-tenant isolation](deployment-aws.md#multi-tenant-isolation)); the
+reasoning below holds on any platform.
 
 **Tenant isolation.** Three options:
 
@@ -728,37 +796,55 @@ flowchart LR
 | Shared tables with a tenant key and row-level security | weakest: one missing predicate leaks across tenants | cheapest to run | only for non-sensitive control data |
 
 Communication metadata is sensitive, every tenant needs its own pseudonymisation key and often its
-own region, and deleting a tenant must be provable. A separate store per tenant gives all three:
-deletion is dropping the tenant's prefix and destroying its key.
+own region, and deleting a tenant must be provable. A separate account per tenant gives all three:
+its zone buckets each have their own KMS key in the tenant's residency region, and deletion is
+deleting the buckets and destroying the keys.
 
 **Stores.**
 
-- **Analytical data**: Parquet per tenant, read by DuckDB in the query service, as in the
-  current design. Object storage laid out as `region/tenant/zone/table/week=…/`, each tenant
-  prefix encrypted with its own KMS key.
-- **Transactional data** (users, roles, audit log, job state): PostgreSQL. This is small and
-  not person-level, so shared tables with a tenant key and row-level security are acceptable
-  here, with the policy tested in CI.
+- **Analytical data**: Parquet per tenant, read-only by DuckDB in the query service. Laid out as
+  `zone/table/week=…/` in the tenant's own buckets, each encrypted with its own KMS key.
+- **Transactional data** (users, roles, the budget ledger, the audit log): PostgreSQL, small and
+  not person-level. One database per serving account; where small tenants share a serving
+  account, shared tables with a tenant key and row-level security are acceptable here, with the
+  policy tested in CI.
 
 **Scale.**
 
-- The pipeline runs as **per-tenant jobs** on a queue, with workers scaled horizontally; one
-  tenant's run never shares a process with another's.
+- The pipeline runs as **per-tenant executions** (one Step Functions execution per tenant, in
+  that tenant's account; AWS Batch for queued work); one tenant's run never shares a process or a
+  task role with another's.
 - **Incremental processing by week**: a new week of headers updates that week's snapshots and
   metrics instead of recomputing the whole history. Frozen baseline communities and fixed
   windows make this natural; change-point tests over the whole series are cheap to rerun.
-- **Partitioned Parquet** by tenant and week, so queries read only the weeks they need.
-- The UI reads **cached aggregate releases** (or read replicas), not the pipeline's working
-  files.
+- **Partitioned Parquet** by week, so queries read only the weeks they need.
+- The query service reads **release Parquet only**, never the pipeline's working files.
 - **Noisy-neighbour limits**: per-tenant worker quotas, query timeouts and memory caps.
 
 **Constraints from privacy.** No cross-tenant joins and no shared identity resolution: one
-person in two customers' data stays two unrelated pseudonyms. Differential-privacy budgets are
-tracked per tenant (and per release), and a query that would exceed the budget is refused.
+person in two customers' data stays two unrelated pseudonyms. Query budgets are tracked per user
+and tenant, and, once differential privacy is added, privacy budgets per tenant and release; a
+query that would exceed its budget is refused.
 
 **What to measure.** Query latency (p50, p95) per role; pipeline run time against tenant size
 (mailboxes, messages per week); cost per tenant (compute, storage, KMS calls); budget
 consumption per tenant.
+
+### Analysis follow-ups
+
+Step 6.
+
+- **Record-profile view**: the explorer shows `record_profile` (see
+  [The record profile](#the-record-profile-findingprofilepy-reportrecordpy)), so a reader sees
+  the change of the `Date` convention before reading any within-custodian comparison.
+- **Differential privacy for releases**: replace the noise sketch (release R2) with differential
+  privacy accounted across every published output.
+- **Group-level attack**: attack the published group graph itself (communities matched to the
+  public corpus), not only person-level releases.
+
+Communities fitted per period and tracked over time are not a follow-up: they were considered for
+H26 and rejected, because their shape follows which mailboxes hold mail, not the organization
+([hypotheses-exploratory.md](hypotheses-exploratory.md)).
 
 ---
 
