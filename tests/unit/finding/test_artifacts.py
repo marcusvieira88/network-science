@@ -96,6 +96,20 @@ def test_failed_artifact_check_caps_confidence_and_blocks_headline() -> None:
     assert capped.filter(pl.col("is_headline")).get_column("hypothesis").to_list() == ["H1"]
 
 
+def _check(hypothesis: str, passes: bool | None) -> artifacts.ArtifactCheck:
+    return artifacts.ArtifactCheck(hypothesis, "c", 0.0, 0.0, 0.0, 0, passes, "")
+
+
+def test_a_check_that_could_not_run_caps_confidence_like_a_failed_one() -> None:
+    checks = [_check("H1", True), _check("H2", False), _check("H3", None)]
+    assert artifacts.failed(checks) == {"H2", "H3"}
+
+
+def test_not_run_stays_visible_in_the_table() -> None:
+    table = artifacts.table([_check("H3", None)])
+    assert table.get_column("passes").to_list() == [None]
+
+
 def test_table_matches_contract(synth: SynthOutput, tmp_path: Path) -> None:
     checks = artifacts.run_checks(_evidence(), _network(synth), compute_series, CONFIG)
     schemas.validate(

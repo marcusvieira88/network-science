@@ -131,7 +131,9 @@ from two known artifacts:
   the baseline and the period after the change point. Passes only if its bootstrap interval lies
   below zero (the hypothesised direction).
 
-A failed check caps the hypothesis at **low** confidence, so it cannot be the headline. H1 and H4
+A failed check caps the hypothesis at **low** confidence, so it cannot be the headline. A check
+that could not run (for example `within_custodian` without a change point) caps it too, because
+the artifact is then not ruled out; it is reported as "not run", not as a pass. H1 and H4
 have no artifact check: neither was supported. The checks are in `src/enron_case/finding/
 artifacts.py`, their results in `release/artifact_checks.csv`, and both are tested on synthetic
 data where groups do not drift and the planted change is behavioural (both checks pass there).

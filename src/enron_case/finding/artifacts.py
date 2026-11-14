@@ -13,7 +13,8 @@ change in behaviour from two artifacts of the data:
   mail changes. The check holds people fixed: the change in each custodian's own external share
   between the baseline and the period after the change point, summarised by the median.
 
-A failed check caps the hypothesis at low confidence (select.py), so it cannot be headline.
+A check that fails, or cannot run, caps the hypothesis at low confidence (select.py), so it
+cannot be headline.
 """
 
 from __future__ import annotations
@@ -182,7 +183,10 @@ def table(checks: list[ArtifactCheck]) -> pl.DataFrame:
 
 
 def failed(checks: list[ArtifactCheck]) -> set[str]:
-    return {c.hypothesis for c in checks if c.passes is False}
+    """Hypotheses whose artifact check did not pass: it failed (`passes` False) or could not
+    run (`passes` None). Both cap confidence, because an artifact not ruled out may explain the
+    change; the table keeps the two apart."""
+    return {c.hypothesis for c in checks if c.passes is not True}
 
 
 _ONE_DAY = date(2000, 1, 2) - date(2000, 1, 1)

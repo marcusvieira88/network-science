@@ -281,7 +281,7 @@ def artifact_section(checks: pl.DataFrame) -> str:
             "measure the jump into the calm second half; a jump above the threshold in "
             "docs/hypotheses.md fails), and a change in which mailboxes hold mail (H3: median "
             "change in each custodian's own share; the interval must lie below zero). "
-            "A failed check caps confidence at low.",
+            "A check that fails or cannot run caps confidence at low.",
             table(
                 ["Hypothesis", "Check", "Statistic", "Interval", "Units", "Result", "Reading"],
                 rows,
