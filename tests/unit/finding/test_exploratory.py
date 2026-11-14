@@ -345,3 +345,12 @@ def test_h25_is_post_hoc_and_has_a_retention_check() -> None:
     assert set(ex.RETENTION_CHECKS) == {"H16", "H25"}
     assert ex.family_of(len(ex.FAMILY) - 1) == ex.POST_HOC_FAMILY
     assert ex.family_of(0) == ex.FIRST_FAMILY
+
+
+def test_core_density_is_empty_with_a_single_custodian() -> None:
+    events = pl.DataFrame([_event("m1", 4, A, C)])
+    one = pl.Series([A])
+    tables = ex.Tables(
+        ex.sent_messages(events, one), ex.received_messages(events, one), frozenset({A})
+    )
+    assert ex._core_ego_density(tables, WINDOW).height == 0

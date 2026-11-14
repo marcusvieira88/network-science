@@ -306,12 +306,16 @@ def _reciprocity_between_custodians(tables: Tables, window: Window) -> pl.DataFr
     return shares.join(n, on="pid")
 
 
+# A share of "the other custodians" needs at least one other custodian.
+MIN_CUSTODIANS_FOR_SHARE = 2
+
+
 def _core_density(tables: Tables, window: Window, *, received: bool) -> pl.DataFrame:
     """Share of the other custodians each custodian is in contact with in the window: written
     to, and with `received` also heard from (any surviving copy counts). `n` is the smaller of
     the custodian's sent and received counts, so both must meet the minimum."""
     custodians = sorted(tables.custodians)
-    if len(custodians) < 2:
+    if len(custodians) < MIN_CUSTODIANS_FOR_SHARE:
         return pl.DataFrame(schema={"pid": pl.String, "value": pl.Float64, "n": pl.UInt32})
     sent, inbox = _in(tables.sent, window), _in(tables.received, window)
     frames = [_sent_contacts(sent)]
