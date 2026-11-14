@@ -15,7 +15,7 @@ import numpy as np
 import polars as pl
 from scipy.stats import wilcoxon
 
-from enron_case.config import Config
+from enron_case.config import CRISIS_WINDOW, REFERENCE_WINDOW, Config
 from enron_case.contracts import schemas, vocab
 from enron_case.finding import stats
 
@@ -45,8 +45,8 @@ CAVEATS = {
 }
 
 Window = tuple[date, date]
-CRISIS: Window = (date(2001, 8, 14), date(2001, 12, 2))
-REFERENCE: Window = (date(2000, 8, 14), date(2000, 12, 2))
+CRISIS: Window = CRISIS_WINDOW
+REFERENCE: Window = REFERENCE_WINDOW
 PLACEBO_AFTER: Window = (date(2001, 1, 1), date(2001, 4, 30))
 PLACEBO_BEFORE: Window = (date(2000, 1, 1), date(2000, 4, 30))
 

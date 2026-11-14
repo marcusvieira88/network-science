@@ -7,6 +7,8 @@ Shape of `release.json` (format_version 1); `ui/src/lib/data.ts` mirrors it:
       "contract_version": "<schemas.CONTRACT_VERSION>",
       "run": {"code_version": str, "sample": bool, "seed": int, "parameters": {...}},
       "events": [{"date": "YYYY-MM-DD", "label": str}, ...],      # config.PUBLIC_EVENTS
+      "windows": {"crisis": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"},
+                  "reference": {...}},          # config.CRISIS_WINDOW, config.REFERENCE_WINDOW
       "tables": {"<release table>": [{"<column>": value, ...}, ...], ...}
     }
 
@@ -34,7 +36,7 @@ from typing import Any
 
 import polars as pl
 
-from enron_case.config import PUBLIC_EVENTS
+from enron_case.config import CRISIS_WINDOW, PUBLIC_EVENTS, REFERENCE_WINDOW
 from enron_case.contracts import schemas
 from enron_case.contracts.vocab import LEAK_PATTERNS
 from enron_case.errors import ContractViolation, PrivacyViolation
@@ -96,8 +98,17 @@ def build_document(tables: dict[str, pl.DataFrame], manifest: dict[str, Any]) ->
         "contract_version": schemas.CONTRACT_VERSION,
         "run": run_block(manifest),
         "events": [{"date": day.isoformat(), "label": label} for day, label in PUBLIC_EVENTS],
+        "windows": {
+            "crisis": window_block(CRISIS_WINDOW),
+            "reference": window_block(REFERENCE_WINDOW),
+        },
         "tables": {name: table_rows(tables[name]) for name in RELEASE_TABLES},
     }
+
+
+def window_block(window: tuple[date, date]) -> dict[str, str]:
+    start, end = window
+    return {"start": start.isoformat(), "end": end.isoformat()}
 
 
 def strings(value: object) -> Iterator[str]:
