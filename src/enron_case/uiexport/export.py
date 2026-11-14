@@ -1,0 +1,127 @@
+"""Release tables to one JSON document for the explorer UI (research R14).
+
+Shape of `release.json` (format_version 1); `ui/src/lib/data.ts` mirrors it:
+
+    {
+      "format_version": 1,
+      "contract_version": "<schemas.CONTRACT_VERSION>",
+      "run": {"code_version": str, "sample": bool, "seed": int, "parameters": {...}},
+      "events": [{"date": "YYYY-MM-DD", "label": str}, ...],      # config.PUBLIC_EVENTS
+      "tables": {"<release table>": [{"<column>": value, ...}, ...], ...}
+    }
+
+Rows keep the contract's column order and sort order; dates are ISO strings; suppressed cells
+are null. The run block is the run manifest without wall-clock time, timings or fingerprints,
+so the same release gives byte-identical JSON.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import re
+from collections.abc import Iterator
+from datetime import date
+from typing import Any
+
+import polars as pl
+
+from enron_case.config import PUBLIC_EVENTS
+from enron_case.contracts import schemas
+from enron_case.contracts.vocab import LEAK_PATTERNS
+from enron_case.errors import ContractViolation, PrivacyViolation
+
+FORMAT_VERSION = 1
+
+RELEASE_TABLES = (
+    "data_quality",
+    "header_fields",
+    "weekly_metrics",
+    "hypotheses",
+    "risk",
+    "degree_distribution",
+    "community_graph",
+    "community_groups",
+)
+
+# Release columns that count persons; each published value must be at least k_min.
+PERSON_COUNT_COLUMNS: dict[str, tuple[str, ...]] = {
+    "weekly_metrics": ("n_active",),
+    "risk": ("n_targets",),
+    "degree_distribution": ("persons",),
+    "community_groups": ("n_persons",),
+}
+
+MANIFEST_RUN_FIELDS = ("code_version", "sample", "seed", "parameters")
+
+_LEAK = re.compile("|".join(f"(?:{pattern})" for pattern in LEAK_PATTERNS))
+
+Row = dict[str, Any]
+
+
+def check_person_counts(tables: dict[str, pl.DataFrame], k_min: int) -> None:
+    """Raise PrivacyViolation if any published person count is below k_min."""
+    for name, columns in PERSON_COUNT_COLUMNS.items():
+        for column in columns:
+            small = tables[name].filter(pl.col(column) < k_min).height
+            if small:
+                raise PrivacyViolation(f"{name}.{column}: {small} person counts below k={k_min}")
+
+
+def table_rows(df: pl.DataFrame) -> list[Row]:
+    return [
+        {key: _jsonable(value) for key, value in row.items()} for row in df.iter_rows(named=True)
+    ]
+
+
+def _jsonable(value: Any) -> Any:
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ContractViolation("non-finite number in a release table")
+    return value
+
+
+def run_block(manifest: dict[str, Any]) -> dict[str, Any]:
+    missing = [name for name in MANIFEST_RUN_FIELDS if name not in manifest]
+    if missing:
+        raise ContractViolation(f"run manifest lacks {missing}")
+    return {name: manifest[name] for name in MANIFEST_RUN_FIELDS}
+
+
+def build_document(tables: dict[str, pl.DataFrame], manifest: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "format_version": FORMAT_VERSION,
+        "contract_version": schemas.CONTRACT_VERSION,
+        "run": run_block(manifest),
+        "events": [{"date": day.isoformat(), "label": label} for day, label in PUBLIC_EVENTS],
+        "tables": {name: table_rows(tables[name]) for name in RELEASE_TABLES},
+    }
+
+
+def strings(value: Any) -> Iterator[str]:
+    """Every string in a JSON-like value, keys included."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            yield str(key)
+            yield from strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from strings(item)
+
+
+def check_no_identifiers(document: dict[str, Any]) -> None:
+    hits = sum(1 for text in strings(document) if _LEAK.search(text))
+    if hits:
+        raise PrivacyViolation(f"release.json: {hits} identifier-shaped values")
+
+
+def render(document: dict[str, Any]) -> str:
+    """Compact JSON text. Key order is fixed by construction, so no wall-clock or hash order
+    can change the bytes."""
+    try:
+        return json.dumps(document, separators=(",", ":"), allow_nan=False) + "\n"
+    except ValueError as exc:
+        raise ContractViolation("release.json would contain a non-finite number") from exc
