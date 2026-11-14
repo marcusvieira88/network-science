@@ -245,3 +245,18 @@ def test_stage_writes_documents_only_on_real_runs(synth: SynthOutput, tmp_path: 
     for name in DOCUMENTS:
         text = (real_ctx.paths.dir(Zone.DOCS) / name).read_text(encoding="utf-8")
         assert "{{" not in text
+
+
+# ---- review-2 wording ---------------------------------------------------------------------
+
+
+def test_risk_section_says_aggregate_releases_were_not_attacked_at_person_level(
+    synth: SynthOutput, tmp_path: Path
+) -> None:
+    text = render_report(synth, tmp_path)
+    risk = text.split("## Privacy and re-identification risk", 1)[1].split("## Limits", 1)[0]
+    assert "measured by attacking" not in risk
+    assert "R1 and R2 hold no person-level records" in risk
+    assert "return no guesses by construction" in risk
+    limits = text.split("## Limits", 1)[1]
+    assert "No group-level attack on the community graph was run" in limits

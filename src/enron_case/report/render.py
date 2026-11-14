@@ -78,6 +78,9 @@ LIMITS = (
     "is a sketch, not a formal privacy budget.",
     "Observational design: a structural change near public events does not show what people "
     "knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.",
+    "No group-level attack on the community graph was run: an attacker who knows some group "
+    "members could try to infer ties or membership from group-to-group weights, and that risk "
+    "is bounded only by the minimum of k distinct senders per published tie, not measured.",
     "The artifact checks were added after the first real-data run, because two hypotheses "
     "passed every pre-registered check yet looked implausibly strong. They are documented as a "
     "post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.",
@@ -386,8 +389,11 @@ def risk_section(risk: pl.DataFrame, k_min: int) -> str:
     return "\n\n".join(
         (
             "## Privacy and re-identification risk",
-            f"Every published table meets a minimum group size of k = {k_min}. The risk was "
-            "measured by attacking the pipeline's own output, not asserted.",
+            f"Every published table meets a minimum group size of k = {k_min}. The risk of "
+            "the person-level output R0 was tested by attacking it, not asserted. R1 and R2 "
+            "hold no person-level records, so both person-level attacks return no guesses by "
+            "construction: their re-identification rate of zero restates that design, it is "
+            "not a measurement of their risk.",
             "Releases attacked:",
             variants,
             "Attackers:",
