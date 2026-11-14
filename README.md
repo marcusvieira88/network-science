@@ -15,12 +15,13 @@ three batches, each committed before it was computed.
   test, then failed checks against known artifacts of the data (stale baseline groups; a change
   in which mailboxes hold mail). **No finding from H1–H4 is claimed.**
 - **H5–H24** (H5–H14 committed after the H1–H4 results, H15–H24 after the H5–H14 results):
-  within-custodian paired comparisons, with Holm's correction across those twenty. One result,
-  and only one, is held to be true, at the confident standard:
-  **communication became more mutual in the crisis** (H16). Of the people a custodian wrote to, a
-  larger share also wrote back than in the same weeks a year earlier, and the effect holds with
-  mail volume equalised. It was stated after the H1–H4 results were known, which is worth
-  weighing; independent data would confirm it.
+  within-custodian paired comparisons, with Holm's correction across those twenty. **No
+  hypothesis is held true.** H16 (the share of a custodian's sent-to contacts who also wrote to
+  the custodian in the same window) met its stated rule, also with mail volume equalised, but
+  fails the retention check added after a data-science review: among custodian-to-custodian
+  contacts, whose messages are visible whatever an inbox kept, the change is not established,
+  and the same subset rises before the crisis. H16 remains the strongest lead, largely explained
+  by how much inbox mail was kept.
 - **Found along the way:** the reference-year timestamps in the corpus are shifted by several
   hours, and every Bcc line repeats the Cc line.
 
@@ -256,7 +257,7 @@ ui-sample` writes. So the UI cannot show anything the report could not. Its view
 
 | View | Shows |
 |------|-------|
-| Overview | the finding, the artifact checks that ruled out H2 and H3, and the confident within-custodian result (H16) |
+| Overview | the finding, the artifact checks that ruled out H2 and H3, and the within-custodian results (H16, the strongest lead, fails its retention check) |
 | Metrics | each weekly metric by scope, with the change point, public events and baseline marked |
 | Network | a rotatable **3D graph of groups** and their ties, week by week (2D fallback without WebGL) |
 | Clusters | a **chord diagram** of mail between and within groups for the baseline year, the crisis weeks or all weeks; each group's size, within-group share and top partner groups; and the group whose cross-group share changed most, with the stale-baseline caveat |
@@ -370,8 +371,9 @@ flowchart LR
   with windows fixed by public dates (2001-08-14 to 2001-12-02 against the same weeks of 2000).
   Measures are ratios or per-active-week rates over all of a custodian's sent or received
   messages (not only network ties); a custodian needs at least 20 messages in each window. H16
-  is ego-level reciprocity: the share of a custodian's sent-to contacts who wrote back in the
-  same window.
+  is ego-level reciprocity: the share of a custodian's sent-to contacts who also wrote to the
+  custodian in the same window (anything they sent, not necessarily a reply; headers carry no
+  thread).
 - **Test.** Wilcoxon signed-rank (two-sided) on d; median of d with a percentile bootstrap
   interval over custodians (2000 draws); Holm across all twenty.
 - **Pre-crisis placebo.** The same difference for January–April 2001 against January–April 2000;
@@ -381,7 +383,19 @@ flowchart LR
   and without a caveat, each custodian's sent and received messages in both windows are
   subsampled to the smaller window's count, the measure recomputed, the difference averaged over
   40 seeded subsamples, and the test rerun. It is reported next to the outcome, not part of the
-  rule.
+  rule. Next to its p, `equalised_p_holm` is p times the family size of twenty, capped at 1:
+  Holm's multiplier for the family's smallest p and conservative for every other rank.
+- **Retention check** (added after a data-science review, run with the project's
+  `/data-scientist-review` skill, and after results were seen). Inbox retention differs by
+  person and period, so a reply can be missing because the inbox lost it. For H16 the measure
+  is recomputed counting only contacts who are themselves custodians, whose messages survive in
+  their own sent folders whatever the receiving inbox kept; crisis against reference and the
+  pre-crisis placebo, as above. It passes only if the crisis interval lies on the hypothesised
+  side over at least k custodians and the placebo passes. A hypothesis that fails it cannot be
+  held true. H16 fails it.
+- **Placebo power.** Fewer custodians meet the minimum in the placebo windows than in the crisis
+  comparison (`placebo_custodians` against `custodians`), so a passing placebo has less power and
+  does not exclude a pre-existing trend.
 
 ### Re-identification attacks as graph matching (`risk/attack.py`)
 
@@ -411,7 +425,7 @@ half of the targets; on R1 and R2, nobody.
 |--------|----------|--------|---------------|
 | H1–H4 (committed before any data) | weekly network series, after a searched change week vs 2000 | CUSUM + permutation p, standardised effect, block bootstrap, Holm over 4 | supported if p_holm < 0.05 and interval on the hypothesised side; confidence from null-model z, leave-one-mailbox-out, variants |
 | Artifact checks (H2, H3) | placebo half-year in 2000; custodians against themselves | refit Louvain on half the baseline; within-custodian median change with bootstrap | failed or not run caps confidence at low; no headline |
-| H5–H24 (within-custodian) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 20 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable and no caveat; volume-equalised result reported alongside |
+| H5–H24 (within-custodian) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 20 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable, no caveat and (H16) the retention check passes; volume-equalised result reported alongside |
 | A1, A2 (risk) | release R0, R1, R2 against the public corpus | nearest-neighbour fingerprint matching; seeded propagation | share of targets re-identified (top-1), with interval |
 
 ---
@@ -470,7 +484,7 @@ flowchart LR
   were committed after the H1–H4 results and before being computed, H15–H24 after the H5–H14
   results and before being computed, and Holm's correction runs across those twenty, so adding hypotheses makes each one harder to pass. All
   outcomes are published. Checks added after seeing a result (the artifact checks, mail-volume
-  equalisation) are labelled as such.
+  equalisation, the H16 retention check) are labelled as such.
 - **Identity checked by a person.** A seeded sample of real identity merges was judged in a
   terminal by a person (`enron-case review-merges`); only the two counts are kept and published
   in `data_quality.csv`, so real identifiers never entered an AI conversation.
@@ -654,5 +668,6 @@ tests/            unit, contract, privacy and integration tests, all on syntheti
 ui/               the explorer (React, TypeScript, Vite, Tailwind, shadcn/ui)
 docs/             architecture, hypotheses, metrics, decision record, slides, AI-workflow note
 specs/            Spec Kit specification, plan, research, contracts and tasks
-.claude/skills/   Spec Kit skills and the project's data-privacy-review and code-quality-review skills
+.claude/skills/   Spec Kit skills and the project's data-privacy-review, code-quality-review and
+                  data-scientist-review skills
 ```
