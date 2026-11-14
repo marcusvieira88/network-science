@@ -79,3 +79,15 @@ def test_existing_archive_with_wrong_checksum_fails(tmp_path: Path) -> None:
     target.write_bytes(b"not the corpus")
     with pytest.raises(CorpusError):
         fetch_archive(target, URL, SHA, FakeDownloader())
+
+
+def test_complete_partial_is_finished_without_a_request(tmp_path: Path) -> None:
+    # Interrupted after the last byte but before the rename: a range request from the end would
+    # be refused (HTTP 416) on every rerun, so the finished partial is verified and kept.
+    target = tmp_path / "corpus.tar.gz"
+    partial_path(target).write_bytes(PAYLOAD)
+    download = FakeDownloader()
+    fetch_archive(target, URL, SHA, download)
+    assert download.offsets == []
+    assert target.read_bytes() == PAYLOAD
+    assert not partial_path(target).exists()
