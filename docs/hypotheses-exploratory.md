@@ -78,3 +78,35 @@ outcomes are published, whatever they are.
   use exactly those copies.
 - This family is exploratory. A confident result here is a lead for confirmation on other data,
   not a pre-registered finding.
+
+---
+
+# Second exploratory family E11–E20
+
+**Status: stated and committed before any of them was computed, after E1–E10 were computed.**
+E1–E10 produced no confident result. They showed that hour-of-day measures are unreliable in this
+corpus (the 2000 timestamps are shifted by several hours) and that Bcc carries no information
+(every Bcc line repeats the Cc line). This family avoids both. It uses the same windows, units,
+minimum of 20 messages, test and decision rule as E1–E10, with one change: **Holm's correction runs
+across all twenty exploratory hypotheses, E1–E20**, so adding hypotheses makes each one harder to
+pass, not easier.
+
+E11 is not independent of what was seen: it is derived from the unexpected E10 result (custodians
+received a smaller share of broadcast mail in the crisis). It is marked as derived and must be
+read as a consistency check on a lead, not as a fresh test.
+
+| ID | Measure per custodian and window | Direction in crisis | Reasoning |
+|----|----------------------------------|---------------------|-----------|
+| E11 | share of sent messages with exactly one recipient | up | *derived from E10*: more direct, one-to-one mail |
+| E12 | share of the custodian's sent-to contacts who also sent to the custodian in the same window | up | ties become mutual under stress |
+| E13 | share of sent messages addressed to at least one other custodian | up | senior staff turn to each other |
+| E14 | share of received messages sent by another custodian | up | the same, seen from the inbox |
+| E15 | share of the window's distinct contacts not contacted in the 26 weeks before the window | down | less reaching out to new people |
+| E16 | distinct senders per active week (received) | up | more people reach out to the custodian |
+| E17 | share of received messages that come from the custodian's three most frequent senders | up | attention concentrates on a few senders |
+| E18 | share of received messages from external senders | down | outsiders drop away |
+| E19 | share of weeks in the window with at least one sent message | up | more consistently active |
+| E20 | share of sent messages that include a non-person recipient (list, role or system address) | down | less routine, list-based traffic |
+
+Received-side measures (E14, E16, E17, E18) use messages in which the custodian is a recipient;
+the others use sent messages. E15 looks back 26 weeks before each window's start.
