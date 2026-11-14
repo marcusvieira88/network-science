@@ -1,4 +1,4 @@
-"""Exploratory hypotheses E1–E10 (docs/hypotheses-exploratory.md).
+"""Exploratory hypotheses E1–E20 (docs/hypotheses-exploratory.md).
 
 Every hypothesis is a paired, within-custodian difference of a ratio between fixed windows, so
 neither a change in which mailboxes hold mail nor a change in how much mail was kept can
@@ -9,25 +9,40 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import numpy as np
 import polars as pl
 from scipy.stats import wilcoxon
 
+from enron_case.config import Config
+from enron_case.contracts import vocab
 from enron_case.finding import stats
 
 UP, DOWN = 1, -1
-MIN_MESSAGES = 20
-BOOTSTRAP_REPS = 2000
-ALPHA = 0.05
 PLACEBO_FRACTION = 0.5
 WORK_START, WORK_END = 7, 19
 BROADCAST_SENT = 5
 BROADCAST_RECEIVED = 20
 TOP_RECIPIENTS = 3
 TOP_SENDERS = 3
-SUMMER_MONTHS = range(4, 11)  # Houston UTC-5 from April to October, else UTC-6
+# Houston is UTC-6, and UTC-5 between the US daylight-saving switches (2 a.m. local: 08:00 UTC
+# in spring, 07:00 UTC in autumn).
+DST_UTC: tuple[tuple[datetime, datetime], ...] = tuple(
+    (datetime(y, m1, d1, 8, tzinfo=UTC), datetime(y, m2, d2, 7, tzinfo=UTC))
+    for y, m1, d1, m2, d2 in (
+        (1998, 4, 5, 10, 25),
+        (1999, 4, 4, 10, 31),
+        (2000, 4, 2, 10, 29),
+        (2001, 4, 1, 10, 28),
+        (2002, 4, 7, 10, 27),
+    )
+)
+CAVEATS = {
+    "E1": "invalid: timestamps in the 2000 part of the corpus are shifted by several hours",
+    "E3": "untestable: every Bcc line in the corpus repeats the Cc line",
+    "E15": "retention-sensitive: the 26-week look-back depends on how much older mail was kept",
+}
 
 Window = tuple[date, date]
 CRISIS: Window = (date(2001, 8, 14), date(2001, 12, 2))
@@ -35,6 +50,7 @@ REFERENCE: Window = (date(2000, 8, 14), date(2000, 12, 2))
 PLACEBO_AFTER: Window = (date(2001, 1, 1), date(2001, 4, 30))
 PLACEBO_BEFORE: Window = (date(2000, 1, 1), date(2000, 4, 30))
 
+_, CC, BCC = vocab.RECIPIENT_ROLES
 CONFIDENT, INCONCLUSIVE, NOT_SUPPORTED = "confident", "inconclusive", "not supported"
 
 WindowMeasure = Callable[[pl.DataFrame], pl.DataFrame]  # rows of one window -> pid, value, n
@@ -47,40 +63,39 @@ LOOKBACK_DAYS = 182  # E15: 26 weeks before each window
 @dataclass(frozen=True)
 class Exploratory:
     id: str
-    side: str  # "sent" or "received"
     direction: int
     description: str
 
 
 FAMILY: tuple[Exploratory, ...] = (
-    Exploratory("E1", "sent", UP, "after-hours share of sent messages (weekdays)"),
-    Exploratory("E2", "sent", UP, "weekend share of sent messages"),
-    Exploratory("E3", "sent", UP, "share of sent messages with a Bcc recipient"),
-    Exploratory("E4", "sent", UP, "share of sent messages with a Cc recipient"),
-    Exploratory("E5", "sent", UP, "mean recipients per sent message"),
-    Exploratory("E6", "sent", UP, "share of sent messages with five or more recipients"),
-    Exploratory("E7", "sent", DOWN, "distinct internal contacts per active week"),
-    Exploratory("E8", "sent", UP, "sent messages per active week"),
-    Exploratory("E9", "sent", UP, "share of sent messages to the top three recipients"),
-    Exploratory("E10", "received", UP, "share of received messages sent to 20 or more"),
-    Exploratory("E11", "sent", UP, "share of sent messages with one recipient (derived from E10)"),
-    Exploratory("E12", "sent", UP, "share of sent-to contacts who also wrote back"),
-    Exploratory("E13", "sent", UP, "share of sent messages to another custodian"),
-    Exploratory("E14", "received", UP, "share of received messages from another custodian"),
-    Exploratory("E15", "sent", DOWN, "share of contacts new against the prior 26 weeks"),
-    Exploratory("E16", "received", UP, "distinct senders per active week"),
-    Exploratory("E17", "received", UP, "share of received messages from the top three senders"),
-    Exploratory("E18", "received", DOWN, "share of received messages from external senders"),
-    Exploratory("E19", "sent", UP, "share of weeks with at least one sent message"),
-    Exploratory("E20", "sent", DOWN, "share of sent messages to a list, role or system address"),
+    Exploratory("E1", UP, "after-hours share of sent messages (weekdays)"),
+    Exploratory("E2", UP, "weekend share of sent messages"),
+    Exploratory("E3", UP, "share of sent messages with a Bcc recipient"),
+    Exploratory("E4", UP, "share of sent messages with a Cc recipient"),
+    Exploratory("E5", UP, "mean recipients per sent message"),
+    Exploratory("E6", UP, "share of sent messages with five or more recipients"),
+    Exploratory("E7", DOWN, "distinct internal contacts per active week"),
+    Exploratory("E8", UP, "sent messages per active week"),
+    Exploratory("E9", UP, "share of sent messages to the top three recipients"),
+    Exploratory("E10", UP, "share of received messages sent to 20 or more"),
+    Exploratory("E11", UP, "share of sent messages with one recipient (derived from E10)"),
+    Exploratory("E12", UP, "share of sent-to contacts who also wrote back"),
+    Exploratory("E13", UP, "share of sent messages to another custodian"),
+    Exploratory("E14", UP, "share of received messages from another custodian"),
+    Exploratory("E15", DOWN, "share of contacts new against the prior 26 weeks"),
+    Exploratory("E16", UP, "distinct senders per active week"),
+    Exploratory("E17", UP, "share of received messages from the top three senders"),
+    Exploratory("E18", DOWN, "share of received messages from external senders"),
+    Exploratory("E19", UP, "share of weeks with at least one sent message"),
+    Exploratory("E20", DOWN, "share of sent messages to a list, role or system address"),
 )
 
 
 # ---- message tables --------------------------------------------------------------------------
 def _with_local_time(df: pl.DataFrame) -> pl.DataFrame:
-    month = pl.col("ts_hour").dt.month()
-    offset = pl.when(month.is_in(list(SUMMER_MONTHS))).then(-5).otherwise(-6)
-    local = pl.col("ts_hour") + pl.duration(hours=offset)
+    ts = pl.col("ts_hour")
+    summer = pl.any_horizontal([(ts >= start) & (ts < end) for start, end in DST_UTC])
+    local = ts + pl.duration(hours=pl.when(summer).then(-5).otherwise(-6))
     return df.with_columns(
         local.dt.date().alias("day"),
         local.dt.hour().alias("hour"),
@@ -92,20 +107,20 @@ def _with_local_time(df: pl.DataFrame) -> pl.DataFrame:
 def sent_messages(events: pl.DataFrame, custodians: pl.Series) -> pl.DataFrame:
     """One row per message sent by a custodian, with every recipient (not only the network)."""
     sent = events.filter(pl.col("sender_pid").is_in(custodians.implode()))
-    internal_person = (pl.col("recipient_type") == "person") & pl.col("recipient_internal")
+    internal_person = (pl.col("recipient_type") == vocab.PERSON) & pl.col("recipient_internal")
     messages = sent.group_by("msg_pid").agg(
         pl.col("sender_pid").first().alias("pid"),
         pl.col("ts_hour").first(),
         pl.col("n_recipients").first(),
-        (pl.col("role") == "bcc").any().alias("has_bcc"),
-        (pl.col("role") == "cc").any().alias("has_cc"),
+        (pl.col("role") == BCC).any().alias("has_bcc"),
+        (pl.col("role") == CC).any().alias("has_cc"),
         pl.col("recipient_pid").sort().alias("recipients"),
         pl.col("recipient_pid").filter(internal_person).sort().alias("internal_recipients"),
         pl.col("recipient_pid")
-        .filter(pl.col("recipient_type") == "person")
+        .filter(pl.col("recipient_type") == vocab.PERSON)
         .sort()
         .alias("person_recipients"),
-        (pl.col("recipient_type") != "person").any().alias("has_nonperson"),
+        (pl.col("recipient_type") != vocab.PERSON).any().alias("has_nonperson"),
         (
             pl.col("recipient_pid").is_in(custodians.implode())
             & (pl.col("recipient_pid") != pl.col("sender_pid"))
@@ -271,20 +286,38 @@ def _new_contact_share(tables: Tables, window: Window) -> pl.DataFrame:
 
 
 def _active_week_share(tables: Tables, window: Window) -> pl.DataFrame:
+    """Share of the window's full Monday-to-Sunday weeks with a sent message (partial weeks at
+    the window edges are left out of both numerator and denominator)."""
+    first = window[0] + timedelta(days=(7 - window[0].weekday()) % 7)
+    last = window[1] - timedelta(days=(window[1].weekday() + 1) % 7)
+    weeks = ((last - first).days + 1) // 7
     sent = _in(tables.sent, window)
-    first = window[0] - timedelta(days=window[0].weekday())
-    weeks = (window[1] - first).days // 7 + 1
-    return sent.group_by("pid").agg(
-        (pl.col("week").n_unique() / weeks).cast(pl.Float64).alias("value"),
-        pl.len().alias("n"),
+    full = sent.filter((pl.col("day") >= first) & (pl.col("day") <= last))
+    counts = sent.group_by("pid").agg(pl.len().alias("n"))
+    return (
+        full.group_by("pid")
+        .agg((pl.col("week").n_unique() / weeks).cast(pl.Float64).alias("value"))
+        .join(counts, on="pid", how="right")
+        .with_columns(pl.col("value").fill_null(0.0))
+        .select("pid", "value", "n")
     )
+
+
+def _weekday_share(condition: pl.Expr) -> WindowMeasure:
+    """Share among weekday messages only, so weekend volume cannot move it."""
+    share = _share(condition)
+
+    def measure(df: pl.DataFrame) -> pl.DataFrame:
+        return share(df.filter(pl.col("weekday") <= 5))
+
+    return measure
 
 
 after_hours = (pl.col("weekday") <= 5) & (
     (pl.col("hour") < WORK_START) | (pl.col("hour") >= WORK_END)
 )
 MEASURES: dict[str, Measure] = {
-    "E1": _windowed("sent", _share(after_hours)),
+    "E1": _windowed("sent", _weekday_share(after_hours)),
     "E2": _windowed("sent", _share(pl.col("weekday") >= 6)),
     "E3": _windowed("sent", _share(pl.col("has_bcc"))),
     "E4": _windowed("sent", _share(pl.col("has_cc"))),
@@ -309,12 +342,12 @@ MEASURES: dict[str, Measure] = {
 
 # ---- paired comparison ---------------------------------------------------------------------
 def paired_differences(
-    tables: Tables, measure: Measure, after: Window, before: Window
+    tables: Tables, measure: Measure, after: Window, before: Window, min_messages: int
 ) -> np.ndarray:
-    """Per custodian with at least MIN_MESSAGES in both windows: measure(after) − measure(before),
-    ordered by pseudonym so the seeded bootstrap is reproducible."""
-    a = measure(tables, after).filter(pl.col("n") >= MIN_MESSAGES)
-    b = measure(tables, before).filter(pl.col("n") >= MIN_MESSAGES)
+    """Per custodian with at least `min_messages` in both windows: measure(after) −
+    measure(before), ordered by pseudonym so the seeded bootstrap is reproducible."""
+    a = measure(tables, after).filter(pl.col("n") >= min_messages)
+    b = measure(tables, before).filter(pl.col("n") >= min_messages)
     paired = a.join(b, on="pid", suffix="_before").sort("pid")
     diff = paired.get_column("value") - paired.get_column("value_before")
     out: np.ndarray = diff.to_numpy().astype(float)
@@ -330,14 +363,15 @@ class Comparison:
     p: float
 
 
-def compare(d: np.ndarray, seed: int, stream: int) -> Comparison:
-    if len(d) < 2 or np.all(d == 0):
+def compare(d: np.ndarray, config: Config, stream: int) -> Comparison:
+    if len(d) < 2:
         return Comparison(len(d), float("nan"), float("nan"), float("nan"), 1.0)
-    rng = stats.rng_for(seed, 100 + stream)
-    medians = np.median(rng.choice(d, size=(BOOTSTRAP_REPS, len(d))), axis=1)
-    low, high = np.quantile(medians, [0.025, 0.975])
+    if np.all(d == 0):
+        return Comparison(len(d), 0.0, 0.0, 0.0, 1.0)  # no change at all: a flat result
+    rng = stats.rng_for(config.seed, 100 + stream)
+    low, high = stats.median_bootstrap_ci(d, config.exploratory_bootstrap_reps, rng)
     p = float(wilcoxon(d, alternative="two-sided").pvalue)
-    return Comparison(len(d), float(np.median(d)), float(low), float(high), p)
+    return Comparison(len(d), float(np.median(d)), low, high, p)
 
 
 def _placebo_passes(direction: int, crisis: Comparison, placebo: Comparison) -> bool:
@@ -354,18 +388,21 @@ def _loo_stable(direction: int, d: np.ndarray) -> bool:
     return all(direction * float(np.median(np.delete(d, i))) > 0 for i in range(len(d)))
 
 
-def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, seed: int) -> pl.DataFrame:
+def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -> pl.DataFrame:
     custodians = entities_p.filter(
-        pl.col("is_custodian") & (pl.col("type") == "person") & pl.col("is_internal")
+        pl.col("is_custodian") & (pl.col("type") == vocab.PERSON) & pl.col("is_internal")
     ).get_column("pid")
     tables = Tables(sent_messages(events, custodians), received_messages(events, custodians))
     rows = []
     for index, hyp in enumerate(FAMILY):
         measure = MEASURES[hyp.id]
-        d = paired_differences(tables, measure, CRISIS, REFERENCE)
-        crisis = compare(d, seed, index)
+        minimum = config.exploratory_min_messages
+        d = paired_differences(tables, measure, CRISIS, REFERENCE, minimum)
+        crisis = compare(d, config, index)
         placebo = compare(
-            paired_differences(tables, measure, PLACEBO_AFTER, PLACEBO_BEFORE), seed, 50 + index
+            paired_differences(tables, measure, PLACEBO_AFTER, PLACEBO_BEFORE, minimum),
+            config,
+            50 + index,
         )
         rows.append((hyp, d, crisis, placebo))
     p_holm = stats.holm([crisis.p for _h, _d, crisis, _pl in rows])
@@ -374,8 +411,9 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, seed: int) -> pl.
         on_side = stats.on_side(hyp.direction, crisis.ci_low, crisis.ci_high)
         placebo_ok = _placebo_passes(hyp.direction, crisis, placebo)
         loo_ok = _loo_stable(hyp.direction, d)
-        significant = ph < ALPHA
-        if significant and on_side and placebo_ok and loo_ok:
+        significant = ph < config.alpha
+        valid = hyp.id not in CAVEATS
+        if significant and on_side and placebo_ok and loo_ok and valid:
             outcome = CONFIDENT
         elif significant and on_side:
             outcome = INCONCLUSIVE
@@ -399,6 +437,7 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, seed: int) -> pl.
                 "placebo_passes": placebo_ok,
                 "loo_stable": loo_ok,
                 "outcome": outcome,
+                "caveat": CAVEATS.get(hyp.id, ""),
             }
         )
     return pl.DataFrame(out)

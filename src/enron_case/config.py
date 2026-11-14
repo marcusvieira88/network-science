@@ -107,6 +107,9 @@ class Config:
     # within-person comparison with at least this many sent events in each period.
     placebo_max_effect: float = 2.0
     min_unit_events: int = 30
+    # Exploratory families E1–E20 (docs/hypotheses-exploratory.md, fixed before computing).
+    exploratory_min_messages: int = 20
+    exploratory_bootstrap_reps: int = 2000
     # Release mitigations. Lowest weighted degree of each published degree bucket; scale of the
     # Laplace noise in release R2 (a sketch, not a calibrated privacy budget; research R12).
     degree_bucket_floors: tuple[int, ...] = field(default=(1, 2, 5, 10))

@@ -13,6 +13,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from enron_case.config import CI_PERCENTILES
+
 FloatArray = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
 
@@ -141,3 +143,13 @@ def holm(p_values: Sequence[float]) -> list[float]:
         running = max(running, min(1.0, (m - rank) * p_values[i]))
         adjusted[i] = running
     return adjusted
+
+
+def median_bootstrap_ci(
+    values: FloatArray, reps: int, rng: np.random.Generator
+) -> tuple[float, float]:
+    """Percentile interval (CI_PERCENTILES) of the median, resampling `values` with replacement."""
+    medians = np.median(rng.choice(values, size=(reps, len(values))), axis=1)
+    quantiles = [percentile / 100 for percentile in CI_PERCENTILES]
+    low, high = (float(q) for q in np.quantile(medians, quantiles))
+    return low, high

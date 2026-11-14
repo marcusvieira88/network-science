@@ -54,7 +54,7 @@ A week is active for a custodian if it holds at least one of their messages of t
 For each hypothesis, the paired difference d = measure(W1) − measure(W0) per custodian.
 
 - **Statistic**: median of d; 95% bootstrap interval over custodians (seeded, 2,000 draws).
-- **p-value**: Wilcoxon signed-rank test on d, two-sided; Holm correction across E1–E10.
+- **p-value**: Wilcoxon signed-rank test on d, two-sided; Holm correction across E1–E10. *(Superseded when the second family was stated: Holm runs across E1–E20.)*
 - **Placebo**: the same difference for P1 − P0, before any crisis event.
 - **Leave one out**: the median of d recomputed without each custodian in turn.
 
@@ -110,3 +110,21 @@ read as a consistency check on a lead, not as a fresh test.
 
 Received-side measures (E14, E16, E17, E18) use messages in which the custodian is a recipient;
 the others use sent messages. E15 looks back 26 weeks before each window's start.
+
+---
+
+## Implementation notes (after code review, before any rerun)
+
+A code review of the implementation found measurement details that did not match the text above;
+they were fixed so the code measures what was stated:
+
+- **E1** is the share among *weekday* messages (weekend volume no longer moves it). E1 remains
+  invalid for the timestamp reason above.
+- **Local time** uses the actual US daylight-saving switch dates, not April–October by month.
+- **E19** counts only full Monday-to-Sunday weeks inside each window, in numerator and
+  denominator, so partial edge weeks cannot lower it.
+- A placebo with **no change at all** (every difference zero) now counts as passing; before, it
+  was treated as undefined and failed.
+- **Caveats** are recorded in the results and block a "confident" outcome: E1 (timestamp shift),
+  E3 (Bcc repeats Cc), E15 (the 26-week look-back depends on how much older mail was kept).
+- Parameters (minimum messages, bootstrap draws, alpha) are `Config` fields.

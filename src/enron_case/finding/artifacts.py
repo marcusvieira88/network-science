@@ -27,7 +27,7 @@ from datetime import date
 import numpy as np
 import polars as pl
 
-from enron_case.config import CI_PERCENTILES, Config
+from enron_case.config import Config
 from enron_case.contracts.vocab import DEFAULT_VARIANT, PERSON
 from enron_case.finding import stats
 from enron_case.finding.hypotheses import HYPOTHESES, Evidence, Network, Recompute, bootstrap_ci
@@ -150,9 +150,7 @@ def within_custodian(network: Network, change_week: date | None, config: Config)
             "fewer custodians than the minimum group size",
         )
     rng = stats.rng_for(config.seed, _WITHIN_CUSTODIAN_STREAM)
-    medians = np.median(rng.choice(changes, size=(config.bootstrap_reps, n)), axis=1)
-    quantiles = [percentile / 100 for percentile in CI_PERCENTILES]
-    low, high = (float(q) for q in np.quantile(medians, quantiles))
+    low, high = stats.median_bootstrap_ci(changes, config.bootstrap_reps, rng)
     passes = stats.on_side(-1, low, high)  # H3 direction: down
     note = (
         "custodians themselves shifted their mail inward"

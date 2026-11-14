@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import numpy as np
 import polars as pl
 
+from enron_case.config import Config
 from enron_case.finding import exploratory as ex
 
 A, B, C, D = "p_aaaaaaaaaaaaaaaa", "p_bbbbbbbbbbbbbbbb", "p_cccccccccccccccc", "p_dddddddddddddddd"
@@ -118,3 +119,104 @@ def test_decision_rule_requires_every_condition() -> None:
     assert not ex._placebo_passes(ex.UP, up, trend_placebo)
     assert ex._loo_stable(ex.UP, np.array([0.1, 0.2, 0.3, 0.2]))
     assert not ex._loo_stable(ex.UP, np.array([-0.1, 0.2, -0.3, 0.2]))
+
+
+def test_flat_placebo_passes() -> None:
+    flat = ex.compare(np.zeros(12), Config(), 0)
+    assert (flat.median, flat.ci_low, flat.ci_high) == (0.0, 0.0, 0.0)
+    up = ex.Comparison(n=30, median=0.2, ci_low=0.1, ci_high=0.3, p=0.001)
+    assert ex._placebo_passes(ex.UP, up, flat)
+
+
+def test_daylight_saving_uses_the_real_switch_dates() -> None:
+    rows = pl.DataFrame(
+        {
+            "ts_hour": [
+                datetime(2001, 10, 28, 6, tzinfo=UTC),  # before 07:00 UTC switch: CDT, UTC-5
+                datetime(2001, 10, 29, 13, tzinfo=UTC),  # after the switch: CST, UTC-6
+                datetime(2001, 4, 1, 9, tzinfo=UTC),  # after the 08:00 UTC spring switch
+            ]
+        }
+    )
+    hours = ex._with_local_time(rows).get_column("hour").to_list()
+    assert hours == [1, 7, 4]
+
+
+def test_active_weeks_count_full_weeks_only() -> None:
+    # Window Tue 2001-08-14 .. Sun 2001-12-02: full weeks start Mon 2001-08-20; 15 full weeks.
+    window = (date(2001, 8, 14), date(2001, 12, 2))
+    rows = [_event(f"m{i}", 1, A, C, month=9) for i in range(3)]
+    rows.append(_event("edge", 14, A, C, month=8))  # Tuesday in a partial week: not counted
+    value = _value(ex.MEASURES["E19"](_tables(rows), window), A)
+    assert np.isclose(value, 1 / 15)
+
+
+def test_after_hours_share_ignores_weekend_volume() -> None:
+    # Two weekday messages (one after hours) plus weekend mail: share stays 1/2.
+    rows = [
+        {**_event("m1", 3, A, C), "ts_hour": datetime(2001, 9, 3, 23, tzinfo=UTC)},  # 18:00
+        {**_event("m2", 4, A, C), "ts_hour": datetime(2001, 9, 5, 2, tzinfo=UTC)},  # 21:00
+        {**_event("m3", 8, A, C), "ts_hour": datetime(2001, 9, 8, 17, tzinfo=UTC)},  # Saturday
+    ]
+    assert _value(ex.MEASURES["E1"](_tables(rows), WINDOW), A) == 0.5
+
+
+def _family_events(planted: bool) -> pl.DataFrame:
+    """Twenty custodians (fewer cannot reach Holm significance across 20 tests with a
+    Wilcoxon test), 30 sent messages per window. In the crisis window (if planted) every
+    custodian sends 60 % direct (one-recipient) mail against 20 % in every other window."""
+    custodians = [f"p_{chr(97 + i) * 16}" for i in range(20)]
+    rows = []
+    windows = {
+        "crisis": ex.CRISIS,
+        "reference": ex.REFERENCE,
+        "p1": ex.PLACEBO_AFTER,
+        "p0": ex.PLACEBO_BEFORE,
+    }
+    for name, (start, _end) in windows.items():
+        direct = 18 if (planted and name == "crisis") else 6
+        for c_index, sender in enumerate(custodians):
+            for k in range(30):
+                monday = start + timedelta(days=(7 - start.weekday()) % 7 + 7)
+                day = monday + timedelta(days=7 * (k // 5) + k % 5)  # weekdays only
+                n = 1 if k < direct + c_index % 2 else 2
+                ts = datetime(day.year, day.month, day.day, 16, tzinfo=UTC)
+                for r in range(n):
+                    rows.append(
+                        {
+                            "msg_pid": f"{name}-{sender}-{k}",
+                            "ts_hour": ts,
+                            "sender_pid": sender,
+                            "recipient_pid": f"p_{'z' * 15}{r}",
+                            "role": "to",
+                            "n_recipients": n,
+                            "recipient_type": "person",
+                            "recipient_internal": True,
+                            "sender_internal": True,
+                        }
+                    )
+    return pl.DataFrame(rows)
+
+
+def _entities(events: pl.DataFrame) -> pl.DataFrame:
+    senders = events.get_column("sender_pid").unique().sort()
+    return pl.DataFrame(
+        {"pid": senders, "type": "person", "is_internal": True, "is_custodian": True}
+    )
+
+
+def test_family_finds_a_planted_change_and_nothing_else() -> None:
+    events = _family_events(planted=True)
+    table = ex.run_family(events, _entities(events), Config(exploratory_bootstrap_reps=500))
+    assert table.height == len(ex.FAMILY)
+    e11 = table.filter(pl.col("hypothesis") == "E11").row(0, named=True)
+    assert e11["outcome"] == ex.CONFIDENT
+    assert e11["placebo_passes"] and e11["loo_stable"]
+    flat = ex.run_family(
+        _family_events(planted=False), _entities(events), Config(exploratory_bootstrap_reps=500)
+    )
+    assert ex.CONFIDENT not in flat.get_column("outcome").to_list()
+
+
+def test_caveated_hypotheses_are_never_confident() -> None:
+    assert set(ex.CAVEATS) == {"E1", "E3", "E15"}
