@@ -130,6 +130,11 @@ export const TABLE_COLUMNS = {
     equalised_ci_low: isFloat,
     equalised_ci_high: isFloat,
     equalised_p: isFloat,
+    // Retention check (contract 1.4): the hypothesis on a measure inbox retention cannot move.
+    retention_median: isFloat,
+    retention_ci_low: isFloat,
+    retention_ci_high: isFloat,
+    retention_passes: nullable(isBoolean),
   },
   risk: {
     release_variant: oneOf(RELEASE_VARIANTS),

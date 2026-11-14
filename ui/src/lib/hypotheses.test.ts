@@ -9,6 +9,7 @@ import {
   formatEstimate,
   heldTrueLines,
   hypothesisNumber,
+  retentionCheck,
 } from "@/lib/hypotheses";
 import { check, exploratory, handBuilt, preregistered } from "@/test/hypotheses";
 
@@ -103,5 +104,18 @@ describe("heldTrueLines", () => {
   it("is empty when nothing is held true, and never repeats the headline card", () => {
     const entries = allHypotheses([preregistered("H1", { is_headline: true })], [exploratory(5, { outcome: "inconclusive" })], [check("H1")]);
     expect(heldTrueLines(entries)).toEqual([]);
+  });
+});
+
+describe("retentionCheck", () => {
+  it("reports a failed retention check with its estimate, and nothing where none ran", () => {
+    expect(retentionCheck(exploratory(16))).toBeNull();
+    const failed = exploratory(16, {
+      retention_passes: false,
+      retention_median: 0.111,
+      retention_ci_low: -0.111,
+      retention_ci_high: 0.3,
+    });
+    expect(retentionCheck(failed)).toMatch(/^fails, /);
   });
 });

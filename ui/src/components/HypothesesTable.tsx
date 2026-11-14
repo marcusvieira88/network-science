@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
 import { formatFloat, formatInterval, formatNumber, formatP, metricLabel } from "@/lib/format";
-import { type HypothesisEntry, STATED, equalisedEstimate, formatEstimate } from "@/lib/hypotheses";
+import { type HypothesisEntry, STATED, equalisedEstimate, formatEstimate, retentionCheck } from "@/lib/hypotheses";
 import { cn } from "@/lib/utils";
 
 const SUPPORT_VARIANT = { yes: "default", no: "outline", inconclusive: "secondary" } as const;
@@ -69,6 +69,7 @@ function PreregisteredCells({ row }: { row: HypothesisRow }) {
 
 function ExploratoryCells({ row, heldTrue }: { row: ExploratoryRow; heldTrue: boolean }) {
   const equalised = equalisedEstimate(row);
+  const retention = retentionCheck(row);
   return (
     <>
       <TableCell className="max-w-xs">
@@ -77,6 +78,11 @@ function ExploratoryCells({ row, heldTrue }: { row: ExploratoryRow; heldTrue: bo
         {equalised !== null && (
           <div className={cn("mt-1 font-mono text-xs tabular-nums", heldTrue ? "text-primary" : "text-muted-foreground")}>
             volume-equalised: {equalised}
+          </div>
+        )}
+        {retention !== null && (
+          <div className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
+            retention check (custodian contacts only): {retention}
           </div>
         )}
         {row.caveat !== "" && <Muted>{row.caveat}</Muted>}

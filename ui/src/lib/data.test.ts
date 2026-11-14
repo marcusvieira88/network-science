@@ -71,10 +71,18 @@ describe("parseRelease", () => {
   it("reads the twenty exploratory hypotheses with nullable equalised results, whatever their id prefix", () => {
     const data = parseRelease(rawSample());
     const rows = data.tables.exploratory;
-    expect(rows.map((r) => r.order)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
-    expect(rows.filter((r) => r.outcome === "confident").map((r) => r.order)).toEqual([12]);
+    // H5–H24 continue the numbering after H1–H4.
+    expect(rows.map((r) => r.order)).toEqual(Array.from({ length: 20 }, (_, i) => i + 5));
+    // No hypothesis is held true: H16 fails its retention check.
+    expect(rows.filter((r) => r.outcome === "confident")).toEqual([]);
     expect(rows[0]?.equalised_median).toBeNull();
-    expect(rows[11]).toMatchObject({ family: "second", equalised_median: 0.1 });
+    expect(rows[11]).toMatchObject({
+      hypothesis: "H16",
+      family: "second",
+      outcome: "inconclusive",
+      equalised_median: 0.1,
+      retention_passes: false,
+    });
   });
 
   it("rejects an exploratory outcome outside its enum", () => {

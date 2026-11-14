@@ -55,6 +55,10 @@ export function exploratory(number: number, overrides: Partial<ExploratoryRow> =
     equalised_ci_low: null,
     equalised_ci_high: null,
     equalised_p: null,
+    retention_median: null,
+    retention_ci_low: null,
+    retention_ci_high: null,
+    retention_passes: null,
     ...overrides,
   };
 }

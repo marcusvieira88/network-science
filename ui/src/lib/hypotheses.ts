@@ -42,6 +42,13 @@ export function formatEstimate(median: number | null, low: number | null, high: 
   return `${formatFloat(median)} (${interval})`;
 }
 
+/** The retention check's result ("passes"/"fails" with its estimate), or null where none ran. */
+export function retentionCheck(row: ExploratoryRow): string | null {
+  if (row.retention_passes === null) return null;
+  const verdict = row.retention_passes ? "passes" : "fails";
+  return `${verdict}, ${formatEstimate(row.retention_median, row.retention_ci_low, row.retention_ci_high)}`;
+}
+
 /** The volume-equalised result, or null where none was computed. */
 export function equalisedEstimate(row: ExploratoryRow): string | null {
   if (row.equalised_median === null) return null;
