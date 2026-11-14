@@ -11,7 +11,12 @@ Shape of `release.json` (format_version 1); `ui/src/lib/data.ts` mirrors it:
     }
 
 The tables are `RELEASE_TABLES`, among them `artifact_checks` (hypothesis, check, statistic,
-ci_low, ci_high, n_units, passes, note; `passes` is null when the check could not run).
+ci_low, ci_high, n_units, passes, note; `passes` is null when the check could not run) and
+`exploratory` (E1–E20, docs/hypotheses-exploratory.md: order, hypothesis, family, measure,
+direction, custodians, median_change, ci_low, ci_high, p, p_holm, placebo_custodians,
+placebo_median, placebo_ci_low, placebo_ci_high, placebo_passes, loo_stable, outcome, caveat,
+equalised_median, equalised_ci_low, equalised_ci_high, equalised_p; `caveat` is "" when there is
+none and the `equalised_*` cells are null unless computed).
 
 Rows keep the contract's column order and sort order; dates are ISO strings; suppressed cells
 and non-finite numbers (NaN, ±inf: not computable) are null. The run block is the run manifest
@@ -42,6 +47,7 @@ RELEASE_TABLES = (
     "weekly_metrics",
     "hypotheses",
     "artifact_checks",
+    "exploratory",
     "risk",
     "degree_distribution",
     "community_graph",

@@ -32,6 +32,14 @@ describe("privacy of the loaded data", () => {
     }
   });
 
+  it("checks the exploratory custodian counts against the minimum group size", () => {
+    const sample = sampleData();
+    const [first, ...rest] = sample.tables.exploratory;
+    if (!first) throw new Error("sample has no exploratory rows");
+    const exploratory = [{ ...first, custodians: 4, placebo_custodians: 3 }, ...rest];
+    expect(smallPersonCounts({ ...sample, tables: { ...sample.tables, exploratory } })).toBe(2);
+  });
+
   it("counts an active_persons value below the minimum group size", () => {
     const sample = sampleData();
     const index = sample.tables.weekly_metrics.findIndex((r) => r.metric === "active_persons");

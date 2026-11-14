@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ArtifactChecksTable } from "@/components/ArtifactChecksTable";
 import { CommunityGraph } from "@/components/CommunityGraph";
+import { ExploratoryTable } from "@/components/ExploratoryTable";
 import { HypothesesTable } from "@/components/HypothesesTable";
 import { Limits } from "@/components/Limits";
 import { MetricChart } from "@/components/MetricChart";
@@ -61,6 +62,11 @@ export function View({ view, data }: { view: ViewId; data: ReleaseData }) {
             </CardHeader>
             <CardContent>
               <ArtifactChecksTable checks={tables.artifact_checks} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <ExploratoryTable rows={tables.exploratory} />
             </CardContent>
           </Card>
         </div>

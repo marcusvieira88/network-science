@@ -42,6 +42,21 @@ describe("parseRelease", () => {
     expect(data.tables.artifact_checks[0]?.passes).toBeNull();
   });
 
+  it("reads the exploratory family E1–E20 with nullable equalised results", () => {
+    const data = parseRelease(rawSample());
+    const rows = data.tables.exploratory;
+    expect(rows.map((r) => r.hypothesis)).toEqual(Array.from({ length: 20 }, (_, i) => `E${i + 1}`));
+    expect(rows.filter((r) => r.outcome === "confident").map((r) => r.hypothesis)).toEqual(["E12"]);
+    expect(rows[0]?.equalised_median).toBeNull();
+    expect(rows[11]).toMatchObject({ family: "second", equalised_median: 0.1 });
+  });
+
+  it("rejects an exploratory outcome outside its enum", () => {
+    const doc = rawSample();
+    firstRow(doc, "exploratory").outcome = "supported";
+    expect(() => parseRelease(doc)).toThrow(/column outcome/);
+  });
+
   it("rejects a missing table", () => {
     const doc = rawSample();
     delete tablesOf(doc).risk;

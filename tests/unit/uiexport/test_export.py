@@ -141,6 +141,20 @@ def test_artifact_checks_are_exported(synth: SynthOutput, tmp_path: Path) -> Non
     assert checks[1]["statistic"] == -0.05
 
 
+def test_exploratory_hypotheses_are_exported(synth: SynthOutput, tmp_path: Path) -> None:
+    ctx = release_ctx(synth, tmp_path)
+    run(ctx)
+    rows = output(ctx)["tables"]["exploratory"]
+    assert [r["hypothesis"] for r in rows] == [f"E{i}" for i in range(1, 21)]
+    confident = [r for r in rows if r["outcome"] == "confident"]
+    assert [(r["hypothesis"], r["family"], r["equalised_median"]) for r in confident] == [
+        ("E12", "second", 0.1)
+    ]
+    e1 = rows[0]
+    assert e1["equalised_median"] is None
+    assert e1["caveat"].startswith("invalid:")
+
+
 def test_same_input_gives_byte_identical_json(synth: SynthOutput, tmp_path: Path) -> None:
     first = release_ctx(synth, tmp_path / "a")
     second = release_ctx(synth, tmp_path / "b")
