@@ -1,17 +1,22 @@
-.PHONY: all sample gate key clean fixtures ui ui-sample ui-gate
+.PHONY: all check sample gate key clean fixtures ui ui-sample ui-gate
+.DEFAULT_GOAL := all
 
 UV ?= uv
 KEY_FILE ?= $(HOME)/.config/enron-case/key
 # Fixed key for the synthetic sample and tests only. Never used for real data.
 TEST_KEY := 7465737400000000000000000000000000000000000000000000000000000000
+# npm writes this file at the end of `npm ci`; rebuilding it only when the lockfile is newer
+# lets every target reuse installed UI dependencies.
+UI_DEPS := ui/node_modules/.package-lock.json
 
-## The one command: fetch, verify, run every stage, run the gate, print the report path.
+## The one command (bare `make` is the same): prerequisites, locked dependencies, key, corpus,
+## full pipeline, Python and UI gates, UI build, summary, then serve the explorer until Ctrl+C.
 all:
-	@$(UV) sync --locked
-	@$(UV) run enron-case check-key || { echo "No key found. Run: make key" >&2; exit 3; }
-	@$(UV) run enron-case run
-	@ENRON_CASE_KEY=$(TEST_KEY) $(UV) run pytest -q
-	@echo release/report.md
+	@KEY_FILE="$(KEY_FILE)" UV="$(UV)" scripts/run-all.sh all
+
+## Everything `make all` does except serving the explorer (CI, reviewers without a server).
+check:
+	@KEY_FILE="$(KEY_FILE)" UV="$(UV)" scripts/run-all.sh check
 
 ## Full pipeline on the bundled synthetic corpus.
 sample:
@@ -28,26 +33,26 @@ gate:
 
 ## Create a key outside the repository if none exists.
 key:
-	@if [ -f "$(KEY_FILE)" ]; then echo "Key exists at $(KEY_FILE)"; else \
-		mkdir -p "$$(dirname "$(KEY_FILE)")" && \
-		umask 077 && python3 -c "import secrets; print(secrets.token_hex(32))" > "$(KEY_FILE)" && \
-		chmod 600 "$(KEY_FILE)" && echo "Key written to $(KEY_FILE)"; fi
+	@scripts/create-key.sh "$(KEY_FILE)"
 
 ## Write synthetic fixtures for inspection into tests/fixtures (git-ignored).
 fixtures:
 	@$(UV) run python -m enron_case.synth --out tests/fixtures
 
 clean:
-	rm -rf data/ingest data/restricted data/sample release-sample tests/fixtures
+	rm -rf data/ingest data/restricted data/sample data/logs release-sample tests/fixtures
 
-## Optional explorer UI (needs Node 20+). Not part of `make all`.
-ui:
+$(UI_DEPS): ui/package-lock.json
+	@cd ui && npm ci
+
+## Explorer UI on its own (needs Node 20+): export release/, build, serve.
+ui: $(UI_DEPS)
 	@$(UV) run enron-case stage ui-data
-	@cd ui && npm ci && npm run build && npm run preview
+	@cd ui && npm run build && npm run preview
 
-ui-sample:
+ui-sample: $(UI_DEPS)
 	@ENRON_CASE_KEY=$(TEST_KEY) $(UV) run enron-case stage ui-data --sample
-	@cd ui && npm ci && npm run build && npm run preview
+	@cd ui && npm run build && npm run preview
 
-ui-gate:
-	@cd ui && npm ci && npm run lint && npm run typecheck && npm test && npm run build && node scripts/check-build.mjs
+ui-gate: $(UI_DEPS)
+	@cd ui && npm run lint && npm run typecheck && npm test && npm run build && node scripts/check-build.mjs

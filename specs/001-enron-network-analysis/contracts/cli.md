@@ -7,18 +7,50 @@ be run and tested one at a time.
 
 | Target | Does | Needs corpus | Needs key |
 |--------|------|--------------|-----------|
-| `make all` | install locked deps, fetch + verify corpus, run all stages, run gate, write `release/report.md` | downloads it | yes |
-| `make sample` | same pipeline on the bundled synthetic corpus, into `data/sample/` and `release-sample/` | no | uses the fixed test key |
+| `make` = `make all` | the one command, below: every step, then serves the explorer at http://localhost:4173 until Ctrl+C | downloads it | creates one if none is configured |
+| `make check` | the same steps as `make all` except serving the explorer (CI, reviewers without a server) | downloads it | creates one if none is configured |
+| `make sample` | full pipeline on the bundled synthetic corpus, into `data/sample/` and `release-sample/` | no | uses the fixed test key |
 | `make gate` | ruff, mypy, pytest (unit, contract, privacy, integration on sample) | no | test key |
 | `make key` | create a 32-byte key at `~/.config/enron-case/key` (mode 600) if none exists | no | — |
-| `make clean` | remove `data/` and regenerated release files | no | no |
-| `make ui` | export `release/` to `ui/public/data/release.json`, install UI dependencies from the lockfile, build and serve the explorer locally (needs Node 20+; not part of `make all`) | no | no |
+| `make clean` | remove `data/` work zones, logs and regenerated sample files | no | no |
+| `make ui` | export `release/` to `ui/public/data/release.json`, build and serve the explorer (needs Node 20+) | no | no |
 | `make ui-sample` | same, from `release-sample/` | no | no |
-| `make ui-gate` | UI lint, type check, unit tests and the UI privacy tests | no | no |
+| `make ui-gate` | UI lint, type check, unit tests, the UI privacy tests, build and build check | no | no |
 
-`make all` is the one command of the brief. If no key exists it stops with exit code 3 and a
-one-line instruction to run `make key`; it never generates a key silently and never writes one
-inside the repository.
+UI dependencies are installed with `npm ci` only when `ui/package-lock.json` is newer than the
+installed tree, so every UI target reuses them.
+
+### The one command
+
+`make` (the default goal, identical to `make all`) runs `scripts/run-all.sh`. It needs no options.
+Each step prints one line (`==> step ... ok (Ns)`); its full output goes to
+`data/logs/<step>.log` and is shown (last 40 lines) only if the step fails. The first failing step
+stops the run: `scripts/run-all.sh` exits with that step's exit code (table below), which `make`
+prints (`make: *** [all] Error 3`) before exiting with its own code 2.
+
+1. **Prerequisites**: `uv`, Python 3.12 (as `uv python find 3.12` sees it), Node ≥ 20, `npm`. A
+   missing one stops the run with exit code 1 and a one-line message naming it. `make all` also
+   needs port 4173 free (checked here, so a busy port fails at once; `UI_PORT=<port> make` uses
+   another).
+2. **Dependencies**: `uv sync --locked`; `npm ci` in `ui/` (skipped when already installed from
+   the current lockfile).
+3. **Key**: if no key is configured (no `ENRON_CASE_KEY`, no `ENRON_CASE_KEY_FILE`, no
+   `~/.config/enron-case/key`), one is created at `~/.config/enron-case/key` (mode 600, outside the
+   repository) and the run says so and where. The key is never printed. A configured key that is
+   unusable (wrong length, missing named file, inside the repository) is never replaced: the run
+   stops with exit code 3. `KEY_FILE=/other/path make` creates and uses another path.
+4. **Corpus**: `enron-case stage fetch`; the download is skipped if the archive is on disk, but
+   its SHA-256 is always verified (exit 4 on mismatch).
+5. **Pipeline**: `enron-case run` on the real corpus.
+6. **Gates**: `make gate` (lint, strict types, all tests, privacy canary) and `make ui-gate`.
+7. **Explorer**: `enron-case stage ui-data` exports the release; `npm run build` builds the UI.
+8. **Summary**: where the report is (`release/report.md`), how many hypotheses the release holds
+   true (`enron-case summary`, read from `release/hypotheses.csv` and `release/exploratory.csv`),
+   that every gate passed, and the explorer URL. `make all` then serves the explorer at
+   http://localhost:4173 in the foreground until Ctrl+C; `make check` exits 0 instead.
+
+A second `make` reuses the downloaded archive, the key and installed dependencies; it reruns the
+pipeline and the gates.
 
 ## CLI
 
@@ -26,6 +58,8 @@ inside the repository.
 enron-case run [--sample] [--from STAGE] [--to STAGE] [--keep-ingest] [--set NAME=VALUE ...]
 enron-case stage STAGE [--sample]
 enron-case verify            # double-run determinism check on the sample
+enron-case check-key         # exit 0 if a usable key is configured, else 3
+enron-case summary [--sample]  # one line: how many hypotheses the release holds true
 ```
 
 `STAGE` ∈ `fetch, parse, clean, identity, pseudo, network, finding, risk, release, report, ui-data`.

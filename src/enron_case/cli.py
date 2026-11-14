@@ -17,6 +17,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import polars as pl
+
 from enron_case import zones
 from enron_case.config import (
     KEY_ENV,
@@ -26,6 +28,7 @@ from enron_case.config import (
     Config,
 )
 from enron_case.context import LogFn, StageContext, stderr_log
+from enron_case.contracts.schemas import EXPLORATORY_CONFIDENT
 from enron_case.errors import KeyProblem, PipelineError, UsageError
 from enron_case.manifest import RunManifest, code_version
 from enron_case.zones import Paths, Zone
@@ -189,6 +192,22 @@ def verify(config: Config, log: LogFn) -> int:
     return 0
 
 
+def summary_line(release_root: Path) -> str:
+    """How many hypotheses the release holds true, counted as the explorer counts them: the
+    headline among the preregistered ones, every confident outcome among the exploratory ones."""
+    tables = [release_root / "hypotheses.csv", release_root / "exploratory.csv"]
+    if not all(table.is_file() for table in tables):
+        raise PipelineError(f"no release tables in {release_root.name}/; run the pipeline first")
+    hypotheses = pl.read_csv(tables[0], schema_overrides={"is_headline": pl.Boolean})
+    exploratory = pl.read_csv(tables[1])
+    held_true = (
+        hypotheses.filter(pl.col("is_headline")).height
+        + exploratory.filter(pl.col("outcome") == EXPLORATORY_CONFIDENT).height
+    )
+    total = hypotheses.height + exploratory.height
+    return f"{held_true} of {total} hypotheses held true"
+
+
 def _parse_sets(items: list[str]) -> dict[str, str]:
     out = {}
     for item in items:
@@ -215,11 +234,29 @@ def build_parser() -> argparse.ArgumentParser:
     stage.add_argument("--set", dest="sets", action="append", default=[], metavar="NAME=VALUE")
     sub.add_parser("verify", help="double-run determinism check on the sample")
     sub.add_parser("check-key", help="exit 0 if a usable key is configured, else 3")
+    summary = sub.add_parser("summary", help="print how many hypotheses the release holds true")
+    summary.add_argument("--sample", action="store_true")
     sub.add_parser(
         "review-merges",
         help="T046: judge a seeded sample of identity merges in this terminal (counts only kept)",
     )
     return parser
+
+
+INFO_COMMANDS = ("check-key", "review-merges", "summary")
+
+
+def _run_info_command(args: argparse.Namespace) -> None:
+    """Commands that run no pipeline stage; each raises a PipelineError on failure."""
+    if args.command == "check-key":
+        load_key_fingerprint()
+    elif args.command == "review-merges":
+        review = importlib.import_module("enron_case.identity.review")
+        ctx = StageContext("identity", Config(), Paths.for_run(REPO_ROOT, False), False)
+        checked, correct = review.review(ctx)
+        stderr_log(f"review-merges: {correct} of {checked} merges judged correct")
+    else:
+        print(summary_line(Paths.for_run(REPO_ROOT, args.sample).release_root))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -228,14 +265,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         os.environ[KEY_ENV] = SAMPLE_KEY_HEX
         os.environ.pop(KEY_FILE_ENV, None)
     try:
-        if args.command == "check-key":
-            load_key_fingerprint()
-            return 0
-        if args.command == "review-merges":
-            review = importlib.import_module("enron_case.identity.review")
-            ctx = StageContext("identity", Config(), Paths.for_run(REPO_ROOT, False), False)
-            checked, correct = review.review(ctx)
-            stderr_log(f"review-merges: {correct} of {checked} merges judged correct")
+        if args.command in INFO_COMMANDS:
+            _run_info_command(args)
             return 0
         config = Config()
         if args.command == "verify":
