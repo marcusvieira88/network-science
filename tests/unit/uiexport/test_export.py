@@ -30,7 +30,6 @@ FIXTURE_CODE_VERSION = "fixture"
 def write_manifest(ctx: StageContext, code_version: str = FIXTURE_CODE_VERSION) -> None:
     """A run manifest as the orchestrator writes it, including fields the export must drop."""
     manifest = {
-        "written_utc": "2026-11-14T12:00:00Z",
         "code_version": code_version,
         "sample": True,
         "seed": ctx.config.seed,

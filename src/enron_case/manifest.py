@@ -1,7 +1,8 @@
 """Content fingerprints and the run manifest.
 
 Fingerprints hash a canonical row serialisation, not Parquet bytes, so identical content gives
-identical fingerprints across library versions. The manifest holds no key and no identifier.
+identical fingerprints across library versions. The manifest holds no key, no identifier and no
+wall-clock time (committed output must not change between identical runs).
 """
 
 from __future__ import annotations
@@ -10,7 +11,6 @@ import hashlib
 import json
 import subprocess
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +75,6 @@ class RunManifest:
             self.key_fingerprint = self.key_fingerprint or previous.get("key_fingerprint")
             self.corpus_sha256 = self.corpus_sha256 or previous.get("corpus_sha256")
         payload = {
-            "written_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "code_version": self.code_version,
             "sample": self.sample,
             "seed": self.seed,
