@@ -402,7 +402,8 @@ flowchart LR
   rule.
 - **Retention check** (added after a data-science review). Ego-level reciprocity can rise simply
   because a custodian kept more inbox mail. The check recomputes H16 among custodian-to-custodian
-  contacts only, whose replies are visible in the replier's own sent mail whatever an inbox kept.
+  contacts only, whose messages can survive in the sender's own sent mail as well as in the
+  receiving inbox, so the measure depends less on what one inbox kept (not on none).
   It passes only if that change lies on the hypothesised side and the same subset shows no
   comparable pre-crisis change; otherwise H16 is capped at inconclusive. On the real corpus the
   change is not established (+0.11, interval −0.11 to +0.30) and the subset already rises before
