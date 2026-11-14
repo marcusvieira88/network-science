@@ -111,12 +111,12 @@ sequenceDiagram
     M->>P: check-key (a key is created outside the repo if none is configured)
     M->>P: stage fetch: download the archive, verify sha256
     M->>P: run: parse … report
-    P->>Z: tables, report.md, documents, run_manifest.json; ingest zone purged (also on failure)
+    P->>Z: tables, report.md, documents, run_manifest.json, then the ingest zone is purged (also on failure)
     M->>M: make gate (Python), make ui-gate (UI)
     M->>P: stage ui-data
     P->>U: ui/public/data/release.json
     M->>U: npm run build
-    M-->>Rev: report path, held-true summary; serves http://localhost:4173
+    M-->>Rev: report path, held-true summary, then serves http://localhost:4173
 ```
 
 Each step prints one line and logs to `data/logs/<step>.log`; the first failing step stops the
@@ -196,8 +196,8 @@ inconclusive; H25 finds no change within custodians.
 
 The published finding is about the **record**, not behaviour: the record profile
 (`record_profile`) shows the share of the custodians' weekday sent mail stamped outside working
-hours dropping from about half to a few percent between April and May 2001, and the mail kept per
-month growing several-fold. The `Date` convention changed between the windows every comparison
+hours dropping from about half (up to April 2001) to a few percent (from August 2001 on), falling
+from May 2001, while the received mail kept per month grows up to several-fold. The `Date` convention changed between the windows every comparison
 sets against each other, so the report states that change first.
 
 ### Re-identification test
@@ -238,9 +238,9 @@ flowchart LR
     subgraph Views
         V1[Overview<br/>plain-language answer, finding statement, key numbers]
         V2["Metrics<br/>metric / scope / variant selectors<br/>(only the default variant is published),<br/>change point, public events, baseline band"]
-        V3[Network<br/>Sigma.js WebGL graph of groups, ForceAtlas2,<br/>zoom, fullscreen, search, hover, week slider;<br/>anonymous Individuals mode; SVG fallback]
+        V3[Network<br/>plain-language week summary; Sigma.js WebGL<br/>graph of groups, ForceAtlas2, zoom, fullscreen,<br/>search, hover, week slider; Individuals and<br/>Overlap modes; SVG fallback]
         V4[Clusters<br/>chord diagram of group-to-group weight,<br/>per-group table]
-        V5[Hypotheses<br/>one list H1–H25, artifact<br/>and retention checks]
+        V5[Hypotheses<br/>plain-language verdicts; one list H1–H25,<br/>artifact and retention checks]
         V6[Data quality<br/>cleaning funnel, header rulings,<br/>manual merge check]
         V7[Privacy and risk<br/>R0 / R1 / R2 by attacker A1–A3]
         V8[Limits]

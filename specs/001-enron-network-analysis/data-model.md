@@ -158,8 +158,9 @@ artifact checks, so they are capped at low confidence; H1 and H4 are not support
 headline. Of H5–H25, none is confident; H16 and H20 are inconclusive (H16 after failing its
 retention check), the rest not supported, H25 among them. No hypothesis is held true. What the
 headers do establish is a change of the record: the record profile shows the custodians'
-after-hours share of weekday sent mail falling from about half to a few percent between April
-and May 2001, between the reference and crisis windows of every within-custodian comparison.
+after-hours share of weekday sent mail falling from about half (up to April 2001) to a few
+percent (from August 2001; the fall starts in May), between the reference and crisis windows of
+every within-custodian comparison.
 
 ## Parameters (single source: `config.py`, echoed in the run manifest)
 

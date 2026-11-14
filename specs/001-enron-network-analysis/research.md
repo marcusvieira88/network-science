@@ -197,7 +197,7 @@ defence available in the time.
 **As built**: H1–H4 as above, plus H5–H24 (two families stated before each was computed) and
 H25, a post-hoc replication test of a published denser-network result, all as one list H1–H25
 (`docs/hypotheses.md`, `docs/hypotheses-exploratory.md`). None is held true. The published
-finding is descriptive: the record changed between April and May 2001 (`record_profile`).
+finding is descriptive: the record changed from May 2001 on (`record_profile`).
 
 ## R11. Evidence and confidence
 

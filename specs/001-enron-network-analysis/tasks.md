@@ -465,7 +465,7 @@ was in the task list above.
   key if none is configured, downloads, runs the pipeline and both gates, builds and serves the
   explorer; `make check` does all but serve; `enron-case summary` prints the held-true count.
 - **Final review against prior work** (contract 1.6): the record profile (`record_profile`), which
-  shows the `Date` convention changing between April and May 2001 and became the published
+  shows the `Date` convention changing from May 2001 on and became the published
   finding; H25, a post-hoc replication test of a published denser-network result, stated before
   it was computed (not supported); two null-model defects fixed; attacker A3 (every custodian
   known); a related-work comparison in `docs/technical-overview.md`.

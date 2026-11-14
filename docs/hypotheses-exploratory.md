@@ -1,4 +1,4 @@
-# Exploratory hypotheses E1–E10
+# Exploratory hypotheses E1–E21 (= H5–H25)
 
 > **Numbering (added later).** These hypotheses are now numbered as one list with the
 > pre-registered ones: **E*n* is H*n*+4** (E1 = H5 … E12 = H16 … E20 = H24, and the post-hoc
@@ -153,7 +153,7 @@ true; neither can make one confident.
   messages in both windows are subsampled to the smaller window's count, the measure is
   recomputed and the paired test rerun. It is reported next to the outcome, not part of the
   rule. Because it is run only for the hypotheses that survived, its p has no Holm rank of its
-  own: `equalised_p_holm` multiplies it by the family size (20) and caps it at 1, which is Holm's
+  own: `equalised_p_holm` multiplies it by the family size (21 since E21 joined it; 20 before) and caps it at 1, which is Holm's
   multiplier for the family's smallest p and conservative at every other rank. Read the
   equalised result against `equalised_p_holm`, not the unadjusted `equalised_p`.
 - **Retention check** (2703cba, after the data-science review, run with the
@@ -215,7 +215,9 @@ E21 (H25) is **not supported**: median within-custodian change +0.008 (interval 
 change of the same size (+0.025, 13 custodians). Its retention check did not run, because the
 outcome was not supported (a check can only cap an outcome). The published densification is not
 visible when each custodian is compared with themselves a year earlier. Numbers:
-`release/exploratory.csv`, row H25.
+`release/exploratory.csv`, row H25; the figures here are typed by hand from the committed run
+(checked against the release on 2026-11-14), and the release table is authoritative after any
+rerun.
 
 The record profile stated as a known threat above is published as `release/record_profile.csv`
 and summarised in the report ("What changed in the record during the crisis year"): the
