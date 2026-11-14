@@ -80,6 +80,7 @@ def run_with(ctx: StageContext, deps: Dependencies) -> None:
     targets = node_level_persons(r0)
     custodians = set(entities_p.filter(pl.col("is_custodian")).get_column("pid")) & targets
     seeds = scorer.seeds(custodians, ctx.config.a2_seeds)
+    every_custodian = scorer.seeds(custodians, len(custodians))
     effects = variant_effects(ctx, releases, metric_series, deps.effect_size)
 
     rows: list[dict[str, object]] = []
@@ -93,8 +94,9 @@ def run_with(ctx: StageContext, deps: Dependencies) -> None:
                 guesses = attack_a1(release, aux_edges, ctx.config.distance_chunk_rows)
                 scored = targets
             else:
-                guesses = attack_a2(release, aux_edges, seeds, ctx.config.a2_min_support)
-                scored = targets - set(seeds)
+                known = seeds if attacker == "A2" else every_custodian
+                guesses = attack_a2(release, aux_edges, known, ctx.config.a2_min_support)
+                scored = targets - set(known)
             result = scorer.score(guesses, scored)
             ctx.log(
                 f"[risk] {name}/{attacker}: {result.n_correct} of {result.n_targets} re-identified"

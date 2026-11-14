@@ -50,6 +50,8 @@ RELEASE_VARIANTS = {
 ATTACKERS = {
     "A1": "outsider who holds the public corpus and matches per-address activity features",
     "A2": "insider who knows a few true identities and propagates from them through the graph",
+    "A3": "the same propagation seeded with every custodian: the public corpus names every "
+    "mailbox owner, so anyone holding it knows them all",
 }
 ALTERNATIVE_EXPLANATIONS = (
     "Retention: what each person kept, and what was collected, differs by person and period, "

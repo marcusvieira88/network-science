@@ -22,8 +22,8 @@ export const LIMITS = [
     text: "Addresses are merged into people by documented rules whose precision and recall were measured, not assumed. Errors remain and move counts slightly.",
   },
   {
-    title: "Risk is measured against two attackers",
-    text: "The re-identification figures come from two concrete attacks. A stronger or better-informed attacker could do better; the noisy release R2 is a sketch, not a formal privacy guarantee.",
+    title: "Risk is measured against three attackers",
+    text: "The re-identification figures come from three concrete attacks. A stronger or better-informed attacker could do better; the noisy release R2 is a sketch, not a formal privacy guarantee.",
   },
 ] as const;
 

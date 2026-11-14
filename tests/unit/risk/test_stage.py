@@ -84,7 +84,7 @@ def test_writes_one_valid_row_per_variant_and_attacker(outcome: Outcome) -> None
     _, results, _ = outcome
     schemas.validate(results, "risk_results")
     pairs = results.select("release_variant", "attacker").rows()
-    assert pairs == [(r, a) for r in ("R0", "R1", "R2") for a in ("A1", "A2")]
+    assert pairs == [(r, a) for r in ("R0", "R1", "R2") for a in ("A1", "A2", "A3")]
 
 
 def test_reported_rates_equal_rates_from_ground_truth(outcome: Outcome, synth: SynthOutput) -> None:
@@ -94,10 +94,14 @@ def test_reported_rates_equal_rates_from_ground_truth(outcome: Outcome, synth: S
     aux = aux_public.load_aux_edges(ctx)
     pid_of_address, custodians = truth_pids(synth)
     targets = stage.node_level_persons(r0)
-    seeds = score.Scorer.from_context(ctx, fixture_pid).seeds(custodians & targets, CONFIG.a2_seeds)
+    scorer = score.Scorer.from_context(ctx, fixture_pid)
+    seeds = scorer.seeds(custodians & targets, CONFIG.a2_seeds)
+    every = scorer.seeds(custodians & targets, len(custodians & targets))
+    assert len(every) > len(seeds)
     for attacker, guesses, scored in (
         ("A1", attack.attack_a1(r0, aux, CONFIG.distance_chunk_rows), targets),
         ("A2", attack.attack_a2(r0, aux, seeds, CONFIG.a2_min_support), targets - set(seeds)),
+        ("A3", attack.attack_a2(r0, aux, every, CONFIG.a2_min_support), targets - set(every)),
     ):
         correct = sum(pid_of_address.get(guesses.get(p, "")) == p for p in scored)
         reported = row(results, "R0", attacker)
@@ -119,7 +123,7 @@ def test_a1_reidentifies_most_active_custodians_in_r0(outcome: Outcome, synth: S
 def test_aggregate_releases_give_nothing_to_match(outcome: Outcome) -> None:
     _, results, logs = outcome
     for variant in ("R1", "R2"):
-        for attacker in ("A1", "A2"):
+        for attacker in ("A1", "A2", "A3"):
             reported = row(results, variant, attacker)
             assert reported["reid_top1"] == 0.0
             assert reported["unique_share"] == 0.0

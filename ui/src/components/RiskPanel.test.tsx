@@ -10,9 +10,9 @@ describe("RiskPanel", () => {
 
   it("groups re-identification by release variant and attacker", () => {
     expect(reidByVariant(rows)).toEqual([
-      { variant: "R0", A1: 0.9, A2: 0.62 },
-      { variant: "R1", A1: 0, A2: 0.02 },
-      { variant: "R2", A1: 0, A2: 0 },
+      { variant: "R0", A1: 0.9, A2: 0.62, A3: 0.7 },
+      { variant: "R1", A1: 0, A2: 0.02, A3: 0 },
+      { variant: "R2", A1: 0, A2: 0, A3: 0 },
     ]);
   });
 
@@ -20,7 +20,7 @@ describe("RiskPanel", () => {
     render(<RiskPanel rows={rows} />);
     const [table] = screen.getAllByRole("table");
     if (!table) throw new Error("table missing");
-    expect(table.querySelectorAll("tbody tr")).toHaveLength(6);
+    expect(table.querySelectorAll("tbody tr")).toHaveLength(9);
     expect(table).toHaveTextContent("R0 · pseudonymised edge list (before)");
     expect(table).toHaveTextContent("90%");
     expect(table).toHaveTextContent("0.97");
