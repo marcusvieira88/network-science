@@ -1,5 +1,5 @@
 {
-  "code_version": "9d671fa",
+  "code_version": "2c31e08",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -34,6 +34,8 @@
     "null_replicates": 20,
     "placebo_max_effect": 2.0,
     "min_unit_events": 30,
+    "exploratory_min_messages": 20,
+    "exploratory_bootstrap_reps": 2000,
     "degree_bucket_floors": [
       1,
       2,
@@ -116,6 +118,10 @@
     {
       "stage": "report",
       "seconds": 0.02
+    },
+    {
+      "stage": "ui-data",
+      "seconds": 0.04
     }
   ]
 }
