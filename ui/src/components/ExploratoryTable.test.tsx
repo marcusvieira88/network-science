@@ -49,7 +49,7 @@ describe("ExploratoryTable", () => {
   it("shows caveats, the family tag only on E11–E20 and no equalised line where none was computed", () => {
     render(<ExploratoryTable rows={sampleData().tables.exploratory} />);
     const e1 = within(rowFor("E1"));
-    expect(e1.getByText(/timestamps in the 2000 part of the corpus are shifted/)).toBeInTheDocument();
+    expect(e1.getByText(/timestamps in the reference year of the corpus are shifted/)).toBeInTheDocument();
     expect(e1.queryByText(/volume-equalised/)).not.toBeInTheDocument();
     expect(e1.queryByText("second family")).not.toBeInTheDocument();
     expect(e1.getByText("up")).toBeInTheDocument();
