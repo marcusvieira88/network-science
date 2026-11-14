@@ -382,3 +382,19 @@ def test_core_density_is_empty_with_a_single_custodian() -> None:
         ex.sent_messages(events, one), ex.received_messages(events, one), frozenset({A})
     )
     assert ex._core_ego_density(tables, WINDOW).height == 0
+
+
+@pytest.mark.parametrize(
+    ("significant", "on_side", "checks_pass", "expected"),
+    [
+        (True, True, True, "confident"),
+        (True, True, False, "inconclusive"),
+        (True, False, True, "not supported"),
+        (False, True, True, "not supported"),
+        (False, False, False, "not supported"),
+    ],
+)
+def test_outcome_rule(significant: bool, on_side: bool, checks_pass: bool, expected: str) -> None:
+    assert (
+        ex._outcome(significant=significant, on_side=on_side, checks_pass=checks_pass) == expected
+    )
