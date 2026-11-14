@@ -134,12 +134,12 @@ describe("privacy of what the views render", () => {
     unmount();
   });
 
-  it("network view, Individuals mode (2D): one bare point per published person, no id, label or tooltip", async () => {
+  it("network view, group-size dots mode (2D): one bare point per published person, no id, label or tooltip", async () => {
     const user = userEvent.setup();
     const k = minimumGroupSize(data);
     const { container, unmount } = render(createElement(View, { view: "network", data, onSelect: () => undefined }));
-    await user.click(screen.getByRole("tab", { name: "Individuals (anonymous)" }));
-    expect(container).toHaveTextContent(`Each point stands for one person in a group of at least ${k};`);
+    await user.click(screen.getByRole("tab", { name: "Group sizes (dots)" }));
+    expect(container).toHaveTextContent(`The dots only show how many people each group of at least ${k} has`);
     const layer = screen.getByTestId("anonymous-points");
     expect(layer).toHaveAttribute("aria-hidden", "true");
     expect(layer.closest("[data-testid=group-node], [data-state]")).toBeNull();
@@ -156,7 +156,7 @@ describe("privacy of what the views render", () => {
     unmount();
   });
 
-  it("network view, Individuals mode (WebGL): one bare anonymous node per published person, no label, id or tooltip", async () => {
+  it("network view, group-size dots mode (WebGL): one bare anonymous node per published person, no label, id or tooltip", async () => {
     resetSigmaStub();
     applyThemeVariables();
     const user = userEvent.setup();
@@ -174,11 +174,11 @@ describe("privacy of what the views render", () => {
         webgl: true,
       }),
     );
-    await user.click(screen.getByRole("tab", { name: "Individuals (anonymous)" }));
+    await user.click(screen.getByRole("tab", { name: "Group sizes (dots)" }));
     await waitFor(() => expect(sigmaStub.graph?.order).toBe(groups.length + totalPoints(groups)));
     const graph = sigmaStub.graph;
     if (!graph) throw new Error("no graph loaded");
-    expect(container).toHaveTextContent(`Each point stands for one person in a group of at least ${k};`);
+    expect(container).toHaveTextContent(`The dots only show how many people each group of at least ${k} has`);
 
     const points = graph.filterNodes((_, node) => node.kind === "point");
     expect(points).toHaveLength(totalPoints(groups));

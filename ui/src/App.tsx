@@ -17,7 +17,7 @@ import { SummaryView } from "@/components/SummaryView";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { driftCheckPasses } from "@/lib/clusters";
 import { type LoadResult, type ReleaseData, loadRelease } from "@/lib/data";
-import { STATED, countByKind, releaseHypotheses } from "@/lib/hypotheses";
+import { TIMING_LABELS, TIMING_MEANINGS, countByKind, countByTiming, releaseHypotheses } from "@/lib/hypotheses";
 import { minimumGroupSize } from "@/lib/privacy";
 import { analysisWeeks, baselinePeriod, headline } from "@/lib/series";
 import { LANDING_VIEW, type ViewId } from "@/lib/views";
@@ -83,14 +83,16 @@ export function View({ view, data, onSelect }: ViewProps) {
     case "hypotheses": {
       const entries = releaseHypotheses(data);
       const counts = countByKind(entries);
+      const timing = countByTiming(entries);
       return (
         <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">What we tested, in plain words</CardTitle>
               <CardDescription>
-                Each hypothesis is a claim about how email behaviour changed, written down before its result was
-                computed. One sentence per hypothesis says what came of it; the full statistics are below.
+                Each hypothesis is a claim about how email communication, or who took part in it, changed, written
+                down before its own result was computed. One sentence per hypothesis says what came of it; the full
+                statistics are below.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -101,19 +103,29 @@ export function View({ view, data, onSelect }: ViewProps) {
           <AnalystDetails>
             <div className="space-y-2 text-sm text-muted-foreground">
               <span className="block">
-                One list, ordered by number. {counts.preregistered} were stated {STATED.preregistered},{" "}
-                {counts.exploratory} {STATED.exploratory} and {counts.departure} {STATED.departure}; Holm&apos;s
-                correction runs within each of the first two sets, and the last is tested on its own
+                One list, ordered by number: {timing.preregistered} {TIMING_LABELS.preregistered} (
+                {TIMING_MEANINGS.preregistered}), {timing.stated} {TIMING_LABELS.stated}, and {timing.postHoc}{" "}
+                {TIMING_LABELS.postHoc} ({TIMING_MEANINGS.postHoc}). Holm&apos;s correction runs across the{" "}
+                {counts.preregistered} {TIMING_LABELS.preregistered} hypotheses and, separately, across the{" "}
+                {counts.exploratory} within-custodian ones; the departure question is tested on its own
                 <Explain term="p (Holm)" />.
-                Each hypothesis stated {STATED.exploratory} compares every custodian with themselves, crisis window
-                against the same weeks a year earlier.
+                Each within-custodian hypothesis compares every custodian with themselves, crisis window against the
+                same weeks a year earlier.
               </span>
               <span className="block">
-                &ldquo;Held true&rdquo; marks what the analysis holds to be true: the headline among the hypotheses
-                stated {STATED.preregistered}, or a confident outcome among those stated {STATED.exploratory}. A
-                hypothesis stated {STATED.preregistered} carries its check against a known artifact of the data under
+                &ldquo;Held true&rdquo; marks what the analysis holds to be true: the headline among the{" "}
+                {TIMING_LABELS.preregistered} hypotheses, or a confident outcome among the within-custodian ones. A{" "}
+                {TIMING_LABELS.preregistered} hypothesis carries its check against a known artifact of the data under
                 its row; a supported one whose check fails or cannot run is capped at low confidence and is not
                 claimed as a finding.
+              </span>
+              <span className="block">
+                Placebo: &ldquo;passes&rdquo; means the comparison before the crisis shows no change in the predicted
+                direction; a change against the prediction still passes, and is noted where the calm period already
+                shows the crisis change
+                <Explain term="Placebo" />. Leave-one-out: &ldquo;stable&rdquo; only if the median keeps the predicted
+                sign with each custodian left out in turn
+                <Explain term="Leave-one-out" />.
               </span>
             </div>
             <HypothesesTable entries={entries} />
@@ -192,7 +204,6 @@ export function App({ load = loadRelease }: { load?: () => Promise<LoadResult> }
       onSelect={setView}
       run={result.data.run}
       contractVersion={result.data.contract_version}
-      source={result.source}
     >
       <View view={view} data={result.data} onSelect={(next) => openFromContent(setView, next)} />
     </AppShell>

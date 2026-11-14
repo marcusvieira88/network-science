@@ -1,7 +1,7 @@
 /**
  * How the UI names and explains the release's `other` bucket. The release keeps the label `other`
- * (contract stability); on screen it is "Outside the <baseline> groups": people with no tie in the
- * baseline period plus communities under k. It is not a
+ * (contract stability); on screen it is "Outside the <baseline> groups": internal people with no
+ * tie in the baseline period plus communities under k. It is not a
  * community, so it is described by its size and by how much mail involves it, never as a group.
  * Every number here comes from community_groups and community_graph.
  */
@@ -40,12 +40,16 @@ export function outsidePeople(groups: CommunityGroupRow[]): number | null {
   return groups.find((g) => g.group === OTHER_GROUP)?.n_persons ?? null;
 }
 
-/** Who is in the bucket, in one sentence. */
+/**
+ * Who is in the bucket, in one sentence, from the data only: the release says how many they are
+ * and why they have no group, not when or whether they appear in the network.
+ */
 export function outsideExplanation(people: number, minGroupSize: number, baseline: Period | null): string {
   const year = baselineYear(baseline);
   const period = year ?? "the baseline period";
+  const group = year === null ? "baseline group" : `${year} group`;
   return (
-    `${formatNumber(people)} people with no tie in ${period} (such as people who first appear later) ` +
+    `${formatNumber(people)} internal people without a ${group}: no tie in ${period}, ` +
     `or in groups under ${minGroupSize} people; not a community.`
   );
 }

@@ -52,10 +52,10 @@ export function NetworkLegend({ groups, maxTie, mode }: LegendProps) {
           </span>
         ))}
       </div>
-      {mode === "individuals" && <div>Each small dot: one anonymous person (illustrative position)</div>}
+      {mode === "dots" && <div>Each small dot: one of the people counted in the group, not a real individual (random position)</div>}
       {mode === "overlap" && (
         <>
-          <div>Overlap = mail between two groups, not shared members — each person is in exactly one group.</div>
+          <div>Overlap = mail between two groups, not shared members — each grouped person is in exactly one group.</div>
           <div>The week&apos;s {OVERLAP_PAIRS} heaviest pairs overlap; depth: shared ÷ (own within-group + shared) messages.</div>
         </>
       )}

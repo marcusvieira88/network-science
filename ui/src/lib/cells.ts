@@ -1,8 +1,8 @@
 /**
- * Pure mapping for the network's Individuals mode: the anonymous points drawn inside each group.
+ * Pure mapping for the network's group-size dots mode: the anonymous points drawn inside each group.
  *
- * The anonymous points are decoration: one point per person counted in a published group, at a
- * seeded random position that carries no information. They have no label or data; where the
+ * The points only show how many people a group has: one point per person counted in a published
+ * group, at a seeded random position that carries no information. They are not real individuals. They have no label or data; where the
  * renderer needs a key, it is an opaque sequence number.
  */
 import type { CommunityGroupRow } from "@/lib/data";
@@ -10,7 +10,7 @@ import type { CommunityGroupRow } from "@/lib/data";
 /** Points stay this share of the radius away from the membrane, so none sits on the edge. */
 export const POINT_MARGIN = 0.15;
 
-export const NETWORK_MODES = ["groups", "individuals", "overlap"] as const;
+export const NETWORK_MODES = ["groups", "dots", "overlap"] as const;
 export type NetworkMode = (typeof NETWORK_MODES)[number];
 
 export type Point = readonly [number, number];
@@ -20,7 +20,7 @@ export function sortedGroups(groups: CommunityGroupRow[]): CommunityGroupRow[] {
   return [...groups].sort((x, y) => x.group.localeCompare(y.group));
 }
 
-/** Total anonymous points the Individuals mode draws: one per person in a published group. */
+/** Total anonymous points the group-size dots mode draws: one per person in a published group. */
 export function totalPoints(groups: CommunityGroupRow[]): number {
   return groups.reduce((sum, group) => sum + group.n_persons, 0);
 }

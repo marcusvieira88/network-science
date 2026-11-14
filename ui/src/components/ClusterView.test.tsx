@@ -105,7 +105,7 @@ describe("ClusterView", () => {
   it("explains the outside bucket and gives each period's share of weight involving outside people", async () => {
     renderView();
     expect(screen.getByTestId("outside-note")).toHaveTextContent(
-      "Outside the 2000 groups: 5 people with no tie in 2000 (such as people who first appear later) or in groups under 5 people; not a community.",
+      "Outside the 2000 groups: 5 internal people without a 2000 group: no tie in 2000, or in groups under 5 people; not a community.",
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole("tab", { name: "Baseline year" }));

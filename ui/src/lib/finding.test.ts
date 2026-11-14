@@ -53,17 +53,17 @@ describe("noFindingExplanation", () => {
       hypothesis("H3", { supported: "yes" }),
     ];
     const text = noFindingExplanation(hypotheses, [check("H2", false), check("H3", null)]);
-    expect(text.title).toBe("No finding claimed");
+    expect(text.title).toBe("No behavioural finding claimed");
     const body = text.body.join(" ");
     expect(body).toMatch(/H2 passed the statistical tests but failed its check against a known artifact/);
     expect(body).toMatch(/H3 passed the statistical tests but its check against a known artifact could not run/);
-    expect(body).toMatch(/so no finding is claimed/);
+    expect(body).toMatch(/so no behavioural finding is claimed/);
     expect(body).not.toMatch(/H1/);
   });
 
   it("explains a supported hypothesis that is not headline because a robustness check failed", () => {
     const text = noFindingExplanation([hypothesis("H4", { supported: "yes", confidence: "moderate" })], []);
-    expect(text.title).toBe("No finding claimed");
+    expect(text.title).toBe("No behavioural finding claimed");
     expect(text.body.join(" ")).toMatch(/H4 is supported but fails at least one robustness check \(moderate confidence\)/);
   });
 });

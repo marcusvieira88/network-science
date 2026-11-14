@@ -47,12 +47,29 @@ describe("HypothesesTable", () => {
     ]);
   });
 
+  it("labels a hypothesis of the post-hoc family post hoc, like H26", () => {
+    const { hypotheses, exploratory: rows, checks } = handBuilt();
+    const entries = allHypotheses(hypotheses, [...rows, exploratory(25, { family: "post hoc" })], checks);
+    render(<HypothesesTable entries={entries} />);
+    expect(within(rowFor("H25")).getByText("post hoc")).toBeInTheDocument();
+  });
+
+  it("notes a passing placebo that already shows the crisis change", () => {
+    const { hypotheses, exploratory: rows, checks } = handBuilt();
+    // H21 as released: fell by 0.148; the placebo interval lies wholly below zero as well.
+    const h21 = { median_change: -0.148, ci_low: -0.191, ci_high: -0.106, placebo_median: -0.139, placebo_ci_low: -0.257, placebo_ci_high: -0.0672 };
+    const entries = allHypotheses(hypotheses, rows.map((row) => (row.hypothesis === "H21" ? { ...row, ...h21 } : row)), checks);
+    render(<HypothesesTable entries={entries} />);
+    expect(within(rowFor("H21")).getByText("the calm period already shows this change")).toBeInTheDocument();
+    expect(screen.getAllByText("the calm period already shows this change")).toHaveLength(1);
+  });
+
   it("states when each hypothesis was stated, from its table", () => {
     renderTable();
-    expect(within(rowFor("H4")).getByText("before any data")).toBeInTheDocument();
-    expect(within(rowFor("H5")).getByText("before being computed")).toBeInTheDocument();
-    expect(screen.getAllByText("before any data")).toHaveLength(4);
-    expect(screen.getAllByText("before being computed")).toHaveLength(20);
+    expect(within(rowFor("H4")).getByText("pre-registered")).toBeInTheDocument();
+    expect(within(rowFor("H5")).getByText("stated before computed, after earlier results")).toBeInTheDocument();
+    expect(screen.getAllByText("pre-registered")).toHaveLength(4);
+    expect(screen.getAllByText("stated before computed, after earlier results")).toHaveLength(20);
   });
 
   it("marks the headline and the confident hypothesis as held true, with the accent", () => {
@@ -66,7 +83,7 @@ describe("HypothesesTable", () => {
     expect(within(rowFor("H16")).getByText("volume-equalised: 0.1 (0.06 to 0.17)")).toHaveClass("text-primary");
   });
 
-  it("shows a hypothesis stated before any data with effect, Holm p, robustness and outcome", () => {
+  it("shows a pre-registered hypothesis with effect, Holm p, robustness and outcome", () => {
     renderTable();
     const h1 = within(rowFor("H1"));
     expect(h1.getByText("In-degree concentration (Gini), core network")).toBeInTheDocument();
@@ -83,7 +100,7 @@ describe("HypothesesTable", () => {
     expect(h1.getByTitle(/not in the release data/)).toHaveTextContent("—");
   });
 
-  it("shows a hypothesis stated before being computed with its measure, direction, placebo and leave-one-out", () => {
+  it("shows a within-custodian hypothesis with its measure, direction, placebo and leave-one-out", () => {
     renderTable();
     const h16 = within(rowFor("H16"));
     expect(h16.getByText("measure 16")).toBeInTheDocument();
@@ -143,7 +160,7 @@ describe("HypothesesTable", () => {
     const outsideDeparture = screen.getAllByRole("table").filter((table) => !table.closest("[data-testid='departure-details']"));
     expect(outsideDeparture).toHaveLength(1);
     expect(container).toHaveTextContent(
-      "4 were stated before any data, 20 before being computed and 1 post hoc, after every other result and before being computed",
+      "One list, ordered by number: 4 pre-registered (before any real data was analysed), 20 stated before computed, after earlier results, and 1 post hoc (after every other result was known, still before its own result was computed).",
     );
     expect(mainRows()).toHaveLength(25);
   });

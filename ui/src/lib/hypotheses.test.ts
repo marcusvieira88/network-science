@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { DataError } from "@/lib/data";
 import {
-  STATED,
+  TIMING_LABELS,
   allHypotheses,
   countByKind,
+  countByTiming,
+  placeboShowsChange,
+  timingOf,
   equalisedEstimate,
   formatEstimate,
   heldTrueLines,
@@ -44,14 +47,14 @@ describe("allHypotheses", () => {
 
   it("takes the kind from the table a row comes from, not from its id", () => {
     const entries = allHypotheses([preregistered("H2")], [exploratory(7, { hypothesis: "H7" }), exploratory(2, { hypothesis: "X2" })], []);
-    expect(entries.map((e) => [e.id, e.kind, STATED[e.kind]])).toEqual([
-      ["H2", "preregistered", "before any data"],
-      ["X2", "exploratory", "before being computed"],
-      ["H7", "exploratory", "before being computed"],
+    expect(entries.map((e) => [e.id, e.kind, TIMING_LABELS[timingOf(e)]])).toEqual([
+      ["H2", "preregistered", "pre-registered"],
+      ["X2", "exploratory", "stated before computed, after earlier results"],
+      ["H7", "exploratory", "stated before computed, after earlier results"],
     ]);
   });
 
-  it("orders the ids the committed sample still has (H1–H4 and E1–E20) by number too", () => {
+  it("orders ids with another prefix (such as the dated record's E-numbers) by number too", () => {
     const entries = allHypotheses([preregistered("H1"), preregistered("H2")], [exploratory(2, { hypothesis: "E2" }), exploratory(1, { hypothesis: "E1" })], []);
     expect(entries.map((e) => e.id)).toEqual(["H1", "E1", "H2", "E2"]);
   });
@@ -137,7 +140,26 @@ describe("releaseHypotheses", () => {
     expect(held?.heldTrue).toBe(true);
   });
 
-  it("says when H26 was stated", () => {
-    expect(STATED.departure).toBe("post hoc, after every other result and before being computed");
+  it("labels H1–H4 pre-registered, H5–H24 stated before computed, and H25 and H26 post hoc", () => {
+    const entries = releaseHypotheses(withRealDepartures(sampleData()));
+    const label = (id: string) => entries.flatMap((entry) => (entry.id === id ? [TIMING_LABELS[timingOf(entry)]] : []));
+    expect(label("H4")).toEqual(["pre-registered"]);
+    expect(label("H5")).toEqual(["stated before computed, after earlier results"]);
+    expect(label("H24")).toEqual(["stated before computed, after earlier results"]);
+    expect(label("H25")).toEqual(["post hoc"]);
+    expect(label("H26")).toEqual(["post hoc"]);
+    expect(countByTiming(entries)).toEqual({ preregistered: 4, stated: 20, postHoc: 2 });
+  });
+
+  it("reads a passing placebo that already shows the crisis change", () => {
+    // H21 as released: fell by 0.148 in the crisis; the placebo interval lies wholly below zero.
+    const h21 = exploratory(21, { median_change: -0.148, placebo_median: -0.139, placebo_ci_low: -0.257, placebo_ci_high: -0.0672 });
+    // H14 as released: fell by 0.168; the placebo rose and its interval includes zero.
+    const h14 = exploratory(14, { median_change: -0.168, placebo_median: 0.0816, placebo_ci_low: -0.0279, placebo_ci_high: 0.105 });
+    // H25 as released: rose by 0.00826; the placebo median is larger, its interval touches zero.
+    const h25 = exploratory(25, { median_change: 0.00826, placebo_median: 0.0248, placebo_ci_low: 0, placebo_ci_high: 0.0331 });
+    expect([h21, h14, h25].map(placeboShowsChange)).toEqual([true, false, true]);
+    expect(placeboShowsChange(exploratory(8, { median_change: 0 }))).toBe(false);
+    expect(placeboShowsChange(exploratory(9, { placebo_median: null }))).toBe(false);
   });
 });

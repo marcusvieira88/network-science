@@ -49,8 +49,11 @@ function FunnelStep({ step }: { step: DataQualityRow }) {
       </div>
       {(step.precision !== null || step.recall !== null) && (
         <div className="text-xs text-muted-foreground">
-          Precision {formatShare(step.precision)} · recall {formatShare(step.recall)} (measured on a labelled or
-          synthetic set)
+          Precision {formatShare(step.precision)} · recall {formatShare(step.recall)} (
+          {step.recall === null
+            ? "from a sample judged by a person; no recall"
+            : "against the known answers of the synthetic corpus"}
+          )
         </div>
       )}
     </li>
@@ -89,7 +92,10 @@ export function QualityPanel({ steps, headerFields, degrees }: QualityPanelProps
             <CardDescription className="space-y-1">
               <span className="block text-base font-medium text-foreground">{headerHeadline(headerFields)}</span>
               <span className="block">
-                Every header field seen, and what the parser does with it. Content fields are dropped unread.
+                Every header field seen, and what the parser does with it. Content fields are never decoded, parsed,
+                held, stored or logged: a Subject line is discarded as the header is scanned. Two identifier fields,
+                X-Origin and X-FileName, are direct identifiers that are not retained. &ldquo;(other)&rdquo; counts
+                occurrences of names without a ruling; it is not a field.
               </span>
             </CardDescription>
           </CardHeader>

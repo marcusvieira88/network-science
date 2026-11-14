@@ -71,7 +71,7 @@ describe("SigmaNetwork", () => {
   });
 
   it("highlights a hovered group and its ties, dims the rest, and ignores hovered points", () => {
-    render(<SigmaNetwork {...props} mode="individuals" />);
+    render(<SigmaNetwork {...props} mode="dots" />);
     const tie = loaded().edges()[0] ?? "";
     act(() => sigmaStub.handlers.enterNode?.({ node: "group:G03" }));
     expect(drawnNode("group:G03")).toMatchObject({ highlighted: true });
@@ -113,10 +113,10 @@ describe("SigmaNetwork", () => {
     expect(legend).not.toHaveTextContent("anonymous person");
   });
 
-  it("in the Individuals mode adds one anonymous point per person and says so in the legend", () => {
-    render(<SigmaNetwork {...props} mode="individuals" />);
+  it("in the group-size dots mode adds one anonymous point per person and says so in the legend", () => {
+    render(<SigmaNetwork {...props} mode="dots" />);
     const points = loaded().filterNodes((_, node) => node.kind === "point");
     expect(points).toHaveLength(14 + 9 + 6);
-    expect(screen.getByTestId("network-legend")).toHaveTextContent("Each small dot: one anonymous person");
+    expect(screen.getByTestId("network-legend")).toHaveTextContent("Each small dot: one of the people counted in the group, not a real individual");
   });
 });

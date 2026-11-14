@@ -6,7 +6,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
 import { type Departure, isSignificant, pText, periodRow, ruledVariants, shareText } from "@/lib/departures";
 import { formatFloat, formatInterval, formatNumber, formatP, metricLabel } from "@/lib/format";
-import { type HypothesisEntry, STATED, equalisedEstimate, formatEstimate, retentionCheck } from "@/lib/hypotheses";
+import {
+  type HypothesisEntry,
+  TIMING_LABELS,
+  equalisedEstimate,
+  formatEstimate,
+  placeboShowsChange,
+  retentionCheck,
+  timingOf,
+} from "@/lib/hypotheses";
 import { cn } from "@/lib/utils";
 
 const SUPPORT_VARIANT = { yes: "default", no: "outline", inconclusive: "secondary" } as const;
@@ -19,6 +27,8 @@ export const HELD_TRUE = "Held true";
 /** Shown where a comparison covers fewer than k custodians and the release suppresses it. */
 const SUPPRESSED = "suppressed";
 /** H1–H4 state their direction in docs/hypotheses.md; the release tables do not carry it. */
+/** A placebo that passes its stated rule although the calm period moved the way the crisis did. */
+const PLACEBO_SHOWS_CHANGE = "the calm period already shows this change";
 const DIRECTION_NOT_PUBLISHED = "not in the release data; see docs/hypotheses.md";
 
 function flag(value: boolean | null, yes: string, no: string): string {
@@ -101,6 +111,7 @@ function ExploratoryCells({ row, heldTrue }: { row: ExploratoryRow; heldTrue: bo
       <TableCell className="text-sm">
         <div>placebo {flag(row.placebo_passes, "passes", "fails")}</div>
         <Muted>{formatEstimate(row.placebo_median, row.placebo_ci_low, row.placebo_ci_high)}</Muted>
+        {row.placebo_passes === true && placeboShowsChange(row) && <Muted>{PLACEBO_SHOWS_CHANGE}</Muted>}
         <div>leave-one-out {flag(row.loo_stable, "stable", "unstable")}</div>
       </TableCell>
       <TableCell>
@@ -156,7 +167,7 @@ function DepartureCells({ departure }: { departure: Departure }) {
   );
 }
 
-/** The artifact check of a hypothesis stated before any data, as a detail line under its row. */
+/** The artifact check of a pre-registered hypothesis, as a detail line under its row. */
 function CheckDetail({ check, heldTrue }: { check: ArtifactCheckRow; heldTrue: boolean }) {
   return (
     <TableRow data-testid="artifact-check" className={cn("border-t-0", heldTrue && "bg-primary/10")}>
@@ -181,7 +192,7 @@ function EntryRow({ entry }: { entry: HypothesisEntry }) {
       {entry.kind === "preregistered" && <PreregisteredCells row={entry.row} />}
       {entry.kind === "exploratory" && <ExploratoryCells row={entry.row} heldTrue={heldTrue} />}
       {entry.kind === "departure" && <DepartureCells departure={entry.departure} />}
-      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">{STATED[entry.kind]}</TableCell>
+      <TableCell className="text-sm text-muted-foreground">{TIMING_LABELS[timingOf(entry)]}</TableCell>
     </TableRow>
   );
 }

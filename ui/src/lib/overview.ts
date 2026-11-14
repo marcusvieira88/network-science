@@ -22,14 +22,22 @@ function groupsNote(data: ReleaseData): string {
   const note = `each at least ${minimumGroupSize(data)} people`;
   const outside = outsidePeople(data.tables.community_groups);
   if (outside === null) return note;
-  return `${note}; ${formatNumber(outside)} more people are ${outsideLabel(baselinePeriod(data)).toLowerCase()}`;
+  return `${note}; ${formatNumber(outside)} more internal people are ${outsideLabel(baselinePeriod(data)).toLowerCase()}`;
 }
 
-/** The published rate is 0 by construction (no person-level record to match), never measured. */
+/**
+ * Only the person-level data was measured. A published rate of 0 is by construction (no
+ * person-level record to match), so it is stated as that, never drawn as a measured drop.
+ */
 function reidNote(published: number | null): string {
-  return published === 0
-    ? "strongest attacker; the published tables hold no person to match"
-    : "strongest attacker, person-level data vs published";
+  if (published === null) return `strongest attacker, on ${PERSON_LEVEL}, which is never published`;
+  if (published === 0) {
+    return (
+      `strongest attacker, on ${PERSON_LEVEL}, which is never published; the published tables hold no ` +
+      "person-level record, so the attack does not apply to them (0 by construction, not a measurement)"
+    );
+  }
+  return `strongest attacker, on ${PERSON_LEVEL}, which is never published; ${formatShare(published)} against the published release`;
 }
 
 export function keyNumbers(data: ReleaseData): KeyNumber[] {
@@ -42,9 +50,9 @@ export function keyNumbers(data: ReleaseData): KeyNumber[] {
       note: dedupe ? `from ${dedupe.count_in.toLocaleString("en-US")} stored copies` : "step not in release",
     },
     {
-      label: "Weeks analysed",
+      label: "Weeks in the weekly series",
       value: String(analysisWeeks(data.tables.weekly_metrics).length),
-      note: "weekly network snapshots",
+      note: "weekly network snapshots, by the Monday each week begins",
     },
     {
       label: "Groups in the network view",
@@ -52,8 +60,8 @@ export function keyNumbers(data: ReleaseData): KeyNumber[] {
       note: groupsNote(data),
     },
     {
-      label: "Re-identification, naive vs published",
-      value: `${formatShare(worstReid(data, PERSON_LEVEL))} → ${formatShare(worstReid(data, PUBLISHED))}`,
+      label: "Re-identified from person-level data",
+      value: formatShare(worstReid(data, PERSON_LEVEL)),
       note: reidNote(worstReid(data, PUBLISHED)),
     },
   ];

@@ -1,6 +1,6 @@
 /**
- * A small hand-built set of hypotheses with the single numbering H1–H24: H1–H4 in the `hypotheses`
- * table, H5–H24 in the `exploratory` table. Tests use it instead of the sample's ids.
+ * A small hand-built set of hypotheses with the single numbering: H1–H4 in the `hypotheses` table,
+ * H5–H24 in the `exploratory` table (H25 and H26 are added by the tests that need them). Tests use it instead of the sample's ids.
  */
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
 

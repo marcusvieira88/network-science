@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { ArtifactCheckRow, HypothesisRow } from "@/lib/data";
 import { noFindingExplanation } from "@/lib/finding";
 import { formatFloat, formatInterval, formatP, metricLabel } from "@/lib/format";
+import { NO_BEHAVIOURAL_FINDING } from "@/lib/record";
 import { headline } from "@/lib/series";
 
 export function ConfidenceBadge({ confidence }: { confidence: HypothesisRow["confidence"] }) {
@@ -14,9 +15,12 @@ export function ConfidenceBadge({ confidence }: { confidence: HypothesisRow["con
 export function FindingCard({
   hypotheses,
   artifactChecks,
+  recordFinding = null,
 }: {
   hypotheses: HypothesisRow[];
   artifactChecks: ArtifactCheckRow[];
+  /** The finding about the record (lib/record.ts), stated before what is not claimed about behaviour. */
+  recordFinding?: string | null;
 }) {
   const finding = headline(hypotheses);
   if (!finding) {
@@ -24,10 +28,15 @@ export function FindingCard({
     return (
       <Card>
         <CardHeader>
-          <CardDescription>Headline finding</CardDescription>
+          <CardDescription>Headline among the pre-registered hypotheses</CardDescription>
           <CardTitle className="text-xl">{title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
+          {recordFinding !== null && (
+            <p className="text-foreground">
+              {recordFinding} {NO_BEHAVIOURAL_FINDING}
+            </p>
+          )}
           {body.map((sentence) => (
             <p key={sentence}>{sentence}</p>
           ))}

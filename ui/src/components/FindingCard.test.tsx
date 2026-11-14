@@ -35,6 +35,16 @@ describe("FindingCard", () => {
     expect(screen.getByText("high confidence")).toBeInTheDocument();
   });
 
+  it("states the finding about the record before what is not claimed about behaviour", () => {
+    const finding = "The finding: the record changed (high confidence that it changed; cause not established).";
+    render(
+      <FindingCard hypotheses={[{ ...h1, supported: "no", is_headline: false }]} artifactChecks={[]} recordFinding={finding} />,
+    );
+    expect(screen.getByText(`${finding} No behavioural finding about the crisis year is claimed.`)).toBeInTheDocument();
+    expect(screen.getByText("Headline among the pre-registered hypotheses")).toBeInTheDocument();
+    expect(screen.queryByText(/no finding/i)).not.toBeInTheDocument();
+  });
+
   it("shows the no-finding state when no headline hypothesis is supported", () => {
     render(<FindingCard hypotheses={[{ ...h1, supported: "inconclusive", is_headline: false }]} artifactChecks={[]} />);
     expect(screen.getByText("No hypothesis supported")).toBeInTheDocument();
@@ -53,7 +63,7 @@ describe("FindingCard", () => {
       note: "",
     };
     render(<FindingCard hypotheses={[{ ...h1, confidence: "low", is_headline: false }]} artifactChecks={[failed]} />);
-    expect(screen.getByText("No finding claimed")).toBeInTheDocument();
+    expect(screen.getByText("No behavioural finding claimed")).toBeInTheDocument();
     expect(screen.getByText(/H1 passed the statistical tests but failed its check against a known artifact/)).toBeInTheDocument();
   });
 });

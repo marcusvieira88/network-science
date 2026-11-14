@@ -16,12 +16,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ATTACKERS, type RiskRow } from "@/lib/data";
 import { formatFloat, formatShare } from "@/lib/format";
 import { riskHeadline } from "@/lib/executive";
-import { ATTACKER_LABELS, VARIANT_LABELS, reidByVariant } from "@/lib/risk";
+import { ATTACKER_LABELS, VARIANT_LABELS, reidByVariant, zeroByConstruction } from "@/lib/risk";
 
 const RISK_CAPTION =
   "Each group of bars is one release, each bar one simulated attacker; a taller bar means more people correctly identified. " +
-  "R0 is person-level data under pseudonyms and was never published; R1 holds only group totals and is what is published; " +
-  "R2 adds random noise to R1.";
+  "R0 is person-level data under pseudonyms and was never published: it is the only release these attacks measure. " +
+  "R1 holds only group totals and is what is published; R2 adds random noise to R1. Neither holds a person-level record, " +
+  "so a rate of 0 for them is by construction, not a measurement.";
+
+/** Why the last two columns can be empty (release/report.md, privacy section). */
+const NO_HEADLINE_UTILITY =
+  "Utility and “Finding survives” are empty because there is no headline finding to recompute on the mitigated releases.";
 
 const config: ChartConfig = {
   A1: { label: ATTACKER_LABELS.A1, color: "var(--chart-1)" },
@@ -36,7 +41,7 @@ export function RiskPanel({ rows }: { rows: RiskRow[] }) {
         <CardHeader>
           <CardTitle>Re-identification rate by release</CardTitle>
           <CardDescription>
-            Share of people an attacker re-identifies correctly (top-1) from each release
+            Share of people an attacker re-identifies correctly (top-1); measured on R0 only
             <Explain term="Re-identification" />. Releases
             <Explain term="Releases R0, R1, R2" /> and attackers
             <Explain term="Attackers A1, A2, A3" /> in plain words.
@@ -77,6 +82,7 @@ export function RiskPanel({ rows }: { rows: RiskRow[] }) {
           <CardTitle>Risk and analytical cost side by side</CardTitle>
           <CardDescription>
             Utility is the headline effect under the release divided by the effect on restricted data.
+            {rows.every((row) => row.utility_effect_ratio === null) && ` ${NO_HEADLINE_UTILITY}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -107,7 +113,9 @@ export function RiskPanel({ rows }: { rows: RiskRow[] }) {
                   <TableCell className="text-right font-mono tabular-nums">
                     {formatFloat(row.median_anonymity_set)}
                   </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">{formatShare(row.reid_top1)}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{formatShare(row.reid_top1)}
+                    {zeroByConstruction(row) && " (by construction)"}
+                  </TableCell>
                   <TableCell className="font-mono tabular-nums">
                     [{formatShare(row.reid_ci_low)}, {formatShare(row.reid_ci_high)}]
                   </TableCell>

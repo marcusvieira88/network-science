@@ -8,6 +8,7 @@ import { releaseHypotheses } from "@/lib/hypotheses";
 import { worstReid } from "@/lib/overview";
 import { executiveSummary } from "@/lib/plainLanguage";
 import { minimumGroupSize } from "@/lib/privacy";
+import { recordFinding } from "@/lib/record";
 import { PERSON_LEVEL, PUBLISHED } from "@/lib/risk";
 import type { ViewId } from "@/lib/views";
 
@@ -20,7 +21,7 @@ function privacyLine(data: ReleaseData): string | null {
   const naive = worstReid(data, PERSON_LEVEL);
   const published = worstReid(data, PUBLISHED);
   if (naive === null || published === null) return null;
-  const before = `On person-level pseudonymised data the strongest attack re-identifies ${formatShare(naive)} of people`;
+  const before = `On person-level pseudonymised data, which is never published, the strongest attack re-identifies ${formatShare(naive)} of people`;
   if (published > 0) return `${before}; on the published release, ${formatShare(published)}.`;
   return (
     `${before}. ` +
@@ -33,13 +34,15 @@ function privacyLine(data: ReleaseData): string | null {
 export function ExecutiveSummary({ data, onSelect }: { data: ReleaseData; onSelect?: (view: ViewId) => void }) {
   const { answer, points } = executiveSummary(releaseHypotheses(data));
   const privacy = privacyLine(data);
+  const finding = recordFinding(data);
   return (
     <Card className="border-primary/40">
       <CardHeader>
         <CardDescription>In short</CardDescription>
-        <CardTitle className="text-2xl leading-snug">{answer}</CardTitle>
+        <CardTitle className="text-2xl leading-snug">{finding ?? answer}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
+        {finding !== null && <p className="text-base">{answer}</p>}
         <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
           {points.map((point) => (
             <li key={point}>{point}</li>

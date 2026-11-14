@@ -37,17 +37,15 @@ function movedLower(reference: number[], crisis: number[]): boolean | null {
   return Math.min(...crisis) > Math.max(...reference) ? false : null;
 }
 
-/** The within-custodian interval excludes zero on the side the monthly shares moved to. */
-function sameSide(row: ExploratoryRow | undefined, lower: boolean): boolean {
-  if (row === undefined || row.median_change === null) return false;
-  const bound = lower ? row.ci_high : row.ci_low;
-  if (bound === null) return false;
-  return lower ? bound < 0 : bound > 0;
+/** The within-custodian interval lies wholly on one side of zero. */
+function excludesZero(row: ExploratoryRow | undefined): boolean {
+  if (row === undefined || row.median_change === null || row.ci_low === null || row.ci_high === null) return false;
+  return row.ci_low > 0 || row.ci_high < 0;
 }
 
 /**
  * High when the monthly ranges of the two windows do not overlap and the change within the same
- * people has an interval that excludes zero on the same side; moderate when the ranges do not
+ * people has an interval that excludes zero; moderate when the ranges do not
  * overlap but that change is not measured or its interval includes zero; null when no change of
  * the record is claimed (overlapping ranges, or too few published months).
  */
@@ -56,10 +54,9 @@ export function recordConfidence(data: ReleaseData): RecordConfidence | null {
   const reference = windowShares(profile, data.windows.reference);
   const crisis = windowShares(profile, data.windows.crisis);
   if (!reference.length || !crisis.length) return null;
-  const lower = movedLower(reference, crisis);
-  if (lower === null) return null;
+  if (movedLower(reference, crisis) === null) return null;
   const row = data.tables.exploratory.find((candidate) => candidate.hypothesis === TIMESTAMP_HYPOTHESIS);
-  return sameSide(row, lower) ? "high" : "moderate";
+  return excludesZero(row) ? "high" : "moderate";
 }
 
 /** The finding in one sentence, the same on every surface; null when no change of the record is claimed. */
