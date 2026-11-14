@@ -190,13 +190,13 @@ flowchart LR
     subgraph W["tenant account · private VPC, egress to provider APIs only"]
         SM{{"Secrets Manager<br/>OAuth tokens, KMS"}} -.-> CON["connectors"]
         CON --> SFN["Step Functions + Fargate<br/>pipeline: Polars"] --> REL[("release Parquet<br/>KMS key per zone")]
+        OBS["CloudWatch, Prometheus,<br/>Grafana"]
     end
     subgraph SV["serving account"]
         CF["CloudFront + WAF<br/>static UI, CSP"] -->|"/api, JWT"| API["API Gateway<br/>rate limit, roles"] --> Q["query service<br/>DuckDB, k ≥ 5, budget"]
         Q --> PG[("PostgreSQL<br/>users, roles, audit")]
     end
     REL -->|read-only| Q
-    OBS["CloudWatch, Prometheus,<br/>Grafana"]
     SFN & Q -.->|counts only| OBS
 ```
 
