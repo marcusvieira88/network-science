@@ -261,8 +261,11 @@ def test_uv_from_its_environment_variable_is_used(healthy_machine: pytest.Monkey
     ("missing", "message"),
     [
         ("uv", "uv (https://docs.astral.sh/uv/)"),
-        ("node", "Node.js >= 20"),
-        ("npm", "npm"),
+        (
+            "node",
+            "Node.js >= 20 (install it from https://nodejs.org, or on macOS: brew install node)",
+        ),
+        ("npm", "npm (it comes with Node.js: https://nodejs.org)"),
     ],
 )
 def test_missing_tool_is_named(

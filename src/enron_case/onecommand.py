@@ -50,6 +50,11 @@ from enron_case.zones import Paths
 ALL, CHECK = "all", "check"
 MODES = (ALL, CHECK)
 UV_HINT = "uv (https://docs.astral.sh/uv/)"
+NODE_HINT = (
+    f"Node.js >= {MIN_NODE_MAJOR} (install it from https://nodejs.org, "
+    "or on macOS: brew install node)"
+)
+NPM_HINT = "npm (it comes with Node.js: https://nodejs.org)"
 PORT_PATTERN = re.compile(r"[0-9]{1,5}")
 BYTES_PER_GB = 1024**3
 SIGNAL_EXIT_BASE = 128  # a shell reports death by signal N as 128 + N
@@ -216,7 +221,7 @@ def check_prerequisites(mode: str, port: int, root: Path) -> Tools:
     version = node_version(node)
     if node_major(version) < MIN_NODE_MAJOR:
         raise PrerequisiteMissing(f"Node.js >= {MIN_NODE_MAJOR} (found {version})")
-    npm = find_tool("npm", "npm")
+    npm = find_tool("npm", NPM_HINT)
     free = free_disk_bytes(root)
     if free < MIN_FREE_DISK_BYTES:
         needed = MIN_FREE_DISK_BYTES // BYTES_PER_GB
@@ -361,15 +366,15 @@ def run_python_gate(root: Path = REPO_ROOT) -> int:
 
 
 def find_node() -> str:
-    return find_tool("node", f"Node.js >= {MIN_NODE_MAJOR}")
+    return find_tool("node", NODE_HINT)
 
 
 def install_ui_dependencies(root: Path = REPO_ROOT) -> int:
-    return run_streaming(ui_dependency_commands(find_tool("npm", "npm"), root / "ui"))
+    return run_streaming(ui_dependency_commands(find_tool("npm", NPM_HINT), root / "ui"))
 
 
 def run_ui_gate(root: Path = REPO_ROOT) -> int:
-    node, npm = find_node(), find_tool("npm", "npm")
+    node, npm = find_node(), find_tool("npm", NPM_HINT)
     ui_root = root / "ui"
     return run_streaming((*ui_dependency_commands(npm, ui_root), *ui_gate(node, npm, ui_root)))
 
