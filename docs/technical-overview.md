@@ -5,27 +5,35 @@ The detailed companion to the one-page [README](../README.md).
 An engineering case study: a privacy-first pipeline that reads **only the headers** of the public
 Enron email corpus. It cleans and pseudonymizes them, tests pre-stated hypotheses about how the
 organization's communication network changed in 2001, attacks its own output to measure
-re-identification risk, and publishes only aggregates. An optional dark-themed explorer UI shows
-the published results, opening on a plain-language executive summary for non-specialists.
+re-identification risk, and publishes only aggregates. A dark-themed explorer UI shows the
+published results, opening on a plain-language executive summary for non-specialists. The one
+command builds and serves it, so Node 20+ is a prerequisite; `make gate` and `enron-case run`
+work without Node.
 
 The corpus is public; the pipeline is built as if it were not.
 
 **Results in brief.** One list of 26 hypotheses (H1–H26), each committed before it was computed,
-and one descriptive profile of the record.
+and one descriptive profile of the record. Three timing labels say how to read each: H1–H4 are
+"pre-registered" (before any real data), H5–H24 "stated before computed, after earlier results",
+and H25 and H26 "post hoc".
 
-- **The finding: the record changed under the analysis.** Within the same custodians, the share
+- **The finding: the record changed** (high confidence that it changed; cause not established).
+  No behavioural finding about the crisis year is claimed. Within the same custodians, the share
   of weekday sent mail stamped outside working hours falls from roughly half (every month up to
   April 2001) to a few percent (from August 2001 on; the fall starts in May), and the received
-  mail kept per month grows up to several-fold into the crisis. Working days do not move by hours: the `Date` convention changed, most likely
-  with a change of mail system (not verified: folder names would show it, and we do not read
-  them). Every within-custodian comparison sets a crisis window after that change against a
-  reference window before it. Confidence that the record changed: high. It is a finding about
-  the record, not about behaviour, and we present it as such.
+  mail kept per month grows up to about 3.5 times the largest reference month (about five times
+  October on October). Working days do not move by hours: the `Date` convention changed, most
+  likely with a change of mail system (not verified: folder names would show it, and a folder
+  name is reduced at once to one of four classes and never kept). Every within-custodian
+  comparison sets a crisis window after that change against a reference window before it. It is
+  a finding about the record, not about behaviour, and we present it as such.
 - **Behaviour: no hypothesis among H1–H25 is held true.** H2 and H3 passed their planned tests
   and then failed checks against known artifacts (stale baseline groups; a change in which
-  mailboxes hold mail). H16 (ego reciprocity) fails its retention check. H25, a post-hoc
-  replication test of the "denser network in the crisis" reported by Diesner, Frantz & Carley
-  (2005), finds no change within custodians (median +0.008, interval 0 to 0.033).
+  mailboxes hold mail). H16 (ego reciprocity) is not established once inbox retention is
+  accounted for; H20 is inconclusive (its placebo fails); H14, H21 and H22 changed the other
+  way. H25, a post hoc replication test of the "denser network in the crisis" reported by
+  Diesner & Carley (2005), is "Not established" within custodians (median +0.008, interval 0 to
+  0.033): the data cannot tell a small rise from none.
 - **Also found:** every Bcc line repeats the Cc line; content-free deduplication lands within
   1 % of published content-based dedupes; the public corpus names every custodian, so the
   realistic insider (attacker A3) knows all of them.
@@ -75,28 +83,30 @@ The one command installs locked dependencies, creates a key outside the reposito
 (`~/.config/enron-case/key`) if none exists and says so, downloads and verifies the corpus, runs
 every stage, runs every test (Python and UI), builds the explorer on the real results, serves it
 at http://localhost:4173, and prints where the report and the UI are. On a fresh clone it took
-about 24 minutes, 20 of them the download on that connection; the pipeline itself runs the full
-corpus (about 517,000 files) in about two and a half minutes on a laptop (`stages` in
-`release/run_manifest.json`). `make check` (`uv run enron-case check`) does the same without
+about 25 minutes (about 20 the download, on that connection); the pipeline itself runs the full
+corpus (about 517,000 files) in about two and a half minutes on a laptop (the one command
+prints each step's time; each run writes the seconds per stage to
+`data/logs/stage_timings.json`, which is not committed). `make check` (`uv run enron-case check`) does the same without
 serving the explorer. The steps are written in Python (`src/enron_case/onecommand.py`), so
 macOS, Linux and Windows run the same ones; `make` and `run.cmd` only call them, and CI runs both
 gates on all three.
 
-Finer-grained targets (each is `uv run enron-case <target>` on Windows, except `sample`, which is
-`uv run enron-case run --sample`):
+Finer-grained targets. On Windows, `check`, `gate`, `ui-gate` and `key` are
+`uv run enron-case <target>`; the others have no subcommand of the same name and are listed in
+the last column:
 
-| Command | Does |
-|---------|------|
-| `make check` | everything `make` does except serving the explorer |
-| `make sample` | the whole pipeline on a bundled synthetic corpus, in seconds, into `release-sample/` |
-| `make gate` | lint, strict type checks, all tests, the privacy canary, the import-boundary test |
-| `make ui` | builds and serves the explorer over `release/` |
-| `make ui-sample` | the explorer over the synthetic release |
-| `make ui-gate` | UI lint, type check, tests, build, and a check that the build has no external URL |
-| `make clean` | removes local data and regenerated sample output |
+| Command | Does | Windows |
+|---------|------|---------|
+| `make check` | everything `make` does except serving the explorer | `uv run enron-case check` |
+| `make sample` | the whole pipeline on a bundled synthetic corpus, in seconds, into `release-sample/` | `uv run enron-case run --sample` |
+| `make gate` | lint, strict type checks, all tests, the privacy canary, the import-boundary test | `uv run enron-case gate` |
+| `make ui` | builds and serves the explorer over `release/` | `uv run enron-case ui-deps`, `uv run enron-case stage ui-data`, then `npm run build` and `npm run preview` in `ui/` |
+| `make ui-sample` | the explorer over the synthetic release | the same with `stage ui-data --sample` |
+| `make ui-gate` | UI lint, type check, tests, build, and a check that the build has no external URL | `uv run enron-case ui-gate` |
+| `make clean` | removes `data/ingest`, `data/restricted`, `data/sample`, `data/logs`, `release-sample/` and `tests/fixtures/` (the downloaded archive in `data/raw` stays) | delete those folders by hand |
 
-Underneath is a CLI (`enron-case all | check | gate | ui-gate | key | run | stage | verify |
-check-key | summary | review-merges`), documented in
+Underneath is a CLI (`enron-case all | check | gate | ui-gate | ui-deps | key | run | stage |
+verify | check-key | summary | review-merges`), documented in
 [contracts/cli.md](../specs/001-enron-network-analysis/contracts/cli.md).
 
 ---
@@ -109,16 +119,20 @@ check-key | summary | review-merges`), documented in
 
 ### Where the line is drawn
 
-Every header field in the corpus gets one of four rulings. The single source is
+Every header field in the corpus gets one of five rulings (`usable`, `identifier`, `content`,
+`technical`, `dropped`; published per field in `release/header_fields.csv`). The single source is
 [contracts/header-allowlist.md](../specs/001-enron-network-analysis/contracts/header-allowlist.md);
-the parser enforces it and a test compares the two.
+the parser enforces it and a test compares the two. Ten fields are ruled identifiers: eight are
+kept in the ingest zone, two are not retained at all.
 
 | Ruling | Fields | Where the value can go | Why |
 |--------|--------|------------------------|-----|
 | **Usable metadata** | `Date` | pseudonymized events, truncated to the hour; published weekly | *When* is the only fact needed beyond *who*. Second-level timestamps fingerprint people, so they are coarsened at the boundary. |
 | **Direct identifier, ingest zone only** | `From`, `To`, `Cc`, `Bcc`, `X-From`, `X-To`, `X-cc`, `X-bcc` | ingest zone only; replaced by keyed pseudonyms, then purged | Needed to know who talked to whom and to link one person's several addresses. Display names are used to resolve identities and then discarded. |
-| **Content, never stored** | `Subject`, `X-Folder` (and folder names in the archive path) | nowhere; dropped as the line is read | A subject line is a one-line summary of the body written by its author. Folder names are topic labels written by the mailbox owner. Both are content in everything but position. A folder name is reduced at once to one of four classes (sent, inbox, deleted, other). |
-| **Dropped** | `X-FileName`, `X-Origin`, MIME fields, anything unknown; `Message-ID` after the ingest zone | nowhere (`Message-ID`: ingest zone only, for dedupe diagnostics, then purged) | No analytical use (`X-Origin` and `X-FileName` repeat the mailbox owner and are ruled identifiers in `header_fields.csv`, but not kept; `Message-ID` was assigned per stored copy, measured: no group of duplicate copies shares one, so it cannot deduplicate). Unknown fields are denied by default; only their *names* are counted. |
+| **Direct identifier, not retained** | `X-Origin`, `X-FileName` | nowhere; dropped by the parser | Both repeat the mailbox owner, which the archive path already gives. Ruled `identifier` in `header_fields.csv`, but never kept, not even in the ingest zone. |
+| **Content, never stored** | `Subject`, `X-Folder` (and folder names in the archive path) | nowhere; the value is discarded as the header is scanned | A subject line is a one-line summary of the body written by its author. Folder names are topic labels written by the mailbox owner. Both are content in everything but position. The top-level folder name in the archive path is reduced at once to one of four classes (sent, inbox, deleted, other) and never kept. |
+| **Technical** | `Message-ID` | ingest zone only, for dedupe diagnostics, then purged | Assigned per stored copy (measured: no group of duplicate copies shares one), so it cannot deduplicate. |
+| **Dropped** | MIME fields, anything unknown | nowhere | No analytical use. Unknown fields are denied by default; only their *names* are counted, folded into `(other)`. |
 
 The hardest call is **`Subject`**. Keeping a keyed hash of it would have improved deduplication and
 allowed thread and reply-time analysis. We rejected it: a hash of a short, guessable string is a
@@ -134,7 +148,7 @@ flowchart LR
     L -->|blank or whitespace-only| E[header ends: stop reading]
     L -->|"Name: value" on the allowlist| K[keep value]
     L -->|"Name: value" not on the allowlist| D[count the name, drop the value]
-    L -->|anything else, or line cap reached| X[reject the whole message, count it]
+    L -->|anything else, or line or byte cap reached| X[reject the whole message, count it]
     E --> S[skip the rest of the member unread]
 ```
 
@@ -147,8 +161,9 @@ flowchart LR
 - **Only known field names are published.** Stray names, which can be fragments of text, are
   folded into one `(other)` count.
 - **A canary test** plants markers in bodies, subjects, folder names and file names of a
-  synthetic corpus, runs the whole pipeline and fails if any marker appears in any table, log,
-  manifest or document.
+  synthetic corpus, runs the whole pipeline and fails if any of them appears in any zone (the
+  ingest zone included), log, manifest or document. It also fails if an `@`, a display name or
+  a mailbox owner's folder name appears anywhere past the pseudonymization boundary.
 - **An import-boundary test** fails if any package after the pseudonymization boundary imports
   ingest-side code. A **path guard** refuses any read or write outside a package's zones.
 
@@ -197,6 +212,7 @@ flowchart TB
     KEY -.-> PS
     PS --> N --> F
     PS --> RK
+    N --> RK
     F --> RK
     N --> RL
     F --> RL
@@ -213,8 +229,9 @@ there is no API, no database and no other request.
 
 Each arrow is a **versioned table contract**
 ([data-contracts.md](../specs/001-enron-network-analysis/contracts/data-contracts.md)). Every write
-is validated against its schema and leak-checked: no `@` in the restricted zone, and no address
-or pseudonym in the release. Every write is also fingerprinted in `release/run_manifest.json`, so
+is validated against its schema and leak-checked: no `@` in the restricted zone, and no `@`,
+`p_…` or `o_…` pattern in the release (a pattern check: it would not catch a bare name, which
+the canary test covers on synthetic data). Every write is also fingerprinted in `release/run_manifest.json`, so
 two runs with one key can be compared byte for byte.
 
 ### Stages
@@ -227,8 +244,8 @@ two runs with one key can be compared byte for byte.
 | identity | `identity` | `messages`, `header_records` | `entities`, `address_map` |
 | pseudo | `pseudo` | the three above, the key | `events`, `entities_p` |
 | network | `network` | `events`, `entities_p` | `snapshots`, `communities`, `metric_series` |
-| finding | `finding` | metric series and network | `hypothesis_results`, `artifact_results`, `exploratory_results`, `profile_results` |
-| risk | `risk` | release variants, public corpus (as the attacker would) | `risk_results` |
+| finding | `finding` | `events`, `entities_p`, `communities`, `metric_series` | `hypothesis_results`, `artifact_results`, `exploratory_results`, `profile_results`, `departure_results`, `departure_test_results` |
+| risk | `risk` | `snapshots`, `metric_series`, `entities_p`, `communities` (to build the releases it attacks), `hypothesis_results` (utility); the public archive, as the attacker would; the ingest zone, for scoring only | `risk_results` |
 | release | `release` | restricted aggregates and counts | `release/*.csv` |
 | report | `report` | `release/` only | `release/report.md`, `docs/*.md` |
 | ui-data | `uiexport` | `release/` only | `ui/public/data/release.json` |
@@ -270,7 +287,7 @@ sequenceDiagram
     M->>B: vite build + preview
     B->>J: fetch (the only request it may make)
     B->>B: validate format, tables, columns, privacy (ui/src/lib/data.ts)
-    B-->>U: finding, metrics, group network, clusters, hypotheses, data quality, risk, limits
+    B-->>U: executive summary, overview, metrics, group network, clusters, hypotheses, data quality, risk, limits, glossary
 ```
 
 The UI is a static site with no API and no database. Its only input is
@@ -279,20 +296,25 @@ The UI is a static site with no API and no database. Its only input is
 alone (the aggregate tables and the run manifest's parameters). The export refuses any identifier-shaped value or group below five; the browser checks the
 file again on load ([ui/src/lib/data.ts](../ui/src/lib/data.ts)): format version, every table and
 column, and the privacy guard. A malformed file is shown as an error, never replaced. Only when no
-`release.json` exists does it fall back to the synthetic sample of the same shape that `make
-ui-sample` writes. So the UI cannot show anything the report could not. Its views:
+`release.json` exists does it fall back to the committed synthetic sample of the same shape,
+`ui/public/data/release.sample.json` (`make ui-sample` instead writes the synthetic release to
+`release.json`). The UI reads nothing but the release tables; the report can say more than the
+UI, since `release.json` leaves out `record_profile`. Its ten views (`ui/src/lib/views.ts`):
 
 | View | Shows |
 |------|-------|
-| Overview | an "In short" answer in plain words for non-specialists (how many hypotheses held up, why the rest did not, the re-identification result), then why H1–H4 give no finding (the artifact checks that ruled out H2 and H3), any hypothesis held true (none in this release) and key numbers. The record change is in the report only; the UI has no view of `record_profile` |
+| Executive summary | the landing view, for readers who do not read statistics: six cards (what was studied, what we found, the main finding, how sure we are, privacy, data quality), each linking to its evidence view; it names the record change through H5 and the two comparison windows, not by month |
+| Overview | an "In short" answer in plain words for non-specialists (how many hypotheses held up, why the rest did not, the re-identification result), then why H1–H4 give no behavioural finding (the artifact checks that ruled out H2 and H3), any hypothesis held true (none in this release) and key numbers. The UI has no view of `record_profile`; the month-by-month profile is in the report only |
 | Metrics | each weekly metric by scope, with the change point, public events and baseline marked |
-| Network | a "How to read this" guide and a one-sentence summary of the selected week, then a **graph of groups** and their ties, week by week, drawn with Sigma.js (WebGL) and laid out once with ForceAtlas2: zoom, fullscreen, search by group label, hover highlighting; an anonymous Individuals mode fills each group with unlabelled points; an Overlap mode draws the week's six heaviest pairs as intersecting outlined contours (`@sigma/layer-webgl`) (mail between groups, not shared members); SVG fallback without WebGL (no Overlap mode) |
+| Network | a "How to read this" guide and a one-sentence summary of the selected week, then a **graph of groups** and their ties, week by week, drawn with Sigma.js (WebGL) and laid out once with ForceAtlas2: zoom, fullscreen, search by group label, hover highlighting; the group-size dots mode fills each group with as many unlabelled dots as it has people (the dots only show how many people a group has, not real individuals or ties); an Overlap mode draws the week's six heaviest pairs as intersecting outlined contours (`@sigma/layer-webgl`) (mail between groups, not shared members); SVG fallback without WebGL (no Overlap mode) |
 | Clusters | a **chord diagram** of mail between and within groups for the baseline year, the crisis weeks or all weeks; each group's size, within-group share and top partner groups; and the group whose cross-group share changed most, with the stale-baseline caveat |
-| Hypotheses | every hypothesis in one plain sentence with a verdict (held up, explained by the data, not robust, unclear, could not be tested, no real change, withheld) and a glossary of the terms; then, for analysts, H1–H4 with their artifact checks, H5–H25, and H26 (post hoc: custodian departures), whose statement, windows, counts (suppressed cells read "fewer than 5"), tests, robustness variants and power open under its plain sentence |
-| Data quality, Privacy and risk, Limits | the cleaning funnel, header rulings, the attacks before and after mitigation, and the limits |
+| Hypotheses | every hypothesis in one plain sentence with a verdict (Held up, Explained by an artifact, Not robust, Unclear, Could not be tested, Changed the other way, Not established, Withheld) and a glossary of the terms; then, for analysts, H1–H4 with their artifact checks, H5–H25, and H26 (post hoc: custodian departures), whose statement, windows, counts (suppressed cells read "fewer than 5"), tests, robustness variants and power open under its plain sentence |
+| Data quality, Privacy and risk, Limits | the cleaning funnel, header rulings, the attacks on the person-level data R0 next to the aggregate releases (0 by construction, not a measurement), and the limits |
+| Glossary | every technical term the other views explain behind a "?", in plain words |
 
-Every node, arc and segment is a **group of at least five people**, never an individual; group
-membership is not published. A Content-Security-Policy blocks other origins, and a build check
+Every node, arc and segment is a **group of at least five people**, except the hatched outside
+arc and its box (people with no 2000 group: not a group); nothing drawn is a real individual.
+Each grouped person is in exactly one group; group membership is not published. A Content-Security-Policy blocks other origins, and a build check
 fails on any external URL: no CDN, no web fonts, no analytics.
 
 ---
@@ -401,13 +423,17 @@ flowchart LR
   messages (not only network ties); a custodian needs at least 20 messages in each window. H16
   is ego-level reciprocity: the share of a custodian's sent-to contacts who also wrote to the
   custodian in the same window (any message, not necessarily a reply).
-- **H25 (post hoc, replication of Diesner et al.).** Each custodian's share of the other
+- **H25 (post hoc, replication of Diesner & Carley, 2005).** Each custodian's share of the other
   custodians they exchanged at least one message with, either direction; its retention check
   counts only the custodians written to.
 - **Test.** Wilcoxon signed-rank (two-sided) on d; median of d with a percentile bootstrap
   interval over custodians (2000 draws); Holm across all twenty-one.
-- **Pre-crisis placebo.** The same difference for January–April 2001 against January–April 2000;
-  passes if its interval covers zero or its median is less than half the crisis median.
+- **Pre-crisis placebo.** The same difference for January–April 2001 against January–April 2000.
+  It passes if its interval covers zero, or if its median, signed in the predicted direction, is
+  below half the crisis median so signed (`_placebo_passes`). "Passes" therefore means no change
+  in the predicted direction before the crisis: a placebo that moves the other way passes, even
+  when it is as large as the crisis change (H21: −0.139 against −0.148), and so does one whose
+  interval touches zero while its median exceeds the crisis median (H25: 0.025 against 0.008).
 - **Leave-one-out.** The median recomputed without each custodian; every one must keep the sign.
 - **Mail-volume equalisation** (added after seeing results). For every hypothesis not rejected
   and without a caveat, each custodian's sent and received messages in both windows are
@@ -436,8 +462,9 @@ working hours.
 ### Re-identification attacks as graph matching (`risk/attack.py`)
 
 The attacks target **R0**, a pseudonymised node-level weekly edge list. The attacker's auxiliary
-graph is the public corpus parsed with their own naive parser, labelled by address. The aggregate
-releases R1 and R2 contain no node to match, so the attacks return nothing on them.
+graph is the public corpus parsed with their own naive parser, labelled by address. R0 is the
+only release measured. The aggregate releases R1 and R2 hold no person-level record, so the
+person-level attacks have nothing to match: their rate is 0 by construction, not a measurement.
 
 - **A1, outsider: temporal degree fingerprint.** Each node becomes a vector of its distinct
   out-neighbours and distinct in-neighbours per week, computed by the same function on both
@@ -455,17 +482,18 @@ releases R1 and R2 contain no node to match, so the attacks return nothing on th
 
 Scoring is separate, runs in the ingest zone and emits counts only. Results are in
 [release/risk.csv](../release/risk.csv): on R0, A1 re-identifies about a quarter of the targets,
-A2 more than half, and A3 about as large a share of the people other than the custodians; on R1
-and R2, nobody.
+A2 more than half, and A3 about as large a share of the people other than the custodians. The
+R1 and R2 rows read 0 by construction, not a measurement: no person-level record remains.
 
 ### Method by hypothesis family
 
 | Family | Compared | Method | Decision rule |
 |--------|----------|--------|---------------|
-| H1–H4 (committed before any data) | weekly network series, after a searched change week vs 2000 | CUSUM + permutation p, standardised effect, block bootstrap, Holm over 4 | supported if p_holm < 0.05 and interval on the hypothesised side; confidence from null-model z, leave-one-mailbox-out, variants |
+| H1–H4 (pre-registered: committed before any real data) | weekly network series, after a searched change week vs 2000 | CUSUM + permutation p, standardised effect, block bootstrap, Holm over 4 | supported if p_holm < 0.05 and interval on the hypothesised side; confidence from null-model z, leave-one-mailbox-out, variants |
 | Artifact checks (H2, H3) | placebo half-year in 2000; custodians against themselves | refit Louvain on half the baseline; within-custodian median change with bootstrap | failed or not run caps confidence at low; no headline |
-| H5–H25 (within-custodian; H25 post hoc) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 21 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable, no caveat and (H16, H25) the retention check passes; volume-equalised result reported alongside |
-| A1, A2, A3 (risk) | release R0, R1, R2 against the public corpus | nearest-neighbour fingerprint matching; seeded propagation | share of targets re-identified (top-1), with interval |
+| H5–H25 (within-custodian; H5–H24 stated before computed, after earlier results; H25 post hoc) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 21 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable, no caveat and (H16, H25) the retention check passes; volume-equalised result reported alongside |
+| A1, A2, A3 (risk) | release R0 against the public corpus (R1 and R2 hold no person-level record: 0 by construction, not a measurement) | nearest-neighbour fingerprint matching; seeded propagation | share of targets re-identified (top-1), with interval |
+| H26 (post hoc) | custodians at risk: departures in the crisis window vs the same weeks a year earlier | one-sided Fisher exact test, placebo, rolling earlier windows, leave-one-out, variants | the rule of O1 in [hypotheses-exploratory.md](hypotheses-exploratory.md); outcome "not established" |
 
 ---
 
@@ -493,7 +521,7 @@ derived from message text and would break the content rule, so they were only re
 
 | Prior result | Source | Our test | Our result | Why the difference |
 |--------------|--------|----------|------------|--------------------|
-| Density 0.018 → 0.031 and 96 → 39 strong components, October 2000 against October 2001; executives form a tight-knit clique (no significance test) | Diesner & Carley (2005) | H25: each custodian's share of the other custodians they exchanged mail with, crisis weeks against the same weeks a year earlier, paired, with a placebo | +0.008 (interval 0 to 0.033), Holm p 0.24, placebo as large: **not supported** | Their comparison is two single months of the whole record. Mail received by custodians in October 2001 is about five times October 2000's (record profile), so any network density computed from the record rises with retention. Comparing each custodian with themselves removes who-is-in-the-data, and the change is no larger than before the crisis |
+| Density 0.018 → 0.031 and 96 → 39 strong components, October 2000 against October 2001; executives form a tight-knit clique (no significance test) | Diesner & Carley (2005) | H25: each custodian's share of the other custodians they exchanged mail with, crisis weeks against the same weeks a year earlier, paired, with a placebo | +0.008 (interval 0 to 0.033), Holm p 0.24, placebo larger (+0.025): **not supported** in the release, shown as "Not established" | Their comparison is two single months of the whole record. Mail received by custodians in October 2001 is about five times October 2000's (record profile), so any network density computed from the record rises with retention. Comparing each custodian with themselves removes who-is-in-the-data, and the change is no larger than before the crisis |
 | Employee-level density does not track the scandal; communication becomes "more diverse", previously disconnected people start to talk; betweenness centralisation peaks in December 2001 | Diesner, Frantz & Carley (2005) | H2 (crossing frozen groups), H1 (in-degree concentration in the core) | H2 passes its tests (+13.8 sd) but a calm half-year out of sample already jumps 10.8 sd: groups fitted on a baseline go stale. H1 not supported | "Previously disconnected people start to talk" is what stale groups produce mechanically. Our frozen communities make the artifact visible; a refitted or descriptive analysis cannot see it |
 | Scan-statistic anomalies in late April 2001 and mid-August 2001 | Priebe et al. (2005); Wang et al. (2014) | change points of H2 and H3 | H2 changes in the week of 2001-04-16, H3 on 2001-05-21; the timestamp convention starts changing in May 2001 | Not tested, but the coincidence suggests at least the spring anomaly is a change of the record, not of behaviour |
 
@@ -533,9 +561,15 @@ still have not run.
 - Shetty, J. & Adibi, J. (2004). The Enron Email Dataset Database Schema and Brief Statistical
   Report. ISI/USC (report offline; figures as cited by others).
 - Diesner, J. & Carley, K. M. (2005). Exploration of Communication Networks from the Enron Email
-  Corpus. SIAM Workshop on Link Analysis, Counterterrorism and Security.
+  Corpus. SIAM Workshop on Link Analysis, Counterterrorism and Security
+  ([PDF](http://jdiesnerlab.ischool.illinois.edu/publications/diesner_carley_siam_enron_03_05.pdf)).
+  The source of the "denser network in the crisis" result that H25 tests: density 0.018 in
+  October 2000 against 0.031 in October 2001.
 - Diesner, J., Frantz, T. L. & Carley, K. M. (2005). Communication Networks from the Enron Email
-  Corpus. Computational & Mathematical Organization Theory 11(3), 201–228.
+  Corpus: "It's Always About the People. Enron is no Different". Computational & Mathematical
+  Organization Theory 11(3), 201–228 ([doi:10.1007/s10588-005-5377-0](https://doi.org/10.1007/s10588-005-5377-0)).
+  Monthly networks: employee-level density does not follow the scandal there. The attribution of
+  the two results was re-checked against both papers on 2026-11-14.
 - Priebe, C. E., Conroy, J. M., Marchette, D. J. & Park, Y. (2005). Scan Statistics on Enron
   Graphs. CMOT 11, 229–247; Wang, H., Tang, M., Park, Y. & Priebe, C. E. (2014). Locality
   statistics for anomaly detection in time series of graphs. IEEE Trans. Signal Processing.
@@ -602,28 +636,36 @@ flowchart LR
     G -- green --> R["independent review:<br/>/code-review +<br/>/data-privacy-review +<br/>/code-quality-review"]
     R -- findings --> A
     R -- approve --> M["merge, run on the real corpus"]
-    M --> D["determinism check:<br/>two runs, one key,<br/>identical fingerprints"]
+    M --> D["determinism check:<br/>enron-case verify, two sample runs,<br/>identical fingerprints"]
 ```
 
 - **Ground truth no agent produced.** A synthetic corpus in the same layout as the real one, with
   known duplicates, aliases, noise, a planted change and canary markers. It has a reference answer
   for every table.
-- **Hypotheses before results.** H1–H4 were committed before any real data was analysed; H5–H14
-  were committed after the H1–H4 results and before being computed, H15–H24 after the H5–H14
-  results and before being computed, H25 after every result as a replication test of prior work (labelled post hoc), and Holm's correction runs across those twenty-one, so adding hypotheses makes each one harder to pass. All
-  outcomes are published. Checks added after seeing a result (the artifact checks, mail-volume
+- **Hypotheses before results.** H1–H4 are pre-registered: committed before any real data was
+  analysed. H5–H24 were stated before computed, after earlier results (H5–H14 after the H1–H4
+  results, H15–H24 after the H5–H14 results). H25 (a replication test of prior work) and H26
+  (custodian departures) are post hoc: stated after every earlier result and before being
+  computed. Holm's correction runs across H5–H25, so adding hypotheses makes each one harder to
+  pass. All outcomes are published. Checks added after seeing a result (the artifact checks, mail-volume
   equalisation, the H16 retention check) are labelled as such.
 - **Identity checked by a person.** A seeded sample of real identity merges was judged in a
   terminal by a person (`enron-case review-merges`); only counts are kept (merges checked and
   judged correct), committed in `checks/identity_manual.json` and published in
-  `data_quality.csv`, so real identifiers never entered an AI conversation.
+  `data_quality.csv`, so real identifiers never entered an AI conversation. Precision and recall
+  are measured on the synthetic corpus only; on the real corpus this check of 50 merges gives a
+  precision interval of 0.929–1 and no recall.
 - **Typed and reviewed.** `mypy --strict` checks `src/` and `tests/`, with no `Any` in a
   signature. Every change is reviewed with three skills: `/code-review` (correctness),
   `/data-privacy-review` (the content and identifier promises) and the project's own
   `/code-quality-review` (AGENTS.md rules, typing, and a gate whose exit code was checked);
   changes to the analysis, cleaning or hypotheses also with `/data-scientist-review` (methodology).
 - **Reproducibility.** One command, a pinned lockfile and corpus checksum, and seeded randomness.
-  Two full real runs with one key give identical fingerprints for every output.
+  `enron-case verify` runs the synthetic sample twice and compares every fingerprint. On the
+  real corpus the comparison was made once and recorded: two full runs with one key gave
+  identical fingerprints for all 25 outputs that existed then (commit `ec749a3`, T084). It was
+  not recorded again after the later changes; the committed manifest holds no durations or
+  wall-clock time, so a rerun on the same commit and key can be compared byte for byte.
 - **Numbers are never typed.** The report, decision record and slides are rendered from release
   tables; a test fails on any number it cannot trace to a table cell.
 
@@ -654,10 +696,10 @@ for the next:
    [Load and penetration tests](#load-and-penetration-tests).
 5. **Deploy on AWS:** CloudFront + WAF, API Gateway, a DuckDB query service and PostgreSQL for
    users, roles, budget and audit; the pipeline on Step Functions + Fargate (Polars) in a private
-   tenant account with egress to provider APIs only; zone buckets with a KMS key each and the
+   tenant workload account with egress to provider APIs only; zone buckets with a KMS key each and the
    HMAC key in the customer's KMS (`GenerateMac`); CloudWatch, Prometheus and Grafana inside the
-   tenant account with counts-only telemetry; infrastructure as code with Pulumi in Python; an
-   account per tenant. The README draws it; [docs/deployment-aws.md](deployment-aws.md) has the
+   tenant account with counts-only telemetry; infrastructure as code with Pulumi in Python; a
+   workload and a serving account per tenant, with the HMAC key in the customer's own account. The README draws it; [docs/deployment-aws.md](deployment-aws.md) has the
    detail. The tenant model is under
    [Multi-tenant SaaS](#multi-tenant-saas-database-constraints-and-scale).
 6. **Analysis follow-ups:** a record-profile view in the explorer, differential privacy for
@@ -783,7 +825,8 @@ Step 4, against the API before it serves customer data:
 
 ### Multi-tenant SaaS: database constraints and scale
 
-Step 5 deploys this on AWS with an account per tenant
+Step 5 deploys this on AWS with a workload account and a serving account per tenant, next to
+the customer's own account that holds the key
 ([deployment-aws.md, Multi-tenant isolation](deployment-aws.md#multi-tenant-isolation)); the
 reasoning below holds on any platform.
 
@@ -796,8 +839,8 @@ reasoning below holds on any platform.
 | Shared tables with a tenant key and row-level security | weakest: one missing predicate leaks across tenants | cheapest to run | only for non-sensitive control data |
 
 Communication metadata is sensitive, every tenant needs its own pseudonymisation key and often its
-own region, and deleting a tenant must be provable. A separate account per tenant gives all three:
-its zone buckets each have their own KMS key in the tenant's residency region, and deletion is
+own region, and deleting a tenant must be provable. A separate workload account per tenant gives
+all three (small tenants may share a serving account, never a workload account): its zone buckets each have their own KMS key in the tenant's residency region, and deletion is
 deleting the buckets and destroying the keys.
 
 **Stores.**
@@ -857,9 +900,9 @@ H26 and rejected, because their shape follows which mailboxes hold mail, not the
 3. [docs/slides.md](slides.md): the 15-minute presentation (Marp-compatible).
 4. [docs/ai-workflow.md](ai-workflow.md): how AI agents built this and what kept them correct.
 5. [docs/hypotheses.md](hypotheses.md), [docs/hypotheses-exploratory.md](hypotheses-exploratory.md)
-   and [docs/metrics.md](metrics.md): hypotheses H1–H4 and H5–H25 (the second file is the
-   dated record of when each was stated and keeps their original numbers E1–E21 = H5–H25), the
-   metric definitions and the decision rules.
+   and [docs/metrics.md](metrics.md): hypotheses H1–H4, H5–H25 and H26 (the second file is the
+   dated record of when each was stated and keeps their original numbers E1–E21 = H5–H25 and
+   O1 = H26), the metric definitions and the decision rules.
 6. [docs/architecture.md](architecture.md): every architecture diagram.
 7. [specs/001-enron-network-analysis/](../specs/001-enron-network-analysis/): the specification, plan,
    research decisions, data contracts and task list the code was built from.
@@ -879,7 +922,7 @@ H26 and rejected, because their shape follows which mailboxes hold mail, not the
 src/enron_case/   one package per stage: ingest, clean, identity, pseudo, network, finding,
                   risk, release, report, uiexport; contracts/ holds the table schemas;
                   synth/ generates the synthetic corpus and fixtures
-tests/            unit, contract, privacy and integration tests, all on synthetic data
+tests/            unit, contract and privacy tests, all on synthetic data
 ui/               the explorer (React, TypeScript, Vite, Tailwind, shadcn/ui, Sigma.js)
 release/          the published aggregate tables, report.md and run_manifest.json
 checks/           committed counts of checks a person made (identity_manual.json)
