@@ -122,8 +122,41 @@ def record_statement(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
         "Working days do not move by hours within a year: the `Date` header was recorded "
         "under a different convention after the change, and every comparison of H5–H25 sets "
         "a window after it against a window before it. The pre-crisis placebo compares two "
-        "windows before it, so it cannot detect an artifact of that change."
+        "windows before it, so it cannot detect an artifact of that change. Confidence that "
+        "the record changed: high. Its cause, most likely a change of mail system, is not "
+        "established: folder names would show it, and we do not read them."
         + _volume_sentence(profile)
+    )
+
+
+def record_summary(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
+    """The record statement in two sentences, for the one-page decision record."""
+    reference = _months_of(profile, REFERENCE_WINDOW, SHARE)
+    crisis = _months_of(profile, CRISIS_WINDOW, SHARE)
+    if not reference or not crisis:
+        return "Too few months are published to compare the record between the two windows."
+    lower = max(crisis) < min(reference)
+    if not lower and min(crisis) <= max(reference):
+        return "No change of the timestamp convention between the two windows is claimed."
+    switch = _switch_month(profile, reference, lower)
+    since = f" from {format_value(switch)}" if switch is not None else ""
+    return (
+        f"The share of weekday sent mail stamped outside working hours is {_span(reference)} "
+        f"in the reference months and {_span(crisis)} in the crisis months; the `Date` "
+        f"convention changed in between{since}, within the same people "
+        f"({_within_custodian_short(exploratory)}). Every within-custodian comparison crosses "
+        "that change; confidence that it happened: high, its cause not established."
+    )
+
+
+def _within_custodian_short(exploratory: pl.DataFrame) -> str:
+    rows = exploratory.filter(pl.col("hypothesis") == TIMESTAMP_HYPOTHESIS).rows(named=True)
+    if not rows or rows[0]["median_change"] is None:
+        return "not measured"
+    row = rows[0]
+    return (
+        f"{TIMESTAMP_HYPOTHESIS}: median change {format_value(row['median_change'])}, interval "
+        f"{format_value(row['ci_low'])} to {format_value(row['ci_high'])}"
     )
 
 
@@ -144,5 +177,55 @@ def record_section(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
             "(the H5 definition). Months with fewer than k custodians on a side are suppressed.",
             record_statement(profile, exploratory),
             profile_table(profile),
+        )
+    )
+
+
+REPLICATION_HYPOTHESIS = "H25"  # post-hoc test of Diesner, Frantz & Carley (2005)
+
+
+def replication_statement(exploratory: pl.DataFrame) -> str:
+    """H25's outcome in one sentence, whatever it is."""
+    rows = exploratory.filter(pl.col("hypothesis") == REPLICATION_HYPOTHESIS).rows(named=True)
+    if not rows:
+        return "The replication test of prior work was not run."
+    row = rows[0]
+    if row["median_change"] is None:
+        return (
+            f"{REPLICATION_HYPOTHESIS} (the replication test of prior work) is suppressed: "
+            "fewer than k custodians could be compared."
+        )
+    text = (
+        f"{REPLICATION_HYPOTHESIS}, the post-hoc replication test of the denser network that "
+        "Diesner, Frantz and Carley describe, compares each custodian's share of the other "
+        f"custodians they exchanged mail with: a median change of "
+        f"{format_value(row['median_change'])} (interval {format_value(row['ci_low'])} to "
+        f"{format_value(row['ci_high'])}, Holm-adjusted p = {format_value(row['p_holm'])}, "
+        f"{format_value(row['custodians'])} custodians); outcome: {row['outcome']}"
+    )
+    if row["retention_passes"] is not None:
+        text += (
+            f"; counting only the custodians written to, the change is "
+            f"{format_value(row['retention_median'])} (interval "
+            f"{format_value(row['retention_ci_low'])} to "
+            f"{format_value(row['retention_ci_high'])}), and the retention check "
+            f"{'passes' if row['retention_passes'] else 'fails'}"
+        )
+    return text + "."
+
+
+def record_chart(profile: pl.DataFrame) -> str:
+    """Mermaid line chart of the after-hours share by month (published months only)."""
+    rows = profile.filter(pl.col(SHARE).is_not_null()).sort("month")
+    months = ", ".join(f'"{format_value(m)}"' for m in rows.get_column("month").to_list())
+    shares = ", ".join(format_value(v) for v in rows.get_column(SHARE).to_list())
+    return "\n".join(
+        (
+            "```mermaid",
+            "xychart-beta",
+            '    title "Weekday sent mail stamped outside working hours, share by month"',
+            f"    x-axis [{months}]",
+            f"    line [{shares}]",
+            "```",
         )
     )

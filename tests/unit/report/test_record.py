@@ -83,3 +83,46 @@ def test_suppressed_months_are_ignored() -> None:
     shares[1] = None  # Sep 2000 suppressed
     text = record.record_statement(_profile(shares), _h5(-0.44))
     assert "between 0.48 and 0.55 in the reference months" in text
+
+
+def _h25(retention_passes: bool | None) -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "hypothesis": ["H25"],
+            "custodians": [30],
+            "median_change": [0.02],
+            "ci_low": [-0.01],
+            "ci_high": [0.05],
+            "p_holm": [1.0],
+            "outcome": ["not supported"],
+            "retention_passes": [retention_passes],
+            "retention_median": [None if retention_passes is None else 0.01],
+            "retention_ci_low": [None if retention_passes is None else -0.02],
+            "retention_ci_high": [None if retention_passes is None else 0.04],
+        }
+    )
+
+
+def test_replication_statement_reports_any_outcome() -> None:
+    text = record.replication_statement(_h25(None))
+    assert "median change of 0.02 (interval -0.01 to 0.05" in text
+    assert "30 custodians" in text and "outcome: not supported" in text
+    assert "retention check" not in text
+    assert "retention check fails" in record.replication_statement(_h25(False))
+
+
+def test_record_chart_skips_suppressed_months() -> None:
+    shares: list[float | None] = list(SWITCHED)
+    shares[0] = None
+    chart = record.record_chart(_profile(shares))
+    assert '"2000-08-01"' not in chart and '"2000-09-01"' in chart
+    assert chart.startswith("```mermaid")
+
+
+def test_record_summary_is_short_and_conditional() -> None:
+    text = record.record_summary(_profile(SWITCHED), _h5(-0.44))
+    assert "between 0.45 and 0.55 in the reference months" in text
+    assert "from 2001-06-01" in text and "median change -0.44" in text
+    assert len(text.split()) < 80
+    flat = record.record_summary(_profile([0.5] * len(MONTHS)), _h5(0.0))
+    assert flat == "No change of the timestamp convention between the two windows is claimed."
