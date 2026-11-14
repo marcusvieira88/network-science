@@ -1,7 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createElement, forwardRef, useImperativeHandle } from "react";
-import { type Object3D, Points } from "three";
+import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { View } from "@/App";
@@ -9,33 +8,22 @@ import { CommunityGraph } from "@/components/CommunityGraph";
 import { totalPoints } from "@/lib/cells";
 import { TABLE_COLUMNS } from "@/lib/data";
 import { LEAK_PATTERN, PERSON_COUNT_COLUMNS, identifierCount, minimumGroupSize, smallPersonCounts } from "@/lib/privacy";
+import { type LabelCanvas, drawGroupHover, networkPalette } from "@/lib/sigmaNetwork";
 import { VIEWS } from "@/lib/views";
+import { drawnNode, resetSigmaStub, sigmaStub } from "@/test/reactSigma";
 import { rawSample, sampleData } from "@/test/sample";
+import { applyThemeVariables } from "@/test/theme";
 
-interface ScenePropsSeen {
-  graphData: { nodes: { id: string }[] };
-  nodeThreeObject: (node: { id: string }) => Object3D;
-  nodeLabel: (node: { id: string }) => string;
-}
+// WebGL does not run in jsdom: React Sigma is replaced by a stand-in that keeps the graph, the
+// settings and the events the view hands to Sigma, so the test can inspect what would be drawn.
+vi.mock("@react-sigma/core", () => import("@/test/reactSigma"));
 
-const scene: { props: ScenePropsSeen | null } = { props: null };
-
-// WebGL does not run in jsdom: the 3D graph is replaced by a stand-in that keeps what it was given,
-// so the test can inspect the scene objects the view would draw.
-vi.mock("react-force-graph-3d", () => ({
-  default: forwardRef<object, ScenePropsSeen>(function SceneStub(props, ref) {
-    useImperativeHandle(ref, () => ({ zoomToFit: () => undefined, postProcessingComposer: () => ({ addPass: () => undefined }) }));
-    scene.props = props;
-    return createElement("div", { "data-testid": "scene" });
-  }),
-}));
-
-/** Attributes a bare anonymous point may carry: position, size and colour, nothing else. */
+/** Attributes a bare anonymous point may carry in the SVG view: position, size and colour. */
 const BARE_POINT_ATTRIBUTES = ["cx", "cy", "fill", "r"];
-
-function descendants(root: Object3D): Object3D[] {
-  return [root, ...root.children.flatMap(descendants)];
-}
+/** Attributes an anonymous Sigma node carries: position, size, colour, kind, drawing order, no label. */
+const BARE_NODE_ATTRIBUTES = ["color", "kind", "label", "size", "x", "y", "zIndex"];
+/** An anonymous node's key: its group's place in label order and its own sequence number. */
+const OPAQUE_POINT_KEY = /^point:\d+-\d+$/;
 
 // Column names that would only exist in person-level data.
 const PERSON_LEVEL_COLUMNS = /pid|addr|name|owner|member|person_id|entity/i;
@@ -157,49 +145,68 @@ describe("privacy of what the views render", () => {
     unmount();
   });
 
-  it("network view, Individuals mode (3D): one unnamed vertex per published person and no hover label", async () => {
-    vi.stubGlobal(
-      "ResizeObserver",
-      class implements ResizeObserver {
-        constructor(private readonly callback: ResizeObserverCallback) {}
-        observe(): void {
-          this.callback([{ contentRect: { width: 800 } } as ResizeObserverEntry], this);
-        }
-        unobserve(): void {}
-        disconnect(): void {}
-      },
-    );
+  it("network view, Individuals mode (WebGL): one bare anonymous node per published person, no label, id or tooltip", async () => {
+    resetSigmaStub();
+    applyThemeVariables();
     const user = userEvent.setup();
-    const { unmount } = render(
+    const groups = data.tables.community_groups;
+    const k = minimumGroupSize(data);
+    const { container, unmount } = render(
       createElement(CommunityGraph, {
-        groups: data.tables.community_groups,
+        groups,
         edges: data.tables.community_graph,
         weeks: [],
         events: [],
-        minGroupSize: minimumGroupSize(data),
+        minGroupSize: k,
         seed: data.run.seed,
         webgl: true,
       }),
     );
     await user.click(screen.getByRole("tab", { name: "Individuals (anonymous)" }));
-    await waitFor(() => expect(screen.getByRole("img")).toHaveAttribute("data-mode", "individuals"));
-    const props = scene.props;
-    if (!props) throw new Error("scene not rendered");
-    let vertices = 0;
-    for (const node of props.graphData.nodes) {
-      const objects = descendants(props.nodeThreeObject(node));
-      for (const object of objects) {
-        expect(object.name).toBe("");
-        expect(object.userData).toEqual({});
-        if (object instanceof Points) {
-          vertices += object.geometry.getAttribute("position").count;
-          expect(Object.keys(object.geometry.attributes)).toEqual(["position"]);
-        }
-      }
-      expect(props.nodeLabel(node)).toBe("");
+    await waitFor(() => expect(sigmaStub.graph?.order).toBe(groups.length + totalPoints(groups)));
+    const graph = sigmaStub.graph;
+    if (!graph) throw new Error("no graph loaded");
+    expect(container).toHaveTextContent(`Each point stands for one person in a group of at least ${k};`);
+
+    const points = graph.filterNodes((_, node) => node.kind === "point");
+    expect(points).toHaveLength(totalPoints(groups));
+    const labels = new Set(groups.map((g) => g.group));
+    const palette = networkPalette(groups, (name) => document.documentElement.style.getPropertyValue(name));
+    for (const key of points) {
+      const node = graph.getNodeAttributes(key);
+      expect(Object.keys(node).sort()).toEqual(BARE_NODE_ATTRIBUTES);
+      expect(node.label).toBeNull();
+      expect(key).toMatch(OPAQUE_POINT_KEY);
+      // No tie, label or hover text for a single person: ties join groups only.
+      expect(graph.degree(key)).toBe(0);
+      expect(drawnNode(key).label).toBeNull();
+      const drawn: string[] = [];
+      const canvas: LabelCanvas = {
+        font: "",
+        fillStyle: "",
+        measureText: () => ({ width: 0 }),
+        fillRect: () => drawn.push("box"),
+        fillText: (text) => drawn.push(text),
+      };
+      drawGroupHover(canvas, node, { labelSize: 12, labelFont: "sans-serif", labelWeight: "600" }, palette);
+      expect(drawn).toEqual([]);
     }
-    expect(vertices).toBe(totalPoints(data.tables.community_groups));
+    for (const tie of graph.edges()) {
+      for (const end of graph.extremities(tie)) expect(labels.has(graph.getNodeAttribute(end, "label") ?? "")).toBe(true);
+    }
+
+    // Hovering a point shows nothing; searching for a point key finds nothing.
+    const before = container.textContent;
+    const [firstPoint = ""] = points;
+    act(() => sigmaStub.handlers.enterNode?.({ node: firstPoint }));
+    expect(screen.queryByText(/people · tied to/)).not.toBeInTheDocument();
+    expect(container.textContent).toBe(before);
+    await user.type(screen.getByRole("combobox", { name: "Search a group by label" }), `${firstPoint}{Enter}`);
+    expect(screen.getByText("No group matches.")).toBeInTheDocument();
+    expect(sigmaStub.gotoNode).not.toHaveBeenCalled();
+    // No anonymous key reaches the page, apart from what was typed into the search box.
+    expect(container.innerHTML.replace(`value="${firstPoint}"`, "")).not.toMatch(/point:\d/);
+    expect(container.textContent ?? "").not.toMatch(LEAK_PATTERN);
     unmount();
-    vi.unstubAllGlobals();
   });
 });

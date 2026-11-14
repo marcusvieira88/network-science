@@ -21,4 +21,10 @@ export default tseslint.config(
     files: ["src/components/ui/**/*.tsx"],
     rules: { "react-refresh/only-export-components": "off" },
   },
+  {
+    // Test stand-ins for libraries export hooks and components together, as the libraries do;
+    // they are never hot-reloaded.
+    files: ["src/test/**/*.tsx"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
 );

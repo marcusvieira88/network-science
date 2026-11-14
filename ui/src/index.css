@@ -49,3 +49,13 @@
     font-feature-settings: "cv11", "ss01";
   }
 }
+
+/* React Sigma's canvas and controls on the dark theme. Set on its root element, so they win over
+   the light defaults its stylesheet puts on :root, whatever order the stylesheets load in. */
+.react-sigma {
+  --sigma-background-color: hsl(var(--background));
+  --sigma-controls-background-color: hsl(var(--card));
+  --sigma-controls-background-color-hover: hsl(var(--accent));
+  --sigma-controls-border-color: hsl(var(--border));
+  --sigma-controls-color: hsl(var(--foreground));
+}

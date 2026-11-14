@@ -8,6 +8,11 @@ const LAYOUT_TICKS = 300;
 const MIN_RADIUS = 10;
 const RADIUS_PER_SQRT_PERSON = 4;
 const CHART_SLOTS = 8;
+/** In the Individuals mode a group's disc fades to a membrane around its anonymous points. */
+export const MEMBRANE_OPACITY = 0.25;
+/** Height of the WebGL network canvas and of its loading placeholder, in pixels. */
+export const NETWORK_HEIGHT = 460;
+
 export interface PlacedGroup {
   group: string;
   nPersons: number;

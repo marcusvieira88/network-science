@@ -18,17 +18,20 @@ view, and `scripts/check-build.mjs` fails if the build references another origin
 build carries a Content-Security-Policy that blocks requests to any other origin. Fonts are
 bundled; nothing is fetched from a CDN.
 
-The network view draws the groups as a 3D force graph (`react-force-graph-3d`, three.js), loaded
-as a separate chunk only when the view opens; without WebGL it shows the 2D network. Each group is
-a glowing cell (volume follows group size; three's `UnrealBloomPass` adds the glow) and each tie a
-curved line with signal particles whose number and speed follow the week's weight. The
-"Individuals (anonymous)" mode fills each published group with `n_persons` points at seeded random
-positions (seed: the run seed): they carry no id, label, tooltip or data, and ties stay between
-groups. The data mapping is in `src/lib/network3d.ts` and `src/lib/cells.ts`; the three.js objects
-in `src/components/cellObjects.ts`. `three/webgpu` is aliased to a throwing stub
-(`src/vendor/three-webgpu-stub.ts`) because the WebGPU renderer is imported but never used.
-`scripts/check-build.mjs` accepts two exact URL literals in that chunk (a shader comment and a
-library error message), each only in its own context; see `NON_REQUEST_LITERALS` there.
+The network view draws the groups with Sigma.js (WebGL) through React Sigma and graphology, loaded
+as a separate chunk only when the view opens; without WebGL, or if the WebGL view fails, it shows
+the SVG network. Positions come from one ForceAtlas2 run over the ties of all weeks (fixed
+settings and iteration count, no randomness), so groups stay put while the week changes. Each
+group is a disc whose area follows group size; each tie a line whose width follows the week's
+weight, on one scale for all weeks. Sizes are in layout units (`itemSizesReference: "positions"`)
+so everything zooms together. Controls: zoom in, out and reset, fullscreen, search by group label,
+and hover highlighting of a group and its ties; a legend shows the size and width scales. Colours
+are read from the CSS variables in `src/index.css` and converted to hex (`src/lib/color.ts`).
+The "Individuals (anonymous)" mode fills each published group with `n_persons` points at seeded
+random positions (seed: the run seed): they have no label, tooltip, hover text or ties, and their
+Sigma keys are opaque sequence numbers (`point:<group index>-<index>`). The data mapping is in
+`src/lib/sigmaNetwork.ts` and `src/lib/cells.ts`; tests replace React Sigma with
+`src/test/reactSigma.tsx`, since jsdom has no WebGL.
 
 The hypotheses view shows one list: the `hypotheses` table (stated before any data, with their
 artifact checks under each row) and the `exploratory` table (stated before being computed), merged

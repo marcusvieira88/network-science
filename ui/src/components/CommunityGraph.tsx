@@ -6,30 +6,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { type NetworkMode, type Point, NETWORK_MODES, anonymousPoints, cellRadius } from "@/lib/cells";
+import { type NetworkMode, type Point, NETWORK_MODES, anonymousPoints } from "@/lib/cells";
 import type { CommunityEdgeRow, CommunityGroupRow, PublicEvent } from "@/lib/data";
 import { formatNumber } from "@/lib/format";
 import {
   type PlacedGroup,
   type WeekGraph,
+  MEMBRANE_OPACITY,
+  NETWORK_HEIGHT,
   groupColor,
   groupRadius,
   layoutGroups,
   maxWeeklyTie,
   weekGraph,
 } from "@/lib/network";
-import { graphNodes, layoutLinks, weekLinks } from "@/lib/network3d";
 import { supportsWebGL } from "@/lib/webgl";
 
-const CommunityGraph3D = lazy(() => import("@/components/CommunityGraph3D"));
+const SigmaNetwork = lazy(() => import("@/components/SigmaNetwork"));
 
 const WIDTH = 640;
 const HEIGHT = 420;
 const MAX_EDGE_WIDTH = 14;
 const TOP_TIES = 8;
 const POINT_RADIUS = 1.6;
-/** In the Individuals mode the group circle fades to a membrane around its points. */
-const MEMBRANE_OPACITY = 0.25;
 
 const MODE_LABELS: Record<NetworkMode, string> = { groups: "Groups", individuals: "Individuals (anonymous)" };
 
@@ -45,7 +44,7 @@ interface CommunityGraphProps {
   minGroupSize: number;
   /** The run seed: scatters the illustrative points of the Individuals mode. */
   seed: number;
-  /** Draw the 3D view; defaults to whether the browser has WebGL. */
+  /** Draw the WebGL (Sigma.js) view; defaults to whether the browser has WebGL. */
   webgl?: boolean;
 }
 
@@ -80,7 +79,7 @@ function AnonymousPoints({ placed, points }: { placed: PlacedGroup[]; points: Ma
   );
 }
 
-/** The flat network: the fallback where WebGL is unavailable. */
+/** The SVG network: the fallback where WebGL is unavailable or the WebGL view fails. */
 function Network2D({ placed, graph, week, maxTie, points }: Network2DProps) {
   const order = placed.map((g) => g.group);
   const position = new Map(placed.map((g) => [g.group, g]));
@@ -151,10 +150,13 @@ function Network2D({ placed, graph, week, maxTie, points }: Network2DProps) {
   );
 }
 
-function Loading3D() {
+function LoadingNetwork() {
   return (
-    <div className="flex h-[460px] items-center justify-center rounded-lg border bg-background/60 text-sm text-muted-foreground">
-      Loading the 3D view…
+    <div
+      className="flex items-center justify-center rounded-lg border bg-background/60 text-sm text-muted-foreground"
+      style={{ height: NETWORK_HEIGHT }}
+    >
+      Loading the network view…
     </div>
   );
 }
@@ -163,26 +165,16 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [mode, setMode] = useState<NetworkMode>("groups");
-  // Starts from WebGL support; turns false if the 3D view fails, so legend and wording follow.
-  const [use3D, setUse3D] = useState(() => webgl ?? supportsWebGL());
+  // Starts from WebGL support; turns false if the WebGL view fails, so the hint follows.
+  const [useWebGL, setUseWebGL] = useState(() => webgl ?? supportsWebGL());
   const placed = useMemo(() => layoutGroups(groups, edges, WIDTH, HEIGHT), [groups, edges]);
-  const nodes = useMemo(() => graphNodes(groups), [groups]);
-  const allTies = useMemo(() => layoutLinks(groups, edges), [groups, edges]);
   // One scale for all weeks, so a thicker line always means a heavier tie.
   const maxTie = useMemo(() => maxWeeklyTie(edges, weeks), [edges, weeks]);
   const week = weeks[index] ?? null;
   const graph = useMemo(() => weekGraph(edges, week), [edges, week]);
-  const links = useMemo(() => weekLinks(edges, week, maxTie, nodes.map((n) => n.id)), [edges, week, maxTie, nodes]);
-  const swatch = useMemo(() => {
-    const order = placed.map((g) => g.group);
-    const accent = new Map(nodes.map((n) => [n.id, n.color]));
-    return (group: string) => (use3D ? (accent.get(group) ?? "") : groupColor(group, order));
-  }, [placed, nodes, use3D]);
+  const order = useMemo(() => placed.map((g) => g.group), [placed]);
   const individuals = mode === "individuals";
-  const points2D = useMemo(() => anonymousPoints(groups, 2, seed, groupRadius), [groups, seed]);
-  const points3D = useMemo(() => anonymousPoints(groups, 3, seed, cellRadius), [groups, seed]);
-  const shape = use3D ? "cell" : "circle";
-  const sizeRule = use3D ? "cell volume" : "circle area";
+  const points2D = useMemo(() => anonymousPoints(groups, seed, groupRadius), [groups, seed]);
   const flat = (
     <Network2D placed={placed} graph={graph} week={week} maxTie={maxTie} points={individuals ? points2D : null} />
   );
@@ -192,8 +184,8 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
       <CardHeader>
         <CardTitle>Ties between groups, week by week</CardTitle>
         <CardDescription>
-          Each {shape} is a group of at least {minGroupSize} people, never an individual. Groups are fixed in the
-          baseline period; {sizeRule} follows group size and line width follows the weekly weight of messages
+          Each circle is a group of at least {minGroupSize} people, never an individual. Groups are fixed in the
+          baseline period; circle area follows group size and line width follows the weekly weight of messages
           between groups. Group membership is not published.
         </CardDescription>
       </CardHeader>
@@ -215,23 +207,16 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
             </p>
           )}
         </div>
-        {use3D ? (
+        {useWebGL ? (
           <div className="space-y-2">
-            <RenderFallback fallback={flat} onFailure={() => setUse3D(false)}>
-              <Suspense fallback={<Loading3D />}>
-                <CommunityGraph3D
-                  nodes={nodes}
-                  links={links}
-                  layout={allTies}
-                  week={week}
-                  mode={mode}
-                  points={points3D}
-                />
+            <RenderFallback fallback={flat} onFailure={() => setUseWebGL(false)}>
+              <Suspense fallback={<LoadingNetwork />}>
+                <SigmaNetwork groups={groups} edges={edges} week={week} maxTie={maxTie} mode={mode} seed={seed} />
               </Suspense>
             </RenderFallback>
             <p className="text-xs text-muted-foreground">
-              Drag to rotate, scroll to zoom, right-drag to pan. Signals travel along each tie, more and faster
-              the heavier its weight this week.{individuals ? "" : " Hover a cell for its group label and size."}
+              Scroll or use the buttons to zoom, drag to pan. Hover a group, or search for its label, to highlight
+              its ties this week.
             </p>
           </div>
         ) : (
@@ -288,7 +273,7 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
                 {placed.map((node) => (
                   <TableRow key={node.group}>
                     <TableCell className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: swatch(node.group) }} aria-hidden />
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: groupColor(node.group, order) }} aria-hidden />
                       {node.group}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{node.nPersons}</TableCell>

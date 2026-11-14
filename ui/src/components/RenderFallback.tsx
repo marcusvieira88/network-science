@@ -19,7 +19,7 @@ export class RenderFallback extends Component<RenderFallbackProps, { failed: boo
   }
 
   override componentDidCatch(error: Error): void {
-    console.error("3D view failed; showing the 2D network instead:", error);
+    console.error("WebGL network failed; showing the SVG network instead:", error);
     this.props.onFailure?.();
   }
 

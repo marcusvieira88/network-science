@@ -24,13 +24,9 @@ export default defineConfig({
   base: "./",
   plugins: [react(), contentSecurityPolicy()],
   resolve: {
-    alias: [
-      { find: "@", replacement: path.resolve(import.meta.dirname, "src") },
-      // Never used: see src/vendor/three-webgpu-stub.ts.
-      { find: /^three\/webgpu$/, replacement: path.resolve(import.meta.dirname, "src/vendor/three-webgpu-stub.ts") },
-    ],
+    alias: [{ find: "@", replacement: path.resolve(import.meta.dirname, "src") }],
   },
-  // One static bundle served locally, except the 3D network (three.js), loaded only when opened.
+  // One static bundle served locally, except the WebGL network (Sigma.js), loaded only when opened.
   build: { chunkSizeWarningLimit: 1024 },
   server: { host: "127.0.0.1" },
   preview: { host: "127.0.0.1" },
