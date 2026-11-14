@@ -126,3 +126,22 @@ def test_record_summary_is_short_and_conditional() -> None:
     assert len(text.split()) < 80
     flat = record.record_summary(_profile([0.5] * len(MONTHS)), _h5(0.0))
     assert flat == "No change of the timestamp convention between the two windows is claimed."
+
+
+def test_switch_month_must_leave_the_whole_earlier_range() -> None:
+    """April 2001 below the reference months but within the earlier spread is not the switch."""
+    months = [date(2000, m, 1) for m in range(4, 13)] + [date(2001, m, 1) for m in range(1, 9)]
+    shares = [0.38, 0.47, 0.40, 0.43, 0.46, 0.43, 0.45, 0.54, 0.5]
+    shares += [0.49, 0.52, 0.49, 0.41, 0.37, 0.24, 0.10, 0.06]
+    n = len(months)
+    profile = pl.DataFrame(
+        {
+            "month": months,
+            "custodians_sending": [10] * n,
+            "sent_messages": [100] * n,
+            "after_hours_share": shares,
+            "custodians_receiving": [10] * n,
+            "received_messages": [100] * n,
+        }
+    )
+    assert "From 2001-05-01 on" in record.record_statement(profile, _h5(-0.44))

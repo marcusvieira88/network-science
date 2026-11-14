@@ -52,15 +52,19 @@ def _span(values: Sequence[float]) -> str:
     return f"between {format_value(min(values))} and {format_value(max(values))}"
 
 
-def _switch_month(profile: pl.DataFrame, reference: Sequence[float], lower: bool) -> date | None:
+def _switch_month(profile: pl.DataFrame, lower: bool) -> date | None:
     """First month after the reference window from which every published month lies beyond
-    the reference range on the crisis side."""
-    later = profile.filter(
-        (pl.col("month") >= REFERENCE_WINDOW[1].replace(day=1)) & pl.col(SHARE).is_not_null()
-    ).sort("month")
+    every month up to the window's end, on the crisis side: beyond anything the record showed
+    before, not only beyond the few reference months."""
+    end = REFERENCE_WINDOW[1].replace(day=1)
+    published = profile.filter(pl.col(SHARE).is_not_null()).sort("month")
+    before = [float(v) for v in published.filter(pl.col("month") < end).get_column(SHARE)]
+    later = published.filter(pl.col("month") >= end)
+    if not before:
+        return None
     months = later.get_column("month").to_list()
     shares = [float(v) for v in later.get_column(SHARE).to_list()]
-    beyond = [s < min(reference) if lower else s > max(reference) for s in shares]
+    beyond = [s < min(before) if lower else s > max(before) for s in shares]
     for index in range(len(months)):
         if all(beyond[index:]):
             month: date = months[index]
@@ -111,9 +115,10 @@ def record_statement(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
             f"{ranges}: the ranges overlap, so no change of the timestamp convention is claimed."
             + _volume_sentence(profile)
         )
-    switch = _switch_month(profile, reference, lower)
+    switch = _switch_month(profile, lower)
     switch_text = (
-        f" It moves beyond the reference range for good from {format_value(switch)} on."
+        f" From {format_value(switch)} on, every month lies beyond every month up to the end "
+        "of the reference window."
         if switch is not None
         else ""
     )
@@ -138,7 +143,7 @@ def record_summary(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
     lower = max(crisis) < min(reference)
     if not lower and min(crisis) <= max(reference):
         return "No change of the timestamp convention between the two windows is claimed."
-    switch = _switch_month(profile, reference, lower)
+    switch = _switch_month(profile, lower)
     since = f" from {format_value(switch)}" if switch is not None else ""
     return (
         f"The share of weekday sent mail stamped outside working hours is {_span(reference)} "
