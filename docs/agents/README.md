@@ -1,5 +1,16 @@
 # Agent protocol
 
+> **The parallel phase is over.** This protocol and the briefs `WP-A.md`…`WP-J.md` are the
+> record of how the ten work packages were built at the same time against a frozen foundation;
+> all ten were merged. Later work (artifact checks, the review fix rounds, the config refactor,
+> hypotheses H5–H24, the retention check, the extra UI views) was done one change at a time on
+> short-lived branches (`fix/…`, `refactor/…`, `ui/…`, `docs/…`, `skill/…`): the lead or a single
+> implementation agent made the change, the review skills (`/code-review`,
+> `/data-privacy-review`, `/code-quality-review`, and `/data-scientist-review` for analysis
+> changes) checked it, and the lead merged it. The foundation is no longer frozen: `AGENTS.md`
+> and the contracts' change rule govern. The current design is in `docs/architecture.md`; what
+> happened, in order, is in `docs/ai-workflow-log.md`.
+
 You are one of several agents building this repository in parallel. Each agent owns one work
 package (WP) and works in its own git worktree. Read, in order:
 

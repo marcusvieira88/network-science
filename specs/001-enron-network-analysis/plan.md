@@ -4,6 +4,34 @@
 
 **Input**: Feature specification from `/specs/001-enron-network-analysis/spec.md`
 
+## Implementation as built
+
+The plan below is the design as written before implementation and is kept as the record of
+intent. The code followed it in structure (zones, contracts, one stage per package, a frozen
+foundation, parallel work packages against synthetic fixtures) and departed from it where data
+or reviews showed it had to. Current descriptions: [architecture](../../docs/architecture.md),
+[data contracts](contracts/data-contracts.md), [header allowlist](contracts/header-allowlist.md),
+[data model](data-model.md); the order of events is in `docs/ai-workflow-log.md`.
+
+| Planned | As built | Why |
+|---------|----------|-----|
+| Stages S1–S10 | Eleven stages in `cli.STAGES`: fetch, parse, clean, identity, pseudo, network, finding, risk, release, report, ui-data. `ui-data` runs only on request (`make ui`) | Fetching is a stage of its own; the UI export stays out of `make all` |
+| Three zones | Raw, ingest, restricted and release, plus sub-zones `counts` (counts-only side outputs), `truth` (synthetic ground truth, sample only), `ui` and `docs` (write targets built from release only), all behind one path guard (`zones.ALLOWED`) | The release stage reads counts without importing ingest code; the UI and documents can only see release data |
+| Contract v1 | Contract 1.4 (history in [data-contracts.md](contracts/data-contracts.md)): `communities`, counts side outputs, `artifact_results` / `artifact_checks`, `exploratory_results` / `exploratory` with volume-equalised and retention-check columns | Each addition followed a real-data result or a review |
+| Header reader stops at the first blank line | Also stops at a whitespace-only line, at the first line that is not a header line and after a line cap; such members are rejected; `X-Origin` is dropped; only known field names are published, others as `(other)` | The first independent review found that a message without a clean header end let the reader continue into the body |
+| Four hypotheses H1–H4, headline by the pre-registered rule | H1–H4 plus post-hoc artifact checks for H2 (baseline placebo) and H3 (within custodian) that cap confidence; twenty more hypotheses H5–H24, stated in `docs/hypotheses-exploratory.md` (as E1–E20) before they were computed, tested as paired within-custodian comparisons with placebo, leave-one-out, volume-equalised and (for H16) retention checks; one list H1–H24 in release, report and UI | H2 and H3 passed every pre-registered check, yet known artifacts (baseline drift, a changing mailbox mix) produce the same effects; the data-science review showed H16 could be produced by inbox retention |
+| A headline finding | No hypothesis is held true. H2 and H3 fail their artifact checks; H16 fails its retention check and is capped at inconclusive | Decided by the person once the artifact checks had failed |
+| Sensitivity variants published next to the default | `weekly_metrics` publishes the default variant only; variants stay restricted and feed the robustness count | Default minus variant `n_active` revealed groups below k |
+| Attack measured on every release | R0 attacked as published from observed-scope snapshots; R1 and R2 hold no person-level records, so the rate there is zero by construction and reported as such | The second review found the report claimed attacks that were not run |
+| Dedupe-rule sensitivity variant (`dedupe=exact`) | Not built | Needs a second clean pass; did not fit the budget |
+| Manual identity check by the lead | `enron-case review-merges`: a person judged a seeded sample of real merges in a terminal; only two counts are stored (`identity_manual`) and published in `data_quality` | Real identifiers must not enter an AI conversation |
+| UI with seven views, 2D group network | Eight views: Overview, Metrics, Network (3D brain-style cells with travelling signals and an anonymous Individuals mode, lazily loaded, with a 2D `d3-force` fallback), Clusters (chord diagram), Hypotheses (one list H1–H24), Data quality, Privacy and risk, Limits. Extra UI dependencies: `three`, `react-force-graph-3d`, `d3-chord`, `d3-shape` | Added after the core was integrated |
+| Parameters frozen in `config.py` during the parallel phase | Constants that agents had placed in their modules moved into `Config` fields afterwards (outputs byte-identical), so `--set` overrides them and the manifest echoes them | AGENTS.md: one place per parameter |
+| `mypy --strict` on `src/` | `mypy --strict` on `src/` and `tests/`, ruff annotation rules, no `Any` in signatures | Added with the `/code-quality-review` skill |
+
+The 12-hour schedule and checkpoint table below describe the plan, not what happened; the work
+ran past the core into the exploratory hypotheses, the review rounds and the UI views.
+
 ## Summary
 
 A single-command, file-based Python pipeline that streams the public Enron archive, reads headers

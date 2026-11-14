@@ -3,26 +3,74 @@
 
 # How this was built with AI agents
 
-Distilled from `docs/ai-workflow-log.md`, which records every delegation as it happened.
+Distilled from `docs/ai-workflow-log.md`, which records every delegation as it happened. Counts
+are written as words on purpose: every number in a generated document must trace to a release
+table.
+
+## Spec-driven development with Spec Kit
+
+The work followed Spec Kit's sequence. A **constitution** fixed seven principles first, two of
+them non-negotiable: message content never enters the system, and privacy is designed in, not
+added. The **spec** stated five user stories and their acceptance scenarios; the **plan** chose
+the design (data zones, versioned table contracts, one stage per package) and the research notes
+settled each open question; **tasks** broke the plan into a little over a hundred tasks, each
+owned by one work package. **Implement** was split between a lead agent and ten implementation
+agents. At the end the documents were **converged** with the code: the plan gained an as-built
+section, the task list a record of work done beyond it, and the architecture, contracts and data
+model were rewritten to describe what the code does.
 
 ## How the work was split
 
-A person and a lead agent wrote the spec, plan, research notes and data contracts first, with
-Spec Kit. The lead then built a frozen foundation: configuration, data zones with a path guard,
-the table contracts in code, and a synthetic corpus with ground truth and a reference fixture for
-every table. Ten agents then built ten work packages in parallel, each in its own git worktree,
-each with a brief naming its tasks, its input and output contracts and the only paths it could
-change: ingest, clean, identity, pseudonymize, network, finding, risk, release, report, and the
-explorer UI. Because every agent tested against fixtures rather than against each other's code,
-none waited for another.
+The person and the lead agent wrote the spec, plan, research notes and data contracts. The lead
+then built a frozen foundation: configuration, data zones with a path guard, a single
+`StageContext` through which every stage reads and writes, the table contracts in code, and a
+synthetic corpus with ground truth and a reference fixture for every table.
+
+Ten agents then built ten work packages in parallel, each in its own git worktree: ingest,
+clean, identity, pseudonymize, network, finding, risk, release, report, and the explorer UI.
+Each had a brief naming its tasks, the contracts it read and wrote, the only paths it could
+change, the function the orchestrator would call, and what to put in its final report: tasks
+done, tasks not done and why, anything unclear in the contracts, and what it had not verified.
+Because every agent tested against fixtures rather than against another agent's code, none
+waited for another, and the merges had no conflicts.
+
+After the parallel phase, work went one change at a time on short branches: a fix round per
+review, a configuration refactor, the twenty further hypotheses, the retention check, and new
+explorer views. Each change was made by the lead or one implementation agent, reviewed with the
+skills below, and merged by the lead.
 
 ## What the agents produced
 
 Every package came back with a green gate. Ingest, clean, identity and pseudonymize reproduced
-their reference fixtures exactly; network reproduced its snapshots. Agents reported their own
-deviations and open questions instead of silently resolving them: a header field the contract
-kept but the brief dropped, wrong counts in a fixture, an ambiguous degree definition, a noise
-draw in a fixture that held a real chance shift.
+their reference fixtures exactly, with identity precision and recall of one on the synthetic
+truth; network reproduced its snapshots; the finding package was calibrated on a world with no
+change. Agents reported their own deviations instead of silently resolving them: a header field
+the contract kept but the brief dropped, wrong counts in a fixture, an ambiguous degree
+definition, a noise draw in a fixture that held a real chance shift.
+
+## The review skills and what each caught
+
+- **`/code-review`** (correctness) and **`/data-privacy-review`** (the content and identifier
+  promises) ran together as two independent reviews. The first **blocked** a merge: a message
+  without a clean header end let the header reader continue into the body, so body lines could
+  become published field names or false recipients. It also found merges across companies under
+  `co.uk`-style suffixes and events counted per address instead of per person. The second found
+  that sensitivity variants published next to the default allowed differencing below the
+  minimum group size, that the report claimed attacks on the aggregate releases that had not
+  been run, that a hidden true zero was counted as protection, and wording that overstated
+  results. Later code reviews of the new hypotheses caught wrong daylight-saving dates, a flat
+  placebo counted as failing, and outcome flags left visible where their comparison was
+  suppressed.
+- **`/code-quality-review`** (typing and the rules in `AGENTS.md`) was added mid-project. It
+  extended strict type checking to the tests, which surfaced thirteen type errors, removed `Any`
+  from function signatures, and made the rule explicit that a gate is judged by its exit code.
+- **`/data-scientist-review`** (methodology) was added last. It judged the analysis **flawed**:
+  the one positive claim left, H16 (reciprocity rose in the crisis window), could be produced by inbox
+  retention: the measure counts contacts who also sent mail to the custodian, and a mailbox that
+  kept more of its incoming mail shows more of them. It listed twelve further
+  findings, among them an incomplete cleaning funnel, the corpus hash missing from the run
+  manifest, no interval on the manual check, an unlabelled amendment and the wording "wrote
+  back".
 
 ## What was rejected or changed, and why
 
@@ -34,36 +82,42 @@ draw in a fixture that held a real chance shift.
   legitimate Bcc-only copies; the fixture caught it and the rule was narrowed.
 - **A heuristic that would have distorted the network.** "Never sends, so it is a mailing list"
   would have relabelled most real people, since only senior mailboxes were collected; removed.
-- **The first real result.** Two hypotheses passed every pre-registered check with effects too
-  large to believe. The lead's diagnostics showed both were artifacts (stale baseline groups;
-  a change in which mailboxes hold mail). The checks became pipeline code, labelled post hoc,
-  and no finding is claimed.
+- **The first real result.** H2 and H3 passed every pre-registered check with effects too large
+  to believe. The lead's diagnostics showed that known artifacts produce the same effects:
+  groups frozen on a baseline go stale (H2), and a change in which mailboxes hold mail moves the
+  aggregate (H3). The diagnostics
+  became pipeline code, labelled post hoc, and both hypotheses are capped at low confidence.
+- **The last positive claim.** Restricted to contacts between custodians, whose messages to
+  each other are kept in the sender's own mailbox whatever the recipient kept, the H16 effect is not established and the same subset rises
+  before the crisis. The retention check is now pipeline code and caps H16 at inconclusive.
 
-## The gates and reviews that kept the output correct
+## Where the person decided
 
-- Tests against answers no agent produced: synthetic ground truth and hand-computed cases.
-- `make gate` on every package: lint, strict type checks, unit and contract tests, a privacy
-  canary that plants markers in bodies, subjects and folder names, and an import-boundary test.
-- Two independent reviews with the code-review and data-privacy-review skills. The first
-  blocked a merge: a malformed message could make the header reader continue into the body. It
-  was rare in this corpus but real, and fixed before any result was used. The second found that
-  sensitivity variants published side by side allowed differencing below the minimum group
-  size, and that the report claimed attacks it had not run. Both were fixed.
-- A determinism check: two full runs on the real corpus with one key give identical outputs;
-  it caught a bootstrap that depended on row order.
-
-## Where a person decided
-
-- The content line: subject lines and folder names are content, at the cost of threads.
-- The manual identity check: a person judged a seeded sample of real merges in a terminal, so
-  real identifiers never entered an AI conversation; only two counts were kept.
-- The finding: rejecting a statistically supported headline once its artifact was shown.
-- What to cut: the dedupe-rule variant, a formal privacy budget, a group-level attack.
+- **The content line**: subject lines and folder names are content and are never read, at the
+  cost of threads and topics.
+- **The manual merge check**: the person, not an agent, judged a seeded sample of fifty real
+  identity merges in a terminal, so real identifiers never entered an AI conversation; all
+  fifty were judged correct and only those two counts were kept.
+- **No finding about the crisis year**: rejecting H2 as the headline once its artifact was
+  shown, although it had passed the pre-registered rule.
+- **H16 is not held true**: after the retention test, the person decided that the strongest
+  lead is not a finding. No hypothesis is held true.
+- **One list H1–H24**: the twenty exploratory hypotheses E1–E20 were renumbered H5–H24 so the
+  report, release and explorer show a single list; the dated record keeps the E-numbers, and the
+  timing of each statement is kept because it decides how to read the statistics.
+- **What to cut**: the dedupe-rule variant, a formal privacy budget, a group-level attack.
 
 ## What did not work
 
 - Briefs that described an interface in prose let two agents disagree about it; typed
   interfaces in the foundation would have caught this at the gate.
-- Several agents had to place constants outside `config.py` because it was frozen.
-- Pre-registered robustness checks were necessary but not sufficient; the threats that mattered
-  were found by looking at the shape of the data, not by the plan.
+- Several agents had to place constants outside the frozen configuration; a refactor moved them
+  back afterwards.
+- A commit once landed with a red gate, and the next commit had to fix lint. Since then a gate
+  is judged by its exit code, never by piped output, a rule now in `AGENTS.md` and in the
+  quality review skill.
+- Pre-registered robustness checks were necessary but not sufficient. The threats that mattered,
+  baseline drift, a changing mailbox mix and inbox retention, were found by looking at the shape
+  of the data and by a methodology review, not by the plan.
+- The planned final steps (validation scenarios, a security review, a clean-clone rehearsal)
+  had not been run when this note was written.

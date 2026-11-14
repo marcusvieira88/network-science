@@ -1,67 +1,92 @@
-# Contract: Stage Tables (v1)
+# Contract: Stage Tables (v1.4)
 
-These schemas are the interfaces between work packages. They are implemented once in
-`src/enron_case/contracts/schemas.py` (WP0) with a `validate(table, name)` function, and the
-synthetic generator emits a conforming fixture for every table, so each package can be built and
-tested without the others.
+These schemas are the interfaces between stages. They are implemented once in
+`src/enron_case/contracts/schemas.py` (`TABLES`, `conform`, `validate`, `CONTRACT_VERSION`), the
+counts side outputs in `contracts/counts.py`, and enums and patterns in `contracts/vocab.py`.
+The synthetic generator (`src/enron_case/synth/`) emits a conforming fixture for every table, so
+each package can be built and tested without the others. Where this page and `schemas.py`
+disagree, the code is right and this page is out of date.
 
-**Change rule**: during the parallel phase a schema changes only through the lead, with a version
-bump and a note in `docs/ai-workflow-log.md`. Adding a nullable column is minor; anything else
-stops the affected packages until fixtures are regenerated.
+**Change rule**: a schema changes only through the lead, with a version bump of
+`CONTRACT_VERSION` and a note in `docs/ai-workflow-log.md`. Adding a nullable column is minor;
+anything else stops the affected packages until fixtures are regenerated.
 
-**Version**: 1.2 (1.1 added `communities`, `data_quality.order`, counts side outputs; 1.2 adds `artifact_results` / `artifact_checks`).
+**Version history**
 
-**Common rules**: tables are written sorted by the stated sort key; lists are sorted; timestamps
-are UTC; strings are lower-case where they are addresses or domains; no column may be added to a
-restricted or release table if it is not listed here.
+| Version | Change | Why |
+|---------|--------|-----|
+| 1.0 | The planned contract (this file before implementation) | — |
+| 1.1 | `communities` (restricted); `data_quality.order` as sort key; counts side outputs (`ingest_counts`, `clean_counts`, `identity_counts`, `pseudo_counts`) with `ingest_counts.header_rulings`; release tables `community_graph`, `community_groups` | Foundation (WP0): the release stage must not import ingest code; the UI needs group ties |
+| 1.2 | `artifact_results` (restricted) and `artifact_checks` (release) | In the first real run H2 and H3 passed every pre-registered check with effects that known artifacts could produce |
+| 1.3 | `exploratory_results` (restricted) and `exploratory` (release): hypotheses H5–H24 with volume-equalised columns; in the release, outcome and placebo and leave-one-out flags are nullable and suppressed with their comparison | The exploratory families (`docs/hypotheses-exploratory.md`) became pipeline output |
+| 1.4 | `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` on both exploratory tables | The data-science review showed H16 could be produced by inbox retention |
+
+Two release changes came from reviews without a version bump, because they narrowed what is
+published rather than changing a schema: `weekly_metrics` publishes only the default variant,
+and `header_fields` publishes unknown names only as `(other)`.
+
+**Common rules**: tables are written sorted by the stated sort key (nulls last); lists are
+sorted; timestamps are UTC; strings are lower-case where they are addresses or domains; a table
+has exactly the contract columns, in contract order. Every write goes through
+`StageContext.write`, which conforms, validates, leak-checks (no `@` in the restricted zone; no
+`@`, `p_…` or `o_…` pattern in the release zone) and fingerprints the table for the run manifest.
 
 ```mermaid
 flowchart LR
-    AR[archive] -->|S1| HR[header_records]
-    HR -->|S2| MS[messages]
-    HR -->|S3| EN[entities]
-    MS -->|S3| EN
-    MS -->|S3| AM[address_map]
-    MS -->|S4| EV[events]
-    EN -->|S4| EP[entities_p]
-    AM -->|S4| EV
-    EV -->|S5| SN[snapshots]
-    EP -->|S5| SN
-    SN -->|S5| MT[metric_series]
-    MT -->|S6| HY[hypothesis_results]
-    EV -->|S7| RK[risk_results]
-    HY -->|S8| RL[release tables]
-    RK -->|S8| RL
-    MT -->|S8| RL
-    QM[quality_metrics] -->|S8| RL
+    AR[archive] -->|parse| HR[header_records]
+    HR -->|clean| MS[messages]
+    HR -->|identity| EN[entities]
+    MS -->|identity| EN
+    MS -->|identity| AM[address_map]
+    MS -->|pseudo| EV[events]
+    EN -->|pseudo| EP[entities_p]
+    AM -->|pseudo| EV
+    EV -->|network| SN[snapshots]
+    EP -->|network| SN
+    SN -->|network| MT[metric_series]
+    EV -->|network| CO[communities]
+    MT -->|finding| HY[hypothesis_results]
+    EV -->|finding| AF[artifact_results]
+    EV -->|finding| EX[exploratory_results]
+    SN -->|risk| RK[risk_results]
+    HY -->|risk| RK
+    PS([parse, clean, identity, pseudo]) -.->|counts| CT[(counts/*.json)]
+    HY & AF & EX & RK & SN & MT & CO & CT -->|release| RL[release tables]
+    RL -->|report| RP[report.md + docs]
+    RL -->|ui-data| UJ[ui/public/data/release.json]
 ```
+
+`identity` reads `messages` and `header_records` (display names); `finding` reads `events`,
+`entities_p`, `communities` and `metric_series`; `risk` reads `snapshots`, `metric_series`,
+`entities_p` and `communities` (to build the releases it attacks) and `hypothesis_results` (to
+measure utility against the headline).
 
 ## Zone 1 · ingest (identifiers present; purged at end of run)
 
-### `header_records` — written by S1 (WP-A). Sort: `file_id`
+### `header_records` — written by `parse` (WP-A). Sort: `file_id`
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `file_id` | str | SHA-256 of archive member path, hex, first 16 chars |
-| `mailbox_owner` | str | from archive path / `X-Origin` |
-| `folder_class` | enum | sent, inbox, deleted, other |
+| `mailbox_owner` | str | from the archive path (`X-Origin` is dropped) |
+| `folder_class` | enum | sent, inbox, deleted, other; from the archive path's top-level folder |
 | `date_raw_ok` | bool | date header parsed |
-| `ts_utc` | datetime (s) nullable | |
+| `ts_utc` | datetime (µs, UTC) nullable | |
 | `from_addr` | str nullable | raw address string as found |
-| `to_addrs`, `cc_addrs`, `bcc_addrs` | list[str] | raw address strings |
+| `to_addrs`, `cc_addrs`, `bcc_addrs` | list[str] | raw address strings, split on commas |
 | `x_from`, `x_to`, `x_cc`, `x_bcc` | str nullable | display-name fields, raw |
 | `message_id` | str nullable | diagnostics only |
-| `parse_flags` | list[str] | e.g. `no_header_end`, `bad_date`, `folded` |
+| `parse_flags` | list[str] | `bad_date`, `folded` |
 
-Side output: `ingest_counts.json` — files seen, parsed, rejected by reason, header field names
-encountered with counts (names only).
+Members whose header block does not end cleanly are rejected, not written (see
+[header-allowlist.md](header-allowlist.md)).
 
-### `messages` — written by S2 (WP-B). Sort: `msg_key`
+### `messages` — written by `clean` (WP-B). Sort: `msg_key`
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `msg_key` | str | SHA-256 over (sender, ts second, sorted recipients), first 20 hex |
-| `ts_utc` | datetime (s) nullable | |
+| `ts_utc` | datetime nullable | |
 | `sender_addr` | str nullable | normalized (rule N1) |
 | `recipients` | list[struct{addr: str, role: enum(to,cc,bcc)}] | unique by addr, strongest role |
 | `n_recipients` | int | |
@@ -71,21 +96,18 @@ encountered with counts (names only).
 | `sent_copy_owner` | str nullable | owner whose sent folder held a copy |
 | `flags` | list[str] | `date_out_of_range`, `no_recipients`, `self_only`, `mass_mailing`, `bad_address` |
 
-Side output: `clean_counts.json` — per rule and per flag counts; share of exact-duplicate groups
-sharing one `message_id` (research R3 check).
-
-### `entities` — written by S3 (WP-C). Sort: `entity_id`
+### `entities` — written by `identity` (WP-C). Sort: `entity_id`
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `entity_id` | str | canonical id = smallest normalized address in cluster |
 | `type` | enum | person, list, system, role, unknown |
-| `org_domain` | str | registered domain |
+| `org_domain` | str | registered domain (multi-label public suffixes such as `co.uk` take three labels) |
 | `is_internal` | bool | |
 | `is_custodian` | bool | rule N5 |
 | `n_addresses` | int | |
 
-### `address_map` — written by S3 (WP-C). Sort: `addr`
+### `address_map` — written by `identity` (WP-C). Sort: `addr`
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -94,12 +116,11 @@ sharing one `message_id` (research R3 check).
 | `rule` | enum nullable | N1…N4 that attached this address; null for the canonical one |
 | `support` | int | observations behind the rule |
 
-Side output: `identity_counts.json` — clusters by size, merges by rule, blocked merges by guard,
-precision/recall when ground truth is available.
-
 ## Zone 2 · restricted (pseudonyms only; git-ignored)
 
-### `events` — written by S4 (WP-D). Sort: `ts_hour, sender_pid, recipient_pid, event_id`
+### `events` — written by `pseudo` (WP-D). Sort: `ts_hour, sender_pid, recipient_pid, event_id`
+
+One row per (message, recipient entity): aliases of one recipient collapse into one event.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -116,7 +137,7 @@ precision/recall when ground truth is available.
 | `sender_org_pid`, `recipient_org_pid` | str | `^o_[a-z2-7]{16}$` |
 | `in_network` | bool | false if any exclusion flag applied |
 
-### `entities_p` — written by S4 (WP-D). Sort: `pid`
+### `entities_p` — written by `pseudo` (WP-D). Sort: `pid`
 
 | Column | Type |
 |--------|------|
@@ -126,7 +147,7 @@ precision/recall when ground truth is available.
 | `is_internal` | bool |
 | `is_custodian` | bool |
 
-### `snapshots` — written by S5 (WP-E). Sort: `scope, week, src_pid, dst_pid`
+### `snapshots` — written by `network` (WP-E). Sort: `scope, week, src_pid, dst_pid`
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -136,7 +157,10 @@ precision/recall when ground truth is available.
 | `weight` | float | sum of event weights |
 | `n_messages` | int | |
 
-### `metric_series` — written by S5 (WP-E). Sort: `scope, metric, variant, week`
+The observed-scope snapshots of the analysis window are release R0: the node-level edges every
+release table is built from and that the risk stage attacks. R0 is never written to `release/`.
+
+### `metric_series` — written by `network` (WP-E). Sort: `scope, metric, variant, week`
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -145,24 +169,24 @@ precision/recall when ground truth is available.
 | `metric` | enum | volume, active_persons, density, reciprocity, indegree_gini, cross_community_share, external_share, tie_turnover |
 | `value` | float nullable | null when undefined for the window |
 | `n_active` | int | persons active in the window |
-| `variant` | str | `default` or a sensitivity label (`cap=20`, `window=month`) |
+| `variant` | str | `default` or a sensitivity label from `Config.sensitivity_variants` (`cap=20`, `window=month`) |
 
-### `communities` — written by S5 (WP-E). Sort: `pid`
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `pid` | str | persons active in `baseline_period` |
-| `community` | int | baseline community, frozen; -1 if not assigned |
-
-Stays in the restricted zone. Used for `cross_community_share` and, aggregated, for the release
-table `community_graph.csv`.
-
-### `hypothesis_results` — written by S6 (WP-F). Sort: `hypothesis`
+### `communities` — written by `network` (WP-E). Sort: `pid`
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `hypothesis` | enum | H1…H4 |
-| `metric`, `scope` | str | |
+| `pid` | str | persons active in the baseline period |
+| `community` | int | baseline community, frozen; `-1` (`vocab.UNASSIGNED_COMMUNITY`) if not assigned |
+
+Used for `cross_community_share`, the H2 artifact check and, aggregated, for the release tables
+`community_graph` and `community_groups`.
+
+### `hypothesis_results` — written by `finding` (WP-F). Sort: `hypothesis`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `hypothesis` | enum | H1…H4 (pre-registered, `docs/hypotheses.md`) |
+| `metric`, `scope` | enum | |
 | `change_week` | date nullable | estimated change point |
 | `p_perm`, `p_holm` | float | |
 | `effect` | float | standardized difference vs baseline |
@@ -170,47 +194,114 @@ table `community_graph.csv`.
 | `null_z` | float | deviation from rewiring null |
 | `loo_min_effect`, `loo_max_effect` | float | leave-one-mailbox-out range |
 | `robust_variants_passed`, `robust_variants_total` | int | |
-| `supported` | enum | yes, no, inconclusive |
-| `confidence` | enum | high, moderate, low |
-| `is_headline` | bool | at most one true |
+| `supported` | enum | yes, no, inconclusive (the pre-registered rule) |
+| `confidence` | enum | high, moderate, low; capped at low when an artifact check fails or cannot run |
+| `is_headline` | bool | at most one true; never true for a hypothesis capped by an artifact check |
 
-### `risk_results` — written by S7 (WP-G). Sort: `release_variant, attacker`
+### `artifact_results` — written by `finding` (WP-F). Sort: `hypothesis`
+
+Checks against known artifacts, added after the first real run (`finding/artifacts.py`,
+`docs/hypotheses.md` "Artifact checks"; post hoc).
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `release_variant` | enum | R0, R1, R2 |
-| `attacker` | enum | A1, A2 |
-| `n_targets` | int | persons in scope |
+| `hypothesis` | enum | H2 or H3 |
+| `check` | str | `baseline_placebo` (H2: communities fitted on the first half of the baseline, jump into the calm second half) or `within_custodian` (H3: median change of each custodian's own external share) |
+| `statistic`, `ci_low`, `ci_high` | float | |
+| `n_units` | int | units behind the statistic (custodians for `within_custodian`) |
+| `passes` | bool nullable | null when the check could not run |
+| `note` | str | one-line reading of the result |
+
+### `exploratory_results` — written by `finding` (WP-F). Sort: `order`
+
+Hypotheses H5–H24 (recorded as E1–E20 in `docs/hypotheses-exploratory.md`, stated before they
+were computed), `finding/exploratory.py`. One row per hypothesis. Each is a paired,
+within-custodian difference of a ratio between fixed windows (`config.CRISIS_WINDOW` against
+`config.REFERENCE_WINDOW`, the same weeks a year earlier), with a pre-crisis placebo comparison
+(`PLACEBO_AFTER_WINDOW` against `PLACEBO_BEFORE_WINDOW`).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `order` | int | 5…24 |
+| `hypothesis` | str | `H5`…`H24` |
+| `family` | enum | first (H5–H14), second (H15–H24) |
+| `measure`, `direction` | str, enum(up, down) | what is compared and the hypothesised sign |
+| `custodians` | int | custodians in the crisis comparison |
+| `median_change`, `ci_low`, `ci_high`, `p`, `p_holm` | float nullable | median paired difference, bootstrap interval, Wilcoxon p, Holm across the twenty |
+| `placebo_custodians`, `placebo_median`, `placebo_ci_low`, `placebo_ci_high` | int, float nullable | the pre-crisis comparison |
+| `placebo_passes`, `loo_stable` | bool | placebo shows no comparable change; leave-one-custodian-out keeps the sign |
+| `outcome` | enum | confident, inconclusive, not supported |
+| `caveat` | str | `""`, or why the hypothesis cannot be confident (`schemas.EXPLORATORY_CAVEATS`: H5 invalid, H7 untestable, H19 retention-sensitive; or `schemas.RETENTION_FAILED`) |
+| `equalised_median`, `equalised_ci_low`, `equalised_ci_high`, `equalised_p` | float nullable | volume-equalised check (each custodian's mail subsampled to the same count in both windows); null unless computed: only for outcomes other than not supported, without a caveat, and not for look-back measures (H19) |
+| `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` | float, bool nullable | retention check: the hypothesis on a measure inbox retention cannot move; null where none applies and when the outcome is not supported. Only H16 has one (reciprocity counted between custodians only, whose messages to each other are kept in the sender's own mailbox). A failed retention check caps the outcome at inconclusive with caveat `RETENTION_FAILED` |
+
+`confident` needs Holm-adjusted p below `alpha`, an interval on the hypothesised side, a passing
+placebo, a stable leave-one-out and no caveat.
+
+### `risk_results` — written by `risk` (WP-G). Sort: `release_variant, attacker`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `release_variant` | enum | R0 (node-level edges), R1 (the published aggregates), R2 (R1 + seeded Laplace noise) |
+| `attacker` | enum | A1 (features from the public raw corpus), A2 (A1 plus a few known custodians as seeds) |
+| `n_targets` | int | persons in R0 that are scored |
 | `unique_share` | float | share unique on observable features |
 | `median_anonymity_set` | float | |
 | `reid_top1` | float | share correctly re-identified |
 | `reid_ci_low`, `reid_ci_high` | float | |
-| `utility_effect_ratio` | float nullable | headline effect under this release ÷ under restricted data |
-| `finding_survives` | bool nullable | |
+| `utility_effect_ratio` | float nullable | headline effect under this release ÷ under restricted data; null without a headline |
+| `finding_survives` | bool nullable | null without a headline |
+
+R1 and R2 contain no person-level records, so the attackers have nothing to match there; their
+re-identification rate is zero by construction, not by a measured attack on group-level data.
 
 ### Counts side outputs — `data/restricted/counts/*.json` (counts only)
 
-`ingest_counts`, `clean_counts`, `identity_counts`, `pseudo_counts`; shapes in
-`src/enron_case/contracts/counts.py`. `ingest_counts.header_rulings` carries the ruling of each
-header field name so the release stage never imports ingest code. S8 assembles
-`quality_metrics` from them.
+Written with `ctx.write_counts`, which refuses any text containing `@`. Shapes in
+`src/enron_case/contracts/counts.py`.
+
+| File | Written by | Content |
+|------|------------|---------|
+| `ingest_counts` | parse | `files_seen`, `files_parsed`, `rejected` by reason, `header_fields` (name → occurrences), `header_rulings` (name → ruling), `parse_flags` |
+| `clean_counts` | clean | `records_in`, `messages_out`, `removed_exact`, `removed_subset`, `flags`, `message_id_shared_share` (research R3), dedupe precision and recall (sample only) |
+| `identity_counts` | identity | addresses, entities, entities by type, merges by rule, blocked merges by guard, cluster sizes, precision and recall (sample only) |
+| `pseudo_counts` | pseudo | entities, events, messages without time, events in network |
+| `identity_manual` | `enron-case review-merges` | `manual_checked`, `manual_correct`: the only output of the manual merge check (a person judges a seeded sample in a terminal; nothing else is stored) |
+
+`header_rulings` lets the release stage publish rulings without importing ingest code.
 
 ## Zone 3 · release (committed)
 
-Written only by S8 (WP-H) through `release/kanon.py`; rendered by S9 (WP-I).
+Written only by the `release` stage (WP-H): every table passes through `release/kanon.py`
+(`enforce`/`write`), and `StageContext.write` refuses a release table from any other package.
+
+**Minimum group size** (`Config.k_min`, default 5). The person-count columns are listed once in
+`schemas.PERSON_COUNT_COLUMNS`; a published value there is either null or at least k, and so is
+every value of the person-count metric `active_persons`. `kanon.check` aborts the run
+(`PrivacyViolation`, exit 6) otherwise.
+
+| Table | Person-count columns |
+|-------|----------------------|
+| `weekly_metrics` | `n_active` (and `value` where `metric = active_persons`) |
+| `degree_distribution` | `persons` |
+| `community_groups` | `n_persons` |
+| `risk` | `n_targets` |
+| `exploratory` | `custodians`, `placebo_custodians` |
 
 | File | Content |
 |------|---------|
-| `release/data_quality.csv` | order, step, count_in, count_out, removed, rule, precision, recall |
-| `release/header_fields.csv` | field name, occurrences, ruling |
-| `release/weekly_metrics.csv` | scope, week, metric, value, n_active (suppressed if < k), variant. Only `variant = default` is published: a sensitivity variant next to it would let default minus variant `n_active` reveal groups below k. The variants stay restricted and feed `robust_variants_*` |
-| `release/hypotheses.csv` | `hypothesis_results` without per-mailbox detail |
+| `release/data_quality.csv` | `order`, step, count_in, count_out, removed, rule, precision, recall. Rows: files parsed; deduplicate (`exact+subset`); resolve identities (`N1-N4`); and, when `identity_manual` exists, manual merge check (precision = judged correct ÷ checked). Precision and recall are null on the real corpus except for the manual check |
+| `release/header_fields.csv` | field, occurrences, ruling. Only names in `vocab.KNOWN_HEADER_FIELDS`; every other name summed into `(other)`, ruling `dropped` |
+| `release/weekly_metrics.csv` | scope, week, metric, value, n_active, variant. Only `variant = default` is published: a sensitivity variant next to it would let default minus variant `n_active` reveal groups below k (the variants stay restricted and feed `robust_variants_*`). `n_active` below k is suppressed with its `value`; a value whose `n_active` is suppressed is refused |
+| `release/hypotheses.csv` | `hypothesis_results` (H1–H4) |
+| `release/artifact_checks.csv` | `artifact_results`; `n_units` of `within_custodian` is suppressed when below k |
+| `release/exploratory.csv` | `exploratory_results` (H5–H24). Where `custodians` is below k, the crisis comparison is suppressed with everything derived from it: its statistics, the equalised and retention columns, `outcome` and `loo_stable`. Where `placebo_custodians` is below k, the placebo statistics and `placebo_passes` are suppressed. These columns are therefore nullable in the release only |
 | `release/risk.csv` | `risk_results` |
-| `release/degree_distribution.csv` | period (half-year), degree bucket (`1`, `2-4`, `5-9`, `10+`; degree = number of distinct contacts in either direction), persons (≥ k or suppressed; when a period hides only one cell with a true value above zero, or only one cell at all, its smallest published cell is suppressed too: a hidden true zero does not protect a small count) |
-| `release/community_graph.csv` | week, src_group, dst_group, weight, n_messages; plus `community_groups.csv`: group, n_persons. Groups are baseline communities with ≥ k persons, labelled `G01…` in an order unrelated to pseudonyms; smaller communities are merged into `other`; a weekly tie is dropped when it has fewer than k distinct senders in `src_group` (the number of distinct recipients is not limited). `weight` and `n_messages` sum the person-pair edges between the two groups, so `n_messages` counts per-pair messages: one message from a sender to three members of the other group counts three |
-| `ui/public/data/release.json` | written by S10 (WP-J) from the files above and nothing else; same content, one file, for the explorer UI |
-| `release/report.md` | the report: quality, finding, risk, limits |
-| `release/run_manifest.json` | parameters, seed, code version, fingerprints per table |
+| `release/degree_distribution.csv` | period (half-year, `2000H1`), degree bucket (`1`, `2-4`, `5-9`, `10+` from `Config.degree_bucket_floors`; degree = number of distinct contacts in either direction), persons (≥ k or suppressed). When a period hides only one cell with a true value above zero, or only one cell at all, its smallest published cell is suppressed too: a hidden true zero does not protect a small count |
+| `release/community_graph.csv` | week, src_group, dst_group, weight, n_messages; plus `community_groups.csv`: group, n_persons. Groups are baseline communities with ≥ k persons, labelled `G01…` in an order unrelated to pseudonyms; smaller communities are merged into `other`, which is published only if it reaches k. A weekly tie is dropped when it has fewer than k distinct senders in `src_group` (the number of distinct recipients is not limited). `weight` and `n_messages` sum the person-pair edges between the two groups, so `n_messages` counts per-pair messages: one message from a sender to three members of the other group counts three |
+| `release/report.md` | the report: quality, finding, hypotheses H1–H24, risk, limits (stage `report`) |
+| `release/run_manifest.json` | code version, sample flag, seed, every `Config` parameter, key fingerprint, fingerprint per table and counts file, stages run with their durations; no wall-clock time. A `corpus_sha256` field exists but no stage fills it yet (it is null); the archive hash is pinned in `config.CORPUS_SHA256` and verified by `fetch` |
+| `ui/public/data/release.json` | written by stage `ui-data` from the release tables above and the manifest's run block, and nothing else; same content, one file, for the explorer UI (format in `uiexport/export.py`) |
 
-No release file contains a `pid`, `org_pid`, address, name, or any row describing fewer than k
-persons.
+No release file contains a `pid`, `org_pid`, address, name, or any count describing fewer than
+k persons.

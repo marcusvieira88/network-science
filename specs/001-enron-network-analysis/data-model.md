@@ -1,7 +1,8 @@
 # Data Model: Enron Headers-Only Network Analysis Case
 
-Column-level schemas are in [contracts/data-contracts.md](contracts/data-contracts.md). This file
-gives the entities, their relationships, the zone each lives in, and the rules they must satisfy.
+Column-level schemas are in [contracts/data-contracts.md](contracts/data-contracts.md) (contract
+version 1.4, `src/enron_case/contracts/schemas.py`). This file gives the entities, their
+relationships, the zone each lives in, and the rules they must satisfy, as implemented.
 
 ## Entities by zone
 
@@ -18,12 +19,18 @@ erDiagram
     PSEUDONYM ||--o{ EVENT : "sender / recipient"
     EVENT }o--|| SNAPSHOT : "falls in week"
     SNAPSHOT ||--|{ METRIC_VALUE : has
-    HYPOTHESIS ||--|| HYPOTHESIS_RESULT : "tested as"
+    PSEUDONYM }o--o| COMMUNITY : "frozen on baseline"
+    COMMUNITY ||--o| RELEASE_GROUP : "published if size >= k"
+    HYPOTHESIS ||--|| HYPOTHESIS_RESULT : "H1-H4 tested as"
     METRIC_VALUE }o--o{ HYPOTHESIS_RESULT : evidence
+    HYPOTHESIS_RESULT ||--o| ARTIFACT_CHECK : "H2, H3 checked by"
+    HYPOTHESIS ||--|| EXPLORATORY_RESULT : "H5-H24 tested as"
+    EVENT }o--o{ EXPLORATORY_RESULT : "paired per custodian"
     ATTACKER_MODEL ||--|{ RISK_RESULT : produces
     RELEASE_VARIANT ||--|{ RISK_RESULT : "attacked as"
     RELEASE_VARIANT ||--|{ RELEASE_TABLE : contains
     RUN_MANIFEST ||--|{ STAGE_RECORD : lists
+    STAGE_COUNTS }o--|| RELEASE_TABLE : "data_quality, header_fields"
 ```
 
 | Entity | Zone | Stored as | Notes |
@@ -33,11 +40,17 @@ erDiagram
 | Message | ingest | `messages` | one per deduplicated message |
 | Entity, Organization | ingest | `entities`, `address_map` | resolved clusters with merge rule |
 | Pseudonym, Event | restricted | `events`, `entities_p` | no identifier, hour-resolution time |
-| Snapshot, Metric value | restricted | `snapshots`, `metric_series` | weekly; per-node rows stay here |
-| Hypothesis result | restricted → release | `hypothesis_results` | aggregate; passes k-check trivially |
-| Risk result | restricted → release | `risk_results` | counts and rates only |
-| Release table | release | CSV + `report.md` | every cell ≥ k or suppressed |
-| Run manifest | release | `run_manifest.json` | fingerprints, parameters, seed; no key, no paths with names |
+| Snapshot, Metric value | restricted | `snapshots`, `metric_series` | weekly; per-node rows stay here; observed-scope snapshots are release R0 |
+| Community | restricted | `communities` | baseline communities, frozen; published only as groups of at least k (`community_groups`, `community_graph`) |
+| Hypothesis result (H1–H4) | restricted → release | `hypothesis_results` → `hypotheses.csv` | pre-registered; aggregate |
+| Artifact check | restricted → release | `artifact_results` → `artifact_checks.csv` | post-hoc checks of H2 and H3; custodian count suppressed below k |
+| Exploratory result (H5–H24) | restricted → release | `exploratory_results` → `exploratory.csv` | within-custodian comparisons; a comparison over fewer than k custodians is suppressed with everything derived from it |
+| Risk result | restricted → release | `risk_results` → `risk.csv` | counts and rates only |
+| Stage counts | counts (restricted) | `counts/*.json` | counts only, no identifier; feed `data_quality` and `header_fields` |
+| Manual merge check | counts (restricted) | `counts/identity_manual.json` | two counts from a person's judgement in a terminal; identifiers are shown on screen only |
+| Release table | release | CSV + `report.md` | every person count ≥ k or suppressed |
+| UI data | ui | `ui/public/data/release.json` | built from release tables and the manifest's run block only |
+| Run manifest | release | `run_manifest.json` | fingerprints, parameters, seed, key fingerprint, stage durations; no key, no paths with names, no wall-clock time |
 
 ## Validation rules
 
@@ -72,15 +85,33 @@ erDiagram
 - One snapshot per ISO week and scope ∈ {core, observed}.
 - Metrics undefined on a window (fewer than k active persons) are null, not zero.
 
-**Hypothesis result**
+**Hypothesis result (H1–H4)**
 - One row per hypothesis H1–H4, always present, with `supported` ∈ {yes, no, inconclusive}.
-- `confidence` ∈ {high, moderate, low} derived by the rule in `docs/metrics.md`, not free text.
+- `confidence` ∈ {high, moderate, low} derived by the rule in `docs/hypotheses.md`
+  (`finding/select.py`), not free text. A hypothesis whose artifact check fails or cannot run is
+  capped at low confidence and cannot be headline. A headline needs `supported = yes` and
+  confidence high; there is at most one.
+
+**Artifact check**
+- One row per checked hypothesis: H2 `baseline_placebo`, H3 `within_custodian`.
+- `passes` is null when the check could not run; that also caps confidence.
+
+**Exploratory result (H5–H24)**
+- One row per hypothesis, `order` 5–24; `family` first (H5–H14) or second (H15–H24).
+- `outcome` ∈ {confident, inconclusive, not supported}. Confident needs Holm-adjusted p below
+  `alpha`, an interval on the hypothesised side, a passing pre-crisis placebo, a stable
+  leave-one-custodian-out and no caveat. A caveat (H5 invalid timestamps, H7 untestable, H19
+  retention-sensitive) or a failed retention check (H16) caps the outcome at inconclusive.
+- Equalised and retention columns are null where the check does not apply.
 
 **Release table**
-- Any count of persons < k (default 5) is suppressed; a row derived from such a group is dropped
-  or coarsened. Enforced centrally in `release/kanon.py`; a violation aborts the run.
-- No pseudonym from the restricted zone appears in `release/`; where node-level variants are
-  produced for the attack (R0), they are written to the restricted zone, never to `release/`.
+- Any count of persons < k (default 5) in a column of `schemas.PERSON_COUNT_COLUMNS` is
+  suppressed, together with the values derived from it, or its row is dropped. Enforced
+  centrally in `release/kanon.py`; a violation aborts the run (exit 6).
+- `weekly_metrics` carries the default variant only; `degree_distribution` is protected against
+  differencing within each half-year; `header_fields` names only known fields.
+- No pseudonym from the restricted zone appears in `release/`. The node-level release R0 that
+  the risk stage attacks is built in memory from `snapshots` and never written to `release/`.
 
 ## State transitions
 
@@ -88,15 +119,15 @@ erDiagram
 stateDiagram-v2
     [*] --> RawFile
     RawFile --> HeaderRecord: S1 headers only, allowlist
-    RawFile --> Rejected: unreadable header block (counted)
     HeaderRecord --> Message: S2 normalize + dedupe
     HeaderRecord --> DuplicateDropped: S2 exact / subset rule (counted)
+    RawFile --> Rejected: header block without a clean end, or outside maildir (counted)
     Message --> ExcludedFromNetwork: flag date_out_of_range, no_recipients, self_only, mass_mailing
     Message --> ResolvedMessage: S3 addresses mapped to entities
     ResolvedMessage --> Event: S4 pseudonymized, one per recipient
     Event --> InSnapshot: S5 person-to-person, in window
-    InSnapshot --> Aggregated: S8 k-threshold
-    Aggregated --> Published: S9 report
+    InSnapshot --> Aggregated: S8 release, k-threshold
+    Aggregated --> Published: S9 report, S10 ui-data
     Event --> Purged: ingest zone deleted at end of run (source rows)
 ```
 
@@ -105,15 +136,23 @@ stateDiagram-v2
     [*] --> Proposed: written in docs/hypotheses.md
     Proposed --> Frozen: committed before real-data analysis
     Frozen --> Tested: S6 statistics
-    Tested --> Supported: passes change point, effect, null model, robustness, Holm
+    Tested --> Supported: Holm p below alpha and interval on the stated side
     Tested --> NotSupported
-    Tested --> Inconclusive: mixed robustness
-    Supported --> Headline: largest effect among supported
+    Tested --> Inconclusive
+    Supported --> ArtifactChecked: H2, H3 (post hoc)
+    ArtifactChecked --> LowConfidence: check fails or cannot run
+    Supported --> Headline: confidence high, largest effect
     Supported --> Reported
+    LowConfidence --> Reported
     NotSupported --> Reported
     Inconclusive --> Reported
     Headline --> Reported
 ```
+
+In the real-corpus run H2 and H3 are supported by the pre-registered rule but fail their
+artifact checks, so they are capped at low confidence; H1 and H4 are not supported. There is no
+headline. Of H5–H24, none is confident; H16 and H20 are inconclusive (H16 after failing its
+retention check), the rest not supported. No hypothesis is held true.
 
 ## Parameters (single source: `config.py`, echoed in the run manifest)
 
@@ -127,5 +166,17 @@ stateDiagram-v2
 | `analysis_period` | 2000-01-01 … 2002-03-31 | series |
 | `baseline_period` | 2000-01-01 … 2000-12-31 | communities for H2, effect sizes |
 | `name_link_support` | 3 | identity rules N3, N4 |
-| `bootstrap_reps` / `permutations` | 1000 / 1000 | intervals, p-values (raise if runtime allows) |
+| `bootstrap_reps` / `permutations` | 1000 / 1000 | intervals, p-values |
 | `ts_resolution` | hour | restricted zone |
+| `sensitivity_variants` | `cap=20`, `window=month` | robustness of H1–H4 (restricted only) |
+| `alpha` / `ci_level` / `block_weeks` | 0.05 / 0.95 / 4 | H1–H4 decision rule |
+| `null_replicates` | 20 | rewiring null model |
+| `placebo_max_effect` / `min_unit_events` | 2.0 / 30 | artifact checks of H2 / H3 |
+| `exploratory_min_messages` / `exploratory_bootstrap_reps` / `exploratory_equalise_reps` | 20 / 2000 / 40 | H5–H24 |
+| `manual_sample_size` | 50 | manual merge check |
+| `degree_bucket_floors` / `r2_noise_scale` | 1, 2, 5, 10 / 1.0 | release buckets, R2 noise |
+| `a2_seeds` / `a2_min_support` | 3 / 2 | attacker A2 |
+
+Fixed windows that are not run parameters (they are stated in `docs/hypotheses-exploratory.md`)
+live as constants in `config.py`: `CRISIS_WINDOW`, `REFERENCE_WINDOW`, `PLACEBO_AFTER_WINDOW`,
+`PLACEBO_BEFORE_WINDOW`, and `PUBLIC_EVENTS` (annotation only).
