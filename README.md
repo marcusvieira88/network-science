@@ -236,7 +236,7 @@ external URL: no CDN, no web fonts, no analytics.
 | `tarfile`, `email.utils`, `hmac`, `hashlib` (standard library) | streaming the archive, parsing dates, keyed pseudonyms, fingerprints | No dependency needed, and easy to audit: the code that touches raw data stays small and standard. |
 | **uv** | environment and lockfile | Pinned, reproducible installs in seconds (`uv sync --locked`). |
 | **pytest** + **Hypothesis** | unit, contract, privacy and property tests | Property tests check that dedupe ignores input order, that the header reader never reads past the header, and that k-suppression never leaks. |
-| **Ruff** + **mypy** (strict) | lint, formatting, types | Every signature is typed; the gate fails on any finding. |
+| **Ruff** + **mypy** (strict) | lint, formatting, types | `mypy --strict` checks `src/` and `tests/`; no `Any` in a signature (untyped JSON is `object`, narrowed); the gate fails on any finding. |
 
 ### Explorer UI (`ui/`)
 

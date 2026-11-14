@@ -135,7 +135,7 @@ class Config:
         return {k: _jsonable(v) for k, v in dataclasses.asdict(self).items()}
 
 
-def _parse_like(example: Any, raw: str, name: str) -> Any:
+def _parse_like(example: object, raw: str, name: str) -> object:
     try:
         if isinstance(example, bool):
             return raw.lower() in {"1", "true", "yes"}
@@ -152,7 +152,7 @@ def _parse_like(example: Any, raw: str, name: str) -> Any:
     return raw
 
 
-def _parse_tuple(example: tuple[Any, ...], raw: str) -> tuple[Any, ...]:
+def _parse_tuple(example: tuple[object, ...], raw: str) -> tuple[object, ...]:
     """Comma-separated items, as integers when the default holds integers."""
     parts = tuple(part for part in raw.split(",") if part)
     if example and isinstance(example[0], int):
@@ -160,7 +160,7 @@ def _parse_tuple(example: tuple[Any, ...], raw: str) -> tuple[Any, ...]:
     return parts
 
 
-def _jsonable(value: Any) -> Any:
+def _jsonable(value: object) -> object:
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, tuple):

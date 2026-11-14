@@ -123,7 +123,7 @@ def tiny_inputs(
 
 
 def tiny_events(**kwargs: object) -> pl.DataFrame:
-    return pseudonymize.build_events(KEY, *tiny_inputs(**kwargs))  # type: ignore[arg-type]
+    return pseudonymize.build_events(KEY, *tiny_inputs(**kwargs))  # type: ignore[arg-type]  # kwargs are per-test overrides
 
 
 def test_one_event_per_recipient_entity_with_weight_and_hour() -> None:

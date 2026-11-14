@@ -22,11 +22,48 @@ STEP_MANUAL = "manual merge check"
 RULE_MANUAL = "seeded sample, judged by a person"
 
 
-def require(counts: dict[str, Any], file: str, key: str) -> Any:
+def require(counts: dict[str, Any], file: str, key: str) -> object:
     """A counts value, or a ContractViolation naming the missing file or key."""
     if key not in counts:
         raise ContractViolation(f"counts '{file}' lack '{key}'")
-    return counts[key]
+    value: object = counts[key]
+    return value
+
+
+def require_int(counts: dict[str, Any], file: str, key: str) -> int:
+    value = require(counts, file, key)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ContractViolation(f"counts '{file}': '{key}' is not an integer")
+    return value
+
+
+def require_rate(counts: dict[str, Any], file: str, key: str) -> float | None:
+    """A precision or recall: a number, or null where there is no ground truth."""
+    value = require(counts, file, key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise ContractViolation(f"counts '{file}': '{key}' is not a number")
+    return float(value)
+
+
+def _count(value: object, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ContractViolation(f"ingest_counts: occurrences of '{field}' is not an integer")
+    return value
+
+
+def _ruling(value: object, field: str) -> str:
+    if not isinstance(value, str):
+        raise ContractViolation(f"ingest_counts: ruling of '{field}' is not a string")
+    return value
+
+
+def require_mapping(counts: dict[str, Any], file: str, key: str) -> dict[str, object]:
+    value = require(counts, file, key)
+    if not isinstance(value, dict) or not all(isinstance(k, str) for k in value):
+        raise ContractViolation(f"counts '{file}': '{key}' is not a mapping")
+    return value
 
 
 def data_quality(
@@ -37,12 +74,12 @@ def data_quality(
 ) -> pl.DataFrame:
     """One row per pipeline step: what went in, what came out, the rule and its measured
     precision and recall where ground truth exists."""
-    files_seen = require(ingest, "ingest_counts", "files_seen")
-    files_parsed = require(ingest, "ingest_counts", "files_parsed")
-    records = require(clean, "clean_counts", "records_in")
-    messages = require(clean, "clean_counts", "messages_out")
-    addresses = require(identity, "identity_counts", "addresses")
-    entities = require(identity, "identity_counts", "entities")
+    files_seen = require_int(ingest, "ingest_counts", "files_seen")
+    files_parsed = require_int(ingest, "ingest_counts", "files_parsed")
+    records = require_int(clean, "clean_counts", "records_in")
+    messages = require_int(clean, "clean_counts", "messages_out")
+    addresses = require_int(identity, "identity_counts", "addresses")
+    entities = require_int(identity, "identity_counts", "entities")
     rows = [
         (1, STEP_PARSE, files_seen, files_parsed, None, None, None),
         (
@@ -51,8 +88,8 @@ def data_quality(
             records,
             messages,
             RULE_DEDUPE,
-            require(clean, "clean_counts", "dedupe_precision"),
-            require(clean, "clean_counts", "dedupe_recall"),
+            require_rate(clean, "clean_counts", "dedupe_precision"),
+            require_rate(clean, "clean_counts", "dedupe_recall"),
         ),
         (
             3,
@@ -60,8 +97,8 @@ def data_quality(
             addresses,
             entities,
             RULE_IDENTITY,
-            require(identity, "identity_counts", "precision"),
-            require(identity, "identity_counts", "recall"),
+            require_rate(identity, "identity_counts", "precision"),
+            require_rate(identity, "identity_counts", "recall"),
         ),
     ]
     checked = (manual or {}).get("manual_checked")
@@ -90,8 +127,14 @@ def data_quality(
 
 def header_fields(ingest: dict[str, Any]) -> pl.DataFrame:
     """Every header field name seen, how often, and the ruling the parser applied to it."""
-    occurrences: dict[str, int] = require(ingest, "ingest_counts", "header_fields")
-    rulings: dict[str, str] = require(ingest, "ingest_counts", "header_rulings")
+    occurrences = {
+        name: _count(n, name)
+        for name, n in require_mapping(ingest, "ingest_counts", "header_fields").items()
+    }
+    rulings = {
+        name: _ruling(r, name)
+        for name, r in require_mapping(ingest, "ingest_counts", "header_rulings").items()
+    }
     unruled = sorted(set(occurrences) - set(rulings))
     if unruled:
         raise ContractViolation(f"ingest_counts: {len(unruled)} header fields without a ruling")

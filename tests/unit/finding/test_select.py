@@ -36,7 +36,7 @@ def _evidence(index: int, **changes: object) -> Evidence:
         variants_passed=2,
         variants_total=2,
     )
-    return replace(base, **changes)  # type: ignore[arg-type]
+    return replace(base, **changes)  # type: ignore[arg-type]  # overrides of mixed Evidence fields
 
 
 def _all(**changes: object) -> list[Evidence]:

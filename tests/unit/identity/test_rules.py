@@ -85,7 +85,7 @@ def test_n3_needs_support_on_both_addresses() -> None:
 
 
 def test_n3_counts_distinct_sends_not_file_copies() -> None:
-    copies = [{"from_addr": "klo@org.com", "x_from": "Kim Lo"}] * SUPPORT
+    copies: list[dict[str, object]] = [{"from_addr": "klo@org.com", "x_from": "Kim Lo"}] * SUPPORT
     hdr = headers(sends("kim.lo@org.com", "Kim Lo", SUPPORT)).vstack(
         headers(copies).with_columns(pl.lit(BASE).cast(pl.Datetime("us", "UTC")).alias("ts_utc"))
     )

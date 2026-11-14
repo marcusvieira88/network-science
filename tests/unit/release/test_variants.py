@@ -206,14 +206,18 @@ def test_laplace_noise_is_unbiased_on_counts() -> None:
     noisy = mitigate.add_laplace(true, scale=1.0, rng=rng)
     assert noisy.dtype == pl.Int64
     assert not noisy.equals(true)
-    assert abs(float(noisy.mean()) - 7.0) < 0.05
+    mean = noisy.cast(pl.Float64).mean()
+    assert isinstance(mean, float)
+    assert abs(mean - 7.0) < 0.05
 
 
 def test_laplace_noise_is_unbiased_on_weights() -> None:
     rng = np.random.default_rng(8)
     true = pl.Series([2.5] * 20_000)
     noisy = mitigate.add_laplace(true, scale=1.0, rng=rng)
-    assert abs(float(noisy.mean()) - 2.5) < 0.05
+    mean = noisy.mean()
+    assert isinstance(mean, float)
+    assert abs(mean - 2.5) < 0.05
 
 
 def test_weekly_metrics_publishes_default_variant_only() -> None:

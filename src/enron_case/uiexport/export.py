@@ -69,7 +69,7 @@ def table_rows(df: pl.DataFrame) -> list[Row]:
     ]
 
 
-def _jsonable(value: Any) -> Any:
+def _jsonable(value: object) -> object:
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, float) and not math.isfinite(value):
@@ -94,7 +94,7 @@ def build_document(tables: dict[str, pl.DataFrame], manifest: dict[str, Any]) ->
     }
 
 
-def strings(value: Any) -> Iterator[str]:
+def strings(value: object) -> Iterator[str]:
     """Every string in a JSON-like value, keys included."""
     if isinstance(value, str):
         yield value

@@ -23,10 +23,13 @@ def sample_run(tmp_path_factory: pytest.TempPathFactory) -> SampleRun:
     return run_sample(tmp_path_factory.mktemp("canary"), keep_ingest=True)
 
 
+def _strings(value: object) -> list[str]:
+    assert isinstance(value, list) and all(isinstance(v, str) for v in value)
+    return [str(v) for v in value]
+
+
 def identifiers(truth: dict[str, object]) -> list[str]:
-    names = list(truth["display_names"])  # type: ignore[call-overload]
-    owners = list(truth["owner_dirs"])  # type: ignore[call-overload]
-    return ["@", *names, *owners]
+    return ["@", *_strings(truth["display_names"]), *_strings(truth["owner_dirs"])]
 
 
 def test_pipeline_ran_something(sample_run: SampleRun) -> None:

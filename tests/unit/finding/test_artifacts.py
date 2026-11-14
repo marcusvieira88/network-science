@@ -37,7 +37,7 @@ def test_placebo_fails_on_a_jump_right_after_the_fitting_period(synth: SynthOutp
     (what stale groups produce) must fail the placebo."""
 
     def drifting(*args: object, **kwargs: object) -> pl.DataFrame:
-        series = compute_series(*args, **kwargs)  # type: ignore[arg-type]
+        series = compute_series(*args, **kwargs)  # type: ignore[arg-type]  # pass-through wrapper
         jump = pl.col("week") > date(2000, 7, 1)
         return series.with_columns(
             pl.when((pl.col("metric") == "cross_community_share") & jump)

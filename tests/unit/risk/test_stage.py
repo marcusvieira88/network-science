@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 import pytest
@@ -19,6 +20,9 @@ from enron_case.synth import SynthOutput
 from enron_case.synth.fixtures import fixture_pid
 from enron_case.zones import Zone
 from helpers import TEST_KEY_HEX, ctx_with_fixtures
+
+# (context, risk_results, captured log lines) of one fixture run of the stage.
+Outcome = tuple[StageContext, pl.DataFrame, list[str]]
 
 CONFIG = Config()
 
@@ -56,27 +60,27 @@ def truth_pids(synth: SynthOutput) -> tuple[dict[str, str], set[str]]:
 
 
 @pytest.fixture(scope="module")
-def outcome(synth: SynthOutput, tmp_path_factory: pytest.TempPathFactory) -> tuple:
+def outcome(synth: SynthOutput, tmp_path_factory: pytest.TempPathFactory) -> Outcome:
     logs: list[str] = []
     ctx = fixture_context(synth, tmp_path_factory.mktemp("risk"), logs)
     stage.run_with(ctx, risk_fakes.fixture_dependencies())
     return ctx, ctx.read("risk_results"), logs
 
 
-def row(results: pl.DataFrame, variant: str, attacker: str) -> dict[str, object]:
+def row(results: pl.DataFrame, variant: str, attacker: str) -> dict[str, Any]:
     return results.filter(
         (pl.col("release_variant") == variant) & (pl.col("attacker") == attacker)
     ).row(0, named=True)
 
 
-def test_writes_one_valid_row_per_variant_and_attacker(outcome: tuple) -> None:
+def test_writes_one_valid_row_per_variant_and_attacker(outcome: Outcome) -> None:
     _, results, _ = outcome
     schemas.validate(results, "risk_results")
     pairs = results.select("release_variant", "attacker").rows()
     assert pairs == [(r, a) for r in ("R0", "R1", "R2") for a in ("A1", "A2")]
 
 
-def test_reported_rates_equal_rates_from_ground_truth(outcome: tuple, synth: SynthOutput) -> None:
+def test_reported_rates_equal_rates_from_ground_truth(outcome: Outcome, synth: SynthOutput) -> None:
     ctx, results, _ = outcome
     deps = risk_fakes.fixture_dependencies()
     r0 = deps.build_r0(ctx.read("snapshots"))
@@ -94,7 +98,7 @@ def test_reported_rates_equal_rates_from_ground_truth(outcome: tuple, synth: Syn
         assert reported["reid_top1"] == pytest.approx(correct / len(scored))
 
 
-def test_a1_reidentifies_most_active_custodians_in_r0(outcome: tuple, synth: SynthOutput) -> None:
+def test_a1_reidentifies_most_active_custodians_in_r0(outcome: Outcome, synth: SynthOutput) -> None:
     ctx, results, _ = outcome
     r0 = variants.build_r0(ctx.read("snapshots"))
     guesses = attack.attack_a1(r0, aux_public.load_aux_edges(ctx), CONFIG.distance_chunk_rows)
@@ -105,7 +109,7 @@ def test_a1_reidentifies_most_active_custodians_in_r0(outcome: tuple, synth: Syn
     assert row(results, "R0", "A1")["unique_share"] >= 0.8
 
 
-def test_aggregate_releases_give_nothing_to_match(outcome: tuple) -> None:
+def test_aggregate_releases_give_nothing_to_match(outcome: Outcome) -> None:
     _, results, logs = outcome
     for variant in ("R1", "R2"):
         for attacker in ("A1", "A2"):
@@ -116,7 +120,7 @@ def test_aggregate_releases_give_nothing_to_match(outcome: tuple) -> None:
         assert any(f"{variant}: no person-level records" in line for line in logs)
 
 
-def test_utility_on_planted_change(outcome: tuple) -> None:
+def test_utility_on_planted_change(outcome: Outcome) -> None:
     _, results, _ = outcome
     assert row(results, "R0", "A1")["utility_effect_ratio"] == pytest.approx(1.0)
     assert row(results, "R1", "A1")["finding_survives"] is True  # fake R1 publishes all weeks
@@ -135,7 +139,7 @@ def test_no_headline_means_utility_not_applicable(
     assert results.get_column("finding_survives").null_count() == results.height
 
 
-def test_logs_counts_only_and_writes_nothing_else(outcome: tuple, synth: SynthOutput) -> None:
+def test_logs_counts_only_and_writes_nothing_else(outcome: Outcome, synth: SynthOutput) -> None:
     ctx, _, logs = outcome
     names = synth.truth()["display_names"]
     for line in logs:
