@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { MAX_PARTICLES, MAX_PARTICLE_SPEED, MIN_PARTICLE_SPEED, cellRadius } from "@/lib/cells";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
 import {
   EDGE_MAX_OPACITY,
@@ -35,13 +36,16 @@ const edges: CommunityEdgeRow[] = [
 const weeks = ["2000-01-03", "2000-01-10", "2000-01-17"];
 
 describe("graphNodes", () => {
-  it("gives one node per group, sorted, with volume equal to group size", () => {
+  it("gives one cell per group, sorted, with volume equal to group size", () => {
     const nodes = graphNodes(groups);
     expect(nodes.map((n) => [n.id, n.nPersons, n.val])).toEqual([
       ["G01", 27, 27],
       ["G02", 9, 9],
       ["G03", 5, 5],
     ]);
+    // 27 people: radius 3 times cube root 27 = 9; 8 times the volume of a 27/8-person cell.
+    expect(nodes[0]?.radius).toBe(9);
+    expect(nodes.map((n) => n.radius)).toEqual([27, 9, 5].map(cellRadius));
   });
 
   it("makes larger groups lighter, in the accent hue, from the smallest to the largest lightness", () => {
@@ -70,7 +74,9 @@ describe("weekLinks", () => {
         target: "G02",
         weight: 8,
         width: EDGE_MAX_WIDTH,
-        color: `rgba(138, 137, 132, ${EDGE_MAX_OPACITY.toFixed(3)})`,
+        color: `rgba(157, 194, 242, ${EDGE_MAX_OPACITY.toFixed(3)})`,
+        particles: MAX_PARTICLES,
+        particleSpeed: MAX_PARTICLE_SPEED,
       },
     ]);
     const half = weekLinks(edges, "2000-01-10", max, ["G01", "G02", "G03"]);
@@ -80,7 +86,10 @@ describe("weekLinks", () => {
         target: "G03",
         weight: 4,
         width: EDGE_MIN_WIDTH + 0.5 * (EDGE_MAX_WIDTH - EDGE_MIN_WIDTH),
-        color: `rgba(138, 137, 132, ${(EDGE_MIN_OPACITY + 0.5 * (EDGE_MAX_OPACITY - EDGE_MIN_OPACITY)).toFixed(3)})`,
+        color: `rgba(157, 194, 242, ${(EDGE_MIN_OPACITY + 0.5 * (EDGE_MAX_OPACITY - EDGE_MIN_OPACITY)).toFixed(3)})`,
+        // Half the heaviest weight: half of six particles, at the middle speed.
+        particles: 3,
+        particleSpeed: (MIN_PARTICLE_SPEED + MAX_PARTICLE_SPEED) / 2,
       },
     ]);
     expect(weekLinks(edges, "2000-01-17", max, ["G01", "G02", "G03"])).toEqual([]);

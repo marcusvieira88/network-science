@@ -2,6 +2,7 @@
  * Data mapping for the 3D group network: pure functions from release rows to the nodes and links
  * the force graph draws. Nothing here imports the 3D library, so it stays out of the main bundle.
  */
+import { cellRadius, particleCount, particleSpeed, sortedGroups } from "@/lib/cells";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
 import { publishedTies } from "@/lib/network";
 
@@ -10,24 +11,28 @@ const ACCENT_HUE = 213;
 const ACCENT_SATURATION = 76;
 export const NODE_MIN_LIGHTNESS = 40;
 export const NODE_MAX_LIGHTNESS = 72;
-/** Muted edge tone (--chart-marker in index.css: #8a8984). */
-const EDGE_RGB = "138, 137, 132";
+/** Axon tone: the accent at a pale lightness (hsl(213, 76%, 78%)), so ties glow like the cells. */
+const EDGE_RGB = "157, 194, 242";
+/** Signals travelling along a tie: a near-white accent so bloom makes them spark. */
+export const PARTICLE_COLOR = "hsl(213, 90%, 88%)";
 export const EDGE_MIN_WIDTH = 0.4;
 export const EDGE_MAX_WIDTH = 3;
 export const EDGE_MIN_OPACITY = 0.2;
 export const EDGE_MAX_OPACITY = 0.85;
 /** Near-black canvas (--background in index.css: 240 6% 4%). */
 export const BACKGROUND_COLOR = "#0a0a0c";
-/** Sphere radius = cube root of `val` times this; `val` is the group size, so volume follows size. */
-export const NODE_RELATIVE_SIZE = 3;
+/** Ties bend slightly, like dendrites rather than wires. */
+export const LINK_CURVATURE = 0.25;
 /** Force ticks run before the first frame; the layout is then frozen. */
 export const LAYOUT_TICKS = 300;
 
 export interface GraphNode {
   id: string;
   nPersons: number;
-  /** Sphere volume, proportional to group size. */
+  /** Cell volume, proportional to group size. */
   val: number;
+  /** Cell radius in scene units (cellRadius in lib/cells.ts), so volume follows `val`. */
+  radius: number;
   color: string;
 }
 
@@ -37,6 +42,9 @@ export interface GraphLink {
   weight: number;
   width: number;
   color: string;
+  /** Signal particles travelling along the tie this week, and their speed. */
+  particles: number;
+  particleSpeed: number;
 }
 
 function lerp(low: number, high: number, share: number): number {
@@ -50,14 +58,18 @@ function nodeColor(nPersons: number, smallest: number, largest: number): string 
   return `hsl(${ACCENT_HUE}, ${ACCENT_SATURATION}%, ${lightness.toFixed(1)}%)`;
 }
 
-/** One node per published group, sorted by label; lightness rises with size on a cube-root scale. */
+/** One cell per published group, sorted by label; lightness rises with size on a cube-root scale. */
 export function graphNodes(groups: CommunityGroupRow[]): GraphNode[] {
   const sizes = groups.map((g) => g.n_persons);
   const smallest = Math.min(...sizes);
   const largest = Math.max(...sizes);
-  return [...groups]
-    .sort((x, y) => x.group.localeCompare(y.group))
-    .map((g) => ({ id: g.group, nPersons: g.n_persons, val: g.n_persons, color: nodeColor(g.n_persons, smallest, largest) }));
+  return sortedGroups(groups).map((g) => ({
+    id: g.group,
+    nPersons: g.n_persons,
+    val: g.n_persons,
+    radius: cellRadius(g.n_persons),
+    color: nodeColor(g.n_persons, smallest, largest),
+  }));
 }
 
 function link(a: string, b: string, weight: number, maxTie: number): GraphLink {
@@ -69,12 +81,15 @@ function link(a: string, b: string, weight: number, maxTie: number): GraphLink {
     weight,
     width: lerp(EDGE_MIN_WIDTH, EDGE_MAX_WIDTH, share),
     color: `rgba(${EDGE_RGB}, ${opacity.toFixed(3)})`,
+    particles: particleCount(weight, maxTie),
+    particleSpeed: particleSpeed(weight, maxTie),
   };
 }
 
 /**
  * Ties between distinct groups in one week. `maxTie` is the heaviest tie of any week, so a wider,
- * brighter line always means a heavier tie. Ties to an unpublished group are dropped.
+ * brighter line with more, faster particles always means a heavier tie. Ties to an unpublished
+ * group are dropped.
  */
 export function weekLinks(edges: CommunityEdgeRow[], week: string | null, maxTie: number, groupIds: string[]): GraphLink[] {
   return publishedTies(edges, week, groupIds).map((tie) => link(tie.a, tie.b, tie.total, maxTie));

@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
-import { ArtifactChecksTable } from "@/components/ArtifactChecksTable";
 import { ClusterView } from "@/components/ClusterView";
 import { CommunityGraph } from "@/components/CommunityGraph";
-import { ExploratoryTable } from "@/components/ExploratoryTable";
 import { HypothesesTable } from "@/components/HypothesesTable";
 import { Limits } from "@/components/Limits";
 import { MetricChart } from "@/components/MetricChart";
@@ -14,6 +12,7 @@ import { RiskPanel } from "@/components/RiskPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { driftCheckPasses } from "@/lib/clusters";
 import { type LoadResult, type ReleaseData, loadRelease } from "@/lib/data";
+import { STATED, allHypotheses, countByKind } from "@/lib/hypotheses";
 import { minimumGroupSize } from "@/lib/privacy";
 import { analysisWeeks, baselinePeriod, headline } from "@/lib/series";
 import type { ViewId } from "@/lib/views";
@@ -50,6 +49,7 @@ export function View({ view, data, onSelect }: ViewProps) {
           weeks={analysisWeeks(tables.weekly_metrics)}
           events={data.events}
           minGroupSize={minimumGroupSize(data)}
+          seed={data.run.seed}
         />
       );
     case "clusters": {
@@ -72,33 +72,35 @@ export function View({ view, data, onSelect }: ViewProps) {
         />
       );
     }
-    case "hypotheses":
+    case "hypotheses": {
+      const entries = allHypotheses(tables.hypotheses, tables.exploratory, tables.artifact_checks);
+      const counts = countByKind(entries);
       return (
-        <div className="space-y-6">
-          <Card>
-            <CardContent className="pt-6">
-              <HypothesesTable hypotheses={tables.hypotheses} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Checks against known artifacts</CardTitle>
-              <CardDescription>
-                Added after the first real-data run. A supported hypothesis whose check fails or cannot run is capped
-                at low confidence and is not claimed as a finding.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ArtifactChecksTable checks={tables.artifact_checks} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <ExploratoryTable rows={tables.exploratory} />
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Hypotheses</CardTitle>
+            <CardDescription className="space-y-2">
+              <span className="block">
+                One list, ordered by number. {counts.preregistered} were stated {STATED.preregistered} and{" "}
+                {counts.exploratory} {STATED.exploratory}; Holm&apos;s correction runs within each of those two sets.
+                Each hypothesis stated {STATED.exploratory} compares every custodian with themselves, crisis window
+                against the same weeks a year earlier.
+              </span>
+              <span className="block">
+                &ldquo;Held true&rdquo; marks what the analysis holds to be true: the headline among the hypotheses
+                stated {STATED.preregistered}, or a confident outcome among those stated {STATED.exploratory}. A
+                hypothesis stated {STATED.preregistered} carries its check against a known artifact of the data under
+                its row; a supported one whose check fails or cannot run is capped at low confidence and is not
+                claimed as a finding.
+              </span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HypothesesTable entries={entries} />
+          </CardContent>
+        </Card>
       );
+    }
     case "quality":
       return (
         <QualityPanel

@@ -1,20 +1,28 @@
 /**
- * The WebGL canvas of the group network. Loaded on demand (React.lazy) so that three.js stays out
- * of the bundle the other views load. All data mapping lives in lib/network3d.ts.
+ * The WebGL canvas of the group network, drawn as glowing cells with signals travelling along the
+ * ties. Loaded on demand (React.lazy) so that three.js stays out of the bundle the other views
+ * load. All data mapping lives in lib/network3d.ts and lib/cells.ts.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph3D, { type ForceGraphMethods } from "react-force-graph-3d";
+import { Vector2 } from "three";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
+import { cellObject, glowTexture } from "@/components/cellObjects";
+import type { NetworkMode, Point } from "@/lib/cells";
 import type { GraphLink, GraphNode } from "@/lib/network3d";
-import { BACKGROUND_COLOR, LAYOUT_TICKS, NODE_RELATIVE_SIZE, nodeLabel } from "@/lib/network3d";
+import { BACKGROUND_COLOR, LAYOUT_TICKS, LINK_CURVATURE, PARTICLE_COLOR, nodeLabel } from "@/lib/network3d";
 
 const CANVAS_HEIGHT = 460;
 const FIT_DURATION_MS = 600;
 const FIT_PADDING = 40;
-const NODE_RESOLUTION = 24;
-const NODE_OPACITY = 0.95;
 /** Per-link opacity comes from each link's rgba colour (lib/network3d.ts); this multiplies it. */
 const LINK_OPACITY = 1;
+const PARTICLE_WIDTH = 1.2;
+/** Bloom makes the cells and signals glow; a low threshold lets the dim axons bloom too. */
+const BLOOM_STRENGTH = 1.1;
+const BLOOM_RADIUS = 0.6;
+const BLOOM_THRESHOLD = 0.1;
 
 export interface CommunityGraph3DProps {
   nodes: GraphNode[];
@@ -23,6 +31,9 @@ export interface CommunityGraph3DProps {
   /** Ties of all weeks, the layout's only input. */
   layout: GraphLink[];
   week: string | null;
+  mode: NetworkMode;
+  /** Anonymous points per group label, drawn in the Individuals mode only. */
+  points: Map<string, Point[]>;
 }
 
 type Placed = GraphNode & { x?: number; y?: number; z?: number; fx?: number; fy?: number; fz?: number };
@@ -52,9 +63,31 @@ function fixPositions(nodes: Placed[]): void {
   }
 }
 
-export default function CommunityGraph3D({ nodes, links, layout, week }: CommunityGraph3DProps) {
+/** Add the bloom pass once the graph exists; it stays for the life of the canvas. */
+function useBloom(graphRef: React.MutableRefObject<ForceGraphMethods<Placed, GraphLink> | undefined>, width: number): void {
+  const added = useRef(false);
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph || added.current) return;
+    graph
+      .postProcessingComposer()
+      .addPass(new UnrealBloomPass(new Vector2(width, CANVAS_HEIGHT), BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD));
+    added.current = true;
+  }, [graphRef, width]);
+}
+
+export default function CommunityGraph3D({ nodes, links, layout, week, mode, points }: CommunityGraph3DProps) {
   const [containerRef, width] = useContainerWidth();
   const graphRef = useRef<ForceGraphMethods<Placed, GraphLink>>();
+  useBloom(graphRef, width);
+  const glow = useMemo(() => glowTexture(), []);
+  useEffect(() => () => glow.dispose(), [glow]);
+  const drawCell = useCallback(
+    (node: Placed) => cellObject(node, mode, points.get(node.id) ?? [], glow),
+    [mode, points, glow],
+  );
+  // Points carry no label: in the Individuals mode nothing is shown on hover.
+  const label = useCallback((node: Placed) => (mode === "groups" ? nodeLabel(node) : ""), [mode]);
   // The engine adds positions to these objects; keep the same objects for the life of the view.
   const placed = useMemo<Placed[]>(() => nodes.map((node) => ({ ...node })), [nodes]);
   const [frozen, setFrozen] = useState(false);
@@ -78,6 +111,7 @@ export default function CommunityGraph3D({ nodes, links, layout, week }: Communi
       style={{ height: CANVAS_HEIGHT, background: BACKGROUND_COLOR }}
       role="img"
       aria-label={`3D group network for the week of ${week ?? "none"}`}
+      data-mode={mode}
     >
       {width > 0 && (
         <ForceGraph3D<Placed, GraphLink>
@@ -88,15 +122,16 @@ export default function CommunityGraph3D({ nodes, links, layout, week }: Communi
           backgroundColor={BACKGROUND_COLOR}
           showNavInfo={false}
           nodeId="id"
-          nodeVal="val"
-          nodeRelSize={NODE_RELATIVE_SIZE}
-          nodeColor="color"
-          nodeOpacity={NODE_OPACITY}
-          nodeResolution={NODE_RESOLUTION}
-          nodeLabel={(node) => nodeLabel(node)}
+          nodeThreeObject={drawCell}
+          nodeLabel={label}
           linkWidth="width"
           linkColor="color"
           linkOpacity={LINK_OPACITY}
+          linkCurvature={LINK_CURVATURE}
+          linkDirectionalParticles="particles"
+          linkDirectionalParticleSpeed="particleSpeed"
+          linkDirectionalParticleWidth={PARTICLE_WIDTH}
+          linkDirectionalParticleColor={() => PARTICLE_COLOR}
           linkVisibility={frozen}
           enableNodeDrag={false}
           warmupTicks={frozen ? 0 : LAYOUT_TICKS}
