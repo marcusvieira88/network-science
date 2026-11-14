@@ -16,8 +16,12 @@ from pathlib import Path
 import polars as pl
 
 import enron_case
+from enron_case.config import CODE_PATHS
 from enron_case.contracts.counts import JsonObject, json_object
 from enron_case.errors import ContractViolation
+
+# Appended to the commit when source differs from it: that commit alone cannot reproduce the run.
+DIRTY_SUFFIX = "-dirty"
 
 
 def fingerprint(df: pl.DataFrame) -> str:
@@ -36,18 +40,21 @@ def fingerprint_json(payload: object) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _git(repo_root: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", *args], cwd=repo_root, capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
+
+
 def code_version(repo_root: Path) -> str:
+    """The short commit, with DIRTY_SUFFIX when code under CODE_PATHS differs from it."""
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout.strip()
+        commit = _git(repo_root, "rev-parse", "--short", "HEAD")
+        changed = _git(repo_root, "status", "--porcelain", "--", *CODE_PATHS)
     except (OSError, subprocess.CalledProcessError):
         return enron_case.__version__
+    return commit + DIRTY_SUFFIX if changed else commit
 
 
 @dataclass
@@ -63,7 +70,9 @@ class RunManifest:
     stages: list[JsonObject] = field(default_factory=list)
 
     def record_stage(self, name: str, seconds: float) -> None:
-        self.stages.append({"stage": name, "seconds": round(seconds, 2)})
+        self.stages.append(
+            {"stage": name, "seconds": round(seconds, 2), "code_version": self.code_version}
+        )
 
     def analytical_fingerprints(self) -> dict[str, str]:
         """Fingerprints that must match across runs with the same inputs and key."""
@@ -71,7 +80,8 @@ class RunManifest:
 
     def write(self, path: Path, merge: bool = False) -> None:
         """Write the manifest. With `merge`, a partial run updates an existing manifest:
-        fingerprints of the tables it rewrote and the timings of the stages it ran."""
+        fingerprints of the tables it rewrote and the timings of the stages it ran. Each stage
+        keeps the code version that ran it; the top-level version is the latest run's."""
         if merge and path.exists():
             previous = read_manifest(path)
             self.tables = {**_string_map(previous, "tables"), **self.tables}
