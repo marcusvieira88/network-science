@@ -2,6 +2,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { DeparturePeriodRow, DepartureTestRow } from "@/lib/data";
 import {
   type Departure,
+  HIGHER_RATE,
+  NOT_PUBLISHED,
   countText,
   departureStatement,
   evidenceSentence,
@@ -15,11 +17,7 @@ import { formatFloat } from "@/lib/format";
 import { STATED } from "@/lib/hypotheses";
 
 /** The candidate finding as stated in docs/hypotheses-exploratory.md (O1, "Decision rule"). */
-const CLAIM =
-  "During the crisis, custodians stopped sending while their mailboxes kept receiving mail, at a higher rate than in the " +
-  "same weeks a year earlier and than in any comparable earlier window.";
-/** Shown for a comparison or share the release does not publish. */
-const NOT_PUBLISHED = "not published";
+const CLAIM = `Prediction: ${HIGHER_RATE} in the same weeks a year earlier and than in any comparable earlier window.`;
 
 function yesNo(value: boolean | null): string {
   return value === null ? NOT_PUBLISHED : value ? "yes" : "no";

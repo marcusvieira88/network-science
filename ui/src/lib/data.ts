@@ -3,7 +3,7 @@
  * (src/enron_case/uiexport/export.py documents the shape). Column guards below are the single
  * source of both the TypeScript row types and the runtime validation.
  */
-import { DEPARTURE_OUTCOMES, DEPARTURE_PERIODS, DEPARTURE_PRIMARY, P_BANDS } from "@/lib/departureVocab";
+import { DEPARTURE_OUTCOMES, DEPARTURE_PARAMETERS, DEPARTURE_PERIODS, DEPARTURE_PRIMARY, P_BANDS } from "@/lib/departureVocab";
 import { assertReleasePrivacy } from "@/lib/privacy";
 
 const FORMAT_VERSION = 2;
@@ -323,8 +323,10 @@ function checkGraphGroups(tables: ReleaseData["tables"]): void {
   if (unknown.length) throw new DataError(`community_graph has ${unknown.length} ties to unpublished groups`);
 }
 
-/** H26 is read from one primary row with an outcome and one row per period (release/tables.py). */
-function checkDepartures(tables: ReleaseData["tables"]): void {
+/** H26 is read from one primary row with an outcome, one row per period and its run parameters. */
+function checkDepartures(tables: ReleaseData["tables"], parameters: Record<string, unknown>): void {
+  const absent = DEPARTURE_PARAMETERS.filter((name) => !isNumber(parameters[name]));
+  if (absent.length) throw new DataError(`run parameters lack ${absent.join(", ")}`);
   const primaries = tables.departure_tests.filter((row) => row.variant === DEPARTURE_PRIMARY);
   if (primaries.length !== 1 || primaries[0]?.outcome === null) {
     throw new DataError("departure_tests needs exactly one primary row with an outcome");
@@ -349,11 +351,12 @@ export function parseRelease(value: unknown): ReleaseData {
     names.map((name) => [name, parseRows(name, rawTables[name])]),
   ) as ReleaseData["tables"];
   checkGraphGroups(tables);
-  checkDepartures(tables);
+  const run = parseRun(doc.run);
+  checkDepartures(tables, run.parameters);
   const data: ReleaseData = {
     format_version: FORMAT_VERSION,
     contract_version: doc.contract_version,
-    run: parseRun(doc.run),
+    run,
     events: parseEvents(doc.events),
     windows: parseWindows(doc.windows),
     tables,

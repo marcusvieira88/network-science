@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DataError } from "@/lib/data";
+import { DataError, parseRelease } from "@/lib/data";
 import {
   countText,
   departureFrom,
@@ -16,7 +16,7 @@ import {
   variantSentence,
 } from "@/lib/departures";
 import { realTests, withRealDepartures } from "@/test/departures";
-import { sampleData } from "@/test/sample";
+import { rawSample, sampleData } from "@/test/sample";
 
 /** H26 is stated after H1–H25, so it is the twenty-sixth. */
 const STATED = 26;
@@ -135,10 +135,47 @@ describe("H26 read from the release", () => {
     );
   });
 
+  it("refuses at load a file without a run parameter H26 states", () => {
+    const raw = rawSample();
+    const run = raw.run as { parameters: Record<string, unknown> };
+    delete run.parameters.departure_rolling_min_at_risk;
+    expect(() => parseRelease(raw)).toThrow(/departure_rolling_min_at_risk/);
+  });
+
   it("fails loudly when a run parameter it states is missing", () => {
     const data = withRealDepartures(sampleData());
     const parameters = { ...data.run.parameters, departure_silence_weeks: undefined };
     expect(() => departureFrom({ ...data, run: { ...data.run, parameters } }, STATED)).toThrow(DataError);
+  });
+
+  it("never reads an unpublished comparison as a failed one", () => {
+    const base = real();
+    const primary = { ...base.primary, above_rolling: null, placebo_p_band: null, p_band: "below alpha" as const, loo_stable: null };
+    const hidden = { ...base, primary };
+    expect(departureReasons(hidden)).toEqual(["fewer than 5 custodians departed in the crisis window"]);
+    expect(rollingSentence(hidden)).toBe(
+      "Whether the crisis share is above every one of the 55 earlier windows of the same length with at least 20 custodians at risk " +
+        "is not published; the pre-crisis placebo is not published; whether leaving each custodian out keeps the result is not published.",
+    );
+  });
+
+  it("calls a low outcome a lead, not a finding", () => {
+    const base = sample();
+    const low = { ...base, primary: { ...base.primary, outcome: "low" as const } };
+    expect(departureVerdictSentence(low)).toBe(
+      "A lead, not a finding: custodians stopped sending while their mailbox kept receiving mail at a higher rate in the crisis " +
+        "than in the same weeks a year earlier and than in any comparable earlier window, but not robustly (confidence: low).",
+    );
+    expect(structureSentence(low, true)).toBe(
+      "H26 is a lead, not a finding: custodians stopped sending while their mailbox kept receiving mail at a higher rate in the " +
+        "crisis than a year earlier, but not robustly (confidence: low).",
+    );
+  });
+
+  it("says 'still not' for the any-silence variant only when the primary test also failed", () => {
+    const base = sample();
+    const tests = [...base.tests, { ...realTests()[10], variant: "any silence" } as (typeof base.tests)[number]];
+    expect(variantSentence({ ...base, tests })).toContain("(variant any silence), the crisis share is not significantly above");
   });
 
   it("uses only the published primary row for the outcome", () => {

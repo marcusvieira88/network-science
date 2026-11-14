@@ -9,5 +9,15 @@ export const DEPARTURE_PERIODS = [...DEPARTURE_WINDOWS, ...DEPARTURE_SPLITS] as 
 export const DEPARTURE_OUTCOMES = ["high", "moderate", "low", "not established"] as const;
 /** The variant holding the stated definition; the others are robustness variants. */
 export const DEPARTURE_PRIMARY = "primary";
+/** The run parameters the H26 statement and tests name (config.py), checked when the file loads. */
+export const DEPARTURE_PARAMETERS = [
+  "alpha",
+  "departure_silence_weeks",
+  "departure_live_weeks",
+  "departure_active_weeks",
+  "departure_lookback_weeks",
+  "departure_rolling_min_at_risk",
+] as const;
+export type DepartureParameter = (typeof DEPARTURE_PARAMETERS)[number];
 /** A p-value's band: below alpha over the hypotheses stated, below alpha, at or above it. */
 export const P_BANDS = ["below the family bound", "below alpha", "alpha or above", "not computable"] as const;

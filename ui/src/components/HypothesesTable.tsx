@@ -4,8 +4,7 @@ import { ConfidenceBadge } from "@/components/FindingCard";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
-import { DEPARTURE_PRIMARY } from "@/lib/departureVocab";
-import { type Departure, isSignificant, pText, periodRow, shareText } from "@/lib/departures";
+import { type Departure, isSignificant, pText, periodRow, ruledVariants, shareText } from "@/lib/departures";
 import { formatFloat, formatInterval, formatNumber, formatP, metricLabel } from "@/lib/format";
 import { type HypothesisEntry, STATED, equalisedEstimate, formatEstimate, retentionCheck } from "@/lib/hypotheses";
 import { cn } from "@/lib/utils";
@@ -120,7 +119,7 @@ function ExploratoryCells({ row, heldTrue }: { row: ExploratoryRow; heldTrue: bo
 /** H26: departures of the custodians at risk, crisis against the same weeks a year earlier. */
 function DepartureCells({ departure }: { departure: Departure }) {
   const { primary, settings } = departure;
-  const ruled = departure.tests.filter((row) => row.in_rule && row.variant !== DEPARTURE_PRIMARY);
+  const ruled = ruledVariants(departure);
   const significant = ruled.filter((row) => isSignificant(row.p_band)).length;
   return (
     <>

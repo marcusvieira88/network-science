@@ -12,7 +12,7 @@ import {
   type PBand,
   type ReleaseData,
 } from "@/lib/data";
-import { DEPARTURE_PRIMARY, DEPARTURE_SPLITS } from "@/lib/departureVocab";
+import { DEPARTURE_PRIMARY, DEPARTURE_SPLITS, type DepartureParameter } from "@/lib/departureVocab";
 import { capitalised, formatNumber } from "@/lib/format";
 import { minimumGroupSize } from "@/lib/privacy";
 
@@ -21,8 +21,8 @@ const FINDING_OUTCOMES: ReadonlySet<string> = new Set(["high", "moderate"]);
 const SIGNIFICANT_BANDS: ReadonlySet<PBand | null> = new Set<PBand | null>(["below the family bound", "below alpha"]);
 const SPLIT_BEFORE: DeparturePeriod = DEPARTURE_SPLITS[0];
 const SPLIT_FROM: DeparturePeriod = DEPARTURE_SPLITS[1];
-/** Shown where the release publishes neither a p-value nor its band (a window below k). */
-const NOT_PUBLISHED = "not published";
+/** Shown where the release publishes neither a comparison nor its band (a window below k). */
+export const NOT_PUBLISHED = "not published";
 
 /** The run parameters the statement names (config.py), and the minimum group size. */
 export interface DepartureSettings {
@@ -47,7 +47,8 @@ export interface Departure {
   splitEvent: string;
 }
 
-function parameter(parameters: Record<string, unknown>, name: string): number {
+/** A parameter parseRelease has checked; reading it again keeps the type narrow without a cast. */
+function parameter(parameters: Record<string, unknown>, name: DepartureParameter): number {
   const value = parameters[name];
   if (typeof value !== "number" || !Number.isFinite(value)) throw new DataError(`run parameter ${name} is missing`);
   return value;
@@ -175,13 +176,18 @@ export function departureReasons(departure: Departure): string[] {
     ...(isSignificant(primary.p_band)
       ? []
       : [`the crisis share is not significantly above the same weeks a year earlier (${primaryP(departure)})`]),
-    ...(primary.above_rolling ? [] : ["an earlier window of the same length had at least as high a share"]),
-    ...(primary.placebo_p_band === "alpha or above" ? [] : [`the pre-crisis placebo does not pass (${placeboP(departure)})`]),
+    ...(primary.above_rolling === false ? ["an earlier window of the same length had at least as high a share"] : []),
+    ...(primary.placebo_p_band === null || primary.placebo_p_band === "alpha or above"
+      ? []
+      : [`the pre-crisis placebo does not pass (${placeboP(departure)})`]),
   ];
 }
 
-const HIGHER_RATE =
+/** The candidate finding of docs O1 ("Decision rule"), completed by "a year earlier" and the like. */
+export const HIGHER_RATE =
   "custodians stopped sending while their mailbox kept receiving mail at a higher rate in the crisis than";
+const LEAD = "a lead, not a finding";
+const NOT_ROBUST = "but not robustly";
 
 /** The outcome in plain words, with the reasons when nothing can be established. */
 export function departureVerdictSentence(departure: Departure): string {
@@ -189,38 +195,50 @@ export function departureVerdictSentence(departure: Departure): string {
   if (outcome === "not established" || outcome === null) {
     return `No wave of custodian departures in the crisis can be established: ${departureReasons(departure).join("; ")}.`;
   }
-  return (
-    `${capitalised(HIGHER_RATE)} in the same weeks a year earlier and than in any comparable earlier window ` +
-    `(confidence: ${outcome}).`
-  );
+  const claim = `${HIGHER_RATE} in the same weeks a year earlier and than in any comparable earlier window`;
+  if (outcome === "low") return `${capitalised(LEAD)}: ${claim}, ${NOT_ROBUST} (confidence: ${outcome}).`;
+  return `${capitalised(claim)} (confidence: ${outcome}).`;
 }
 
 function leaveOneOut(primary: DepartureTestRow): string {
   if (!isSignificant(primary.p_band)) return "leave-one-out does not apply, since the test itself does not pass.";
+  if (primary.loo_stable === null) return `whether leaving each custodian out keeps the result is ${NOT_PUBLISHED}.`;
   return `leaving each custodian out in turn ${primary.loo_stable ? "keeps" : "does not keep"} the test and the rolling comparison.`;
 }
 
 export function rollingSentence(departure: Departure): string {
   const { primary, settings } = departure;
+  const windows =
+    `every one of the ${formatNumber(primary.rolling_windows)} earlier windows of the same length with at least ` +
+    `${settings.rollingMinAtRisk} custodians at risk`;
+  const rolling =
+    primary.above_rolling === null
+      ? `Whether the crisis share is above ${windows} is ${NOT_PUBLISHED}`
+      : `The crisis share is ${primary.above_rolling ? "above" : "not above"} ${windows}`;
+  const placebo =
+    primary.placebo_p_band === null ? `is ${NOT_PUBLISHED}` : `has ${placeboP(departure)}`;
+  return `${rolling}; the pre-crisis placebo ${placebo}; ${leaveOneOut(primary)}`;
+}
+
+/** "still" only when the primary test failed too. */
+function anySilenceSentence(departure: Departure): string {
+  const outside = departure.tests.find((row) => !row.in_rule);
+  if (!outside || outside.p_band === null) return "";
+  const negation = isSignificant(departure.primary.p_band) ? "not " : "still not ";
   return (
-    `The crisis share is ${primary.above_rolling ? "above" : "not above"} every one of the ${formatNumber(primary.rolling_windows)} ` +
-    `earlier windows of the same length with at least ${settings.rollingMinAtRisk} custodians at risk; the pre-crisis placebo ` +
-    `has ${placeboP(departure)}; ${leaveOneOut(primary)}`
+    ` Counting every silence, record ends included (variant ${outside.variant}), the crisis share is ` +
+    `${isSignificant(outside.p_band) ? "" : negation}significantly above a year earlier.`
   );
 }
 
-function anySilenceSentence(tests: DepartureTestRow[]): string {
-  const outside = tests.find((row) => !row.in_rule);
-  if (!outside || outside.p_band === null) return "";
-  return (
-    ` Counting every silence, record ends included (variant ${outside.variant}), the crisis share is ` +
-    `${isSignificant(outside.p_band) ? "" : "still not "}significantly above a year earlier.`
-  );
+/** The robustness variants the decision rule counts (every one but the primary and "any silence"). */
+export function ruledVariants(departure: Departure): DepartureTestRow[] {
+  return departure.tests.filter((row) => row.in_rule && row.variant !== DEPARTURE_PRIMARY);
 }
 
 /** The robustness variants in the rule, and the one outside it. */
 export function variantSentence(departure: Departure): string {
-  const ruled = departure.tests.filter((row) => row.in_rule && row.variant !== DEPARTURE_PRIMARY);
+  const ruled = ruledVariants(departure);
   const above = ruled.filter((row) => row.crisis_above_reference === true).length;
   const significant = ruled.filter((row) => isSignificant(row.p_band)).length;
   const hidden = ruled.filter((row) => row.p_band === null).length;
@@ -229,7 +247,7 @@ export function variantSentence(departure: Departure): string {
     : "";
   return (
     `Of the ${ruled.length} robustness variants in the rule, ${above} keep the crisis share above the reference share and ` +
-    `${significant} keep p below ${formatNumber(departure.settings.alpha)}${hiddenText}.${anySilenceSentence(departure.tests)}`
+    `${significant} keep p below ${formatNumber(departure.settings.alpha)}${hiddenText}.${anySilenceSentence(departure)}`
   );
 }
 
@@ -272,6 +290,9 @@ export function splitSentence(departure: Departure): string {
  */
 export function structureSentence(departure: Departure, alone: boolean): string {
   const { primary } = departure;
+  if (primary.outcome === "low") {
+    return `${departure.id} is ${LEAD}: ${HIGHER_RATE} a year earlier, ${NOT_ROBUST} (confidence: ${primary.outcome}).`;
+  }
   if (primary.outcome !== "not established" && primary.outcome !== null) {
     return `${departure.id}: ${HIGHER_RATE} a year earlier (confidence: ${primary.outcome}).`;
   }
