@@ -39,6 +39,8 @@ FLAG_NAMES = {
 }
 RULE_FLAG_EXCLUDED = "messages flagged; kept, but left out of the network"
 RULE_FLAG_KEPT = "messages flagged; kept in the network"
+STEP_UNTIMED = "messages without a timestamp"
+RULE_UNTIMED = "kept in messages; no events are built from them"
 STEP_EVENTS = "events in the network"
 RULE_EVENTS = "sender-recipient events of messages without an exclusion flag"
 
@@ -111,8 +113,8 @@ def data_quality(
     """One row per pipeline step: what went in, what came out, the rule and its measured
     precision and recall where ground truth exists. The main steps come first (with the manual
     merge check and its per-rule composition when a review was run), then the detail of the
-    funnel: rejected files by reason, the exact/subset dedupe split, the five message flags and
-    events in and out of the network.
+    funnel: rejected files by reason, the exact/subset dedupe split, the five message flags,
+    messages without a timestamp and events in and out of the network.
 
     Every count is of files, messages or events (or judged merges), never of persons, so no
     k-suppression applies: such a count does not describe a group of people."""
@@ -142,6 +144,7 @@ def data_quality(
         *_rejected_steps(ingest, files_seen, files_parsed),
         *_dedupe_steps(clean, records, messages),
         *_flag_steps(clean, messages),
+        _untimed_step(pseudo, messages),
         _events_step(pseudo),
     ]
     return pl.DataFrame(
@@ -268,6 +271,11 @@ def _flag_steps(clean: dict[str, Any], messages: int) -> list[Step]:
         )
         for flag, name in FLAG_NAMES.items()
     ]
+
+
+def _untimed_step(pseudo: dict[str, Any], messages: int) -> Step:
+    untimed = require_int(pseudo, "pseudo_counts", "messages_without_time")
+    return Step(STEP_UNTIMED, messages, messages - untimed, RULE_UNTIMED)
 
 
 def _events_step(pseudo: dict[str, Any]) -> Step:

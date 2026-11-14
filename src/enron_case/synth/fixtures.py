@@ -787,6 +787,12 @@ class FixtureBuilder:
                 for flag, name in release_tables.FLAG_NAMES.items()
             ],
             (
+                release_tables.STEP_UNTIMED,
+                len(msgs),
+                len(msgs) - sum(1 for r in msgs if r["ts_utc"] is None),
+                release_tables.RULE_UNTIMED,
+            ),
+            (
                 release_tables.STEP_EVENTS,
                 events.height,
                 int(events.get_column("in_network").sum()),

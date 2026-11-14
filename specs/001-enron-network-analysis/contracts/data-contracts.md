@@ -201,7 +201,7 @@ Written only by S8 (WP-H) through `release/kanon.py`; rendered by S9 (WP-I).
 
 | File | Content |
 |------|---------|
-| `release/data_quality.csv` | order, step, count_in, count_out, removed, rule, precision, recall, precision_ci_low, precision_ci_high (1.5: exact binomial interval where precision is estimated from a sample, the manual merge check). Rows: files parsed, deduplicate, resolve identities, the manual merge check and its per-rule composition when run, then rejected files by reason, the exact/subset dedupe split, the five message flags and events in the network. Counts of files, messages, events and judged merges, not persons: no k-suppression |
+| `release/data_quality.csv` | order, step, count_in, count_out, removed, rule, precision, recall, precision_ci_low, precision_ci_high (1.5: exact binomial interval where precision is estimated from a sample, the manual merge check). Rows: files parsed, deduplicate, resolve identities, the manual merge check and its per-rule composition when run, then rejected files by reason, the exact/subset dedupe split, the five message flags, messages without a timestamp and events in the network. Counts of files, messages, events and judged merges, not persons: no k-suppression |
 | `release/header_fields.csv` | field name, occurrences, ruling |
 | `release/weekly_metrics.csv` | scope, week, metric, value, n_active (suppressed if < k), variant. Only `variant = default` is published: a sensitivity variant next to it would let default minus variant `n_active` reveal groups below k. The variants stay restricted and feed `robust_variants_*` |
 | `release/hypotheses.csv` | `hypothesis_results` without per-mailbox detail |

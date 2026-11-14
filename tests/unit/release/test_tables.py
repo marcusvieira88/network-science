@@ -104,7 +104,7 @@ def _funnel_counts() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], di
         "dedupe_recall": None,
     }
     identity: dict[str, Any] = {"addresses": 30, "entities": 25, "precision": None, "recall": None}
-    pseudo: dict[str, Any] = {"events": 120, "events_in_network": 110}
+    pseudo: dict[str, Any] = {"events": 120, "events_in_network": 110, "messages_without_time": 2}
     return ingest, clean, identity, pseudo
 
 
@@ -127,7 +127,8 @@ def test_data_quality_publishes_the_whole_funnel() -> None:
         (10, "flag: mass mailing", 50, 47, 3),
         (11, "flag: no recipients", 50, 50, 0),
         (12, "flag: self-only", 50, 50, 0),
-        (13, "events in the network", 120, 110, 10),
+        (13, "messages without a timestamp", 50, 48, 2),
+        (14, "events in the network", 120, 110, 10),
     ]
 
 
