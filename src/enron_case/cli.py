@@ -31,7 +31,11 @@ from enron_case.config import (
     Config,
 )
 from enron_case.context import LogFn, StageContext, stderr_log
-from enron_case.contracts.schemas import EXPLORATORY_CONFIDENT
+from enron_case.contracts.schemas import (
+    DEPARTURE_FINDINGS,
+    DEPARTURE_PRIMARY,
+    EXPLORATORY_CONFIDENT,
+)
 from enron_case.errors import PipelineError, UsageError
 from enron_case.manifest import RunManifest, code_version, file_sha256, write_stage_timings
 from enron_case.zones import Paths, Zone
@@ -189,19 +193,25 @@ def verify(config: Config, log: LogFn) -> int:
     return 0
 
 
+SUMMARY_TABLES = ("hypotheses.csv", "exploratory.csv", "departure_tests.csv")
+
+
 def summary_line(release_root: Path) -> str:
     """How many hypotheses the release holds true, counted as the explorer counts them: the
-    headline among the preregistered ones, every confident outcome among the exploratory ones."""
-    tables = [release_root / "hypotheses.csv", release_root / "exploratory.csv"]
+    headline among the preregistered ones, every confident outcome among the exploratory ones,
+    and H26 (one hypothesis, in `departure_tests`) when its primary outcome is a finding."""
+    tables = [release_root / name for name in SUMMARY_TABLES]
     if not all(table.is_file() for table in tables):
         raise PipelineError(f"no release tables in {release_root.name}/; run the pipeline first")
     hypotheses = pl.read_csv(tables[0], schema_overrides={"is_headline": pl.Boolean})
     exploratory = pl.read_csv(tables[1])
+    departure = pl.read_csv(tables[2]).filter(pl.col("variant") == DEPARTURE_PRIMARY)
     held_true = (
         hypotheses.filter(pl.col("is_headline")).height
         + exploratory.filter(pl.col("outcome") == EXPLORATORY_CONFIDENT).height
+        + departure.filter(pl.col("outcome").is_in(DEPARTURE_FINDINGS)).height
     )
-    total = hypotheses.height + exploratory.height
+    total = hypotheses.height + exploratory.height + departure.height
     return f"{held_true} of {total} hypotheses held true"
 
 
