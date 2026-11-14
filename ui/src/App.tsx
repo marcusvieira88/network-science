@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
+import { ArtifactChecksTable } from "@/components/ArtifactChecksTable";
 import { CommunityGraph } from "@/components/CommunityGraph";
 import { HypothesesTable } from "@/components/HypothesesTable";
 import { Limits } from "@/components/Limits";
@@ -8,7 +9,7 @@ import { MetricChart } from "@/components/MetricChart";
 import { Overview } from "@/components/Overview";
 import { QualityPanel } from "@/components/QualityPanel";
 import { RiskPanel } from "@/components/RiskPanel";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type LoadResult, type ReleaseData, loadRelease } from "@/lib/data";
 import { minimumGroupSize } from "@/lib/privacy";
 import { analysisWeeks, baselinePeriod, headline } from "@/lib/series";
@@ -44,11 +45,25 @@ export function View({ view, data }: { view: ViewId; data: ReleaseData }) {
       );
     case "hypotheses":
       return (
-        <Card>
-          <CardContent className="pt-6">
-            <HypothesesTable hypotheses={tables.hypotheses} />
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="pt-6">
+              <HypothesesTable hypotheses={tables.hypotheses} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Checks against known artifacts</CardTitle>
+              <CardDescription>
+                Added after the first real-data run. A supported hypothesis whose check fails or cannot run is capped
+                at low confidence and is not claimed as a finding.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ArtifactChecksTable checks={tables.artifact_checks} />
+            </CardContent>
+          </Card>
+        </div>
       );
     case "quality":
       return (

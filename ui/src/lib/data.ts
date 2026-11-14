@@ -87,6 +87,16 @@ export const TABLE_COLUMNS = {
     variant: isString,
   },
   hypotheses: HYPOTHESIS_COLUMNS,
+  artifact_checks: {
+    hypothesis: oneOf(HYPOTHESES),
+    check: isString,
+    statistic: nullable(isNumber),
+    ci_low: nullable(isNumber),
+    ci_high: nullable(isNumber),
+    n_units: nullable(isInt),
+    passes: nullable(isBoolean),
+    note: isString,
+  },
   risk: {
     release_variant: oneOf(RELEASE_VARIANTS),
     attacker: oneOf(ATTACKERS),
@@ -119,6 +129,7 @@ export type DataQualityRow = Row<"data_quality">;
 export type HeaderFieldRow = Row<"header_fields">;
 export type WeeklyMetricRow = Row<"weekly_metrics">;
 export type HypothesisRow = Row<"hypotheses">;
+export type ArtifactCheckRow = Row<"artifact_checks">;
 export type RiskRow = Row<"risk">;
 export type DegreeRow = Row<"degree_distribution">;
 export type CommunityEdgeRow = Row<"community_graph">;

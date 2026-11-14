@@ -14,7 +14,8 @@ export function formatP(value: number): string {
   return value < 0.001 ? "< 0.001" : value.toFixed(3);
 }
 
-export function formatInterval(low: number, high: number): string {
+export function formatInterval(low: number | null, high: number | null): string {
+  if (low === null || high === null) return "n/a";
   return `[${formatNumber(low)}, ${formatNumber(high)}]`;
 }
 

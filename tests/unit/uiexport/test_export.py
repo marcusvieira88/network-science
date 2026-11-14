@@ -130,6 +130,17 @@ def test_values_round_trip_with_nulls_and_iso_dates(synth: SynthOutput, tmp_path
     }
 
 
+def test_artifact_checks_are_exported(synth: SynthOutput, tmp_path: Path) -> None:
+    ctx = release_ctx(synth, tmp_path)
+    run(ctx)
+    checks = output(ctx)["tables"]["artifact_checks"]
+    assert [(r["hypothesis"], r["check"], r["passes"]) for r in checks] == [
+        ("H2", "baseline_placebo", True),
+        ("H3", "within_custodian", True),
+    ]
+    assert checks[1]["statistic"] == -0.05
+
+
 def test_same_input_gives_byte_identical_json(synth: SynthOutput, tmp_path: Path) -> None:
     first = release_ctx(synth, tmp_path / "a")
     second = release_ctx(synth, tmp_path / "b")

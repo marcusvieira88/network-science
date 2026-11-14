@@ -10,6 +10,9 @@ Shape of `release.json` (format_version 1); `ui/src/lib/data.ts` mirrors it:
       "tables": {"<release table>": [{"<column>": value, ...}, ...], ...}
     }
 
+The tables are `RELEASE_TABLES`, among them `artifact_checks` (hypothesis, check, statistic,
+ci_low, ci_high, n_units, passes, note; `passes` is null when the check could not run).
+
 Rows keep the contract's column order and sort order; dates are ISO strings; suppressed cells
 are null. The run block is the run manifest without wall-clock time, timings or fingerprints,
 so the same release gives byte-identical JSON.
@@ -38,6 +41,7 @@ RELEASE_TABLES = (
     "header_fields",
     "weekly_metrics",
     "hypotheses",
+    "artifact_checks",
     "risk",
     "degree_distribution",
     "community_graph",
