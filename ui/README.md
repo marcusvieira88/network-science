@@ -63,9 +63,9 @@ the sample and against the real outcomes; the fixed sentences restate method and
 charts open with a headline generated from the data and a "How to read it" caption. A "?" next to a
 technical term opens its plain meaning from `src/lib/glossary.ts` (`src/components/Explain.tsx`);
 the Glossary view lists them all. Full statistics stay one click away under "Details for analysts".
-`release.json` does not carry the month-by-month record profile (the release has it, as
-`release/record_profile.csv`, and the report shows it), so the summary names the change in the
-record through H5 and the two comparison windows, not by month.
+`release.json` carries the month-by-month record profile (`record_profile`), so the explorer
+derives the confidence that the record changed by the same rule as the report
+(`docs/metrics.md`); the summary names the change through H5 and the two comparison windows.
 
 Readers who are not data scientists get the answer first, in plain words. The Overview opens with
 an "In short" card; the Hypotheses view opens with one sentence and a verdict per hypothesis and a

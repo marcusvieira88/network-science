@@ -155,7 +155,9 @@ hypothesis with the largest effect in its direction, if any.
 
 The record change is descriptive, not a hypothesis test, so the rule above does not apply to it.
 The report states "Confidence that the record changed: high" when both of these hold in the
-release tables, and names the cause as not established in every case:
+release tables, "moderate" when only the first holds (the H5 interval includes zero or H5 is not published),
+no claim at all when the ranges overlap, and
+names the cause as not established in every case:
 
 1. in `record_profile`, the after-hours shares of the reference months and of the crisis months
    do not overlap (every crisis month lies beyond every reference month);

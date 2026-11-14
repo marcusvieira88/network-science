@@ -27,6 +27,11 @@ OVERCLAIMS = {
     "every connector keeps content at the source": re.compile(
         r"connectors\W*\s+so\s+content\s+never\s+leaves\s+the\s+source", re.IGNORECASE
     ),
+    # Subject is content and both metadata mail scopes return it; only bodies and attachments
+    # stay at the source. The log may quote the phrase it removed ("no longer says ...").
+    "mail content never leaves the source": re.compile(
+        r"(?<!no longer says )mail\s+content\s+never\s+leaves\s+the\s+source", re.IGNORECASE
+    ),
     "Slack returns header fields only": re.compile(
         r"Slack\s+APIs?\s+request\s+header\s+fields\s+only", re.IGNORECASE
     ),
