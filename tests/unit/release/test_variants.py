@@ -111,9 +111,10 @@ def test_degree_buckets_per_half_year() -> None:
         for p, b, n in r1["degree_distribution"].select("period", "degree_bucket", "persons").rows()
     }
     # 2000H1: six leaves of degree 2, two hubs of degree 6. 2000H2: ten persons of degree 1.
+    # In 2000H1 the hubs are the only hidden non-zero cell, so the 6 is suppressed as well.
     assert got == {
         ("2000H1", "1"): None,
-        ("2000H1", "2-4"): 6,
+        ("2000H1", "2-4"): None,
         ("2000H1", "5-9"): None,
         ("2000H1", "10+"): None,
         ("2000H2", "1"): 10,

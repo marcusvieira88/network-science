@@ -9,6 +9,7 @@ from hypothesis import strategies as st
 
 from enron_case.errors import PrivacyViolation
 from enron_case.release import kanon
+from enron_case.synth import SynthOutput
 
 K = 5
 PID = "p_abcdefghijklmnop"
@@ -41,13 +42,32 @@ def test_single_suppressed_cell_gets_a_complement() -> None:
             "persons": [6, 18, 14, 3, 7, 8, 9, 10],
         }
     )
-    out = kanon.complementary_suppress(kanon.suppress_below(df, "persons", K), "persons", "period")
+    out = kanon.suppress_partition(df, "persons", "period", K)
     assert out["persons"].to_list() == [None, 18, 14, None, 7, 8, 9, 10]
+
+
+def test_a_true_zero_does_not_protect_a_lone_small_cell() -> None:
+    # Period P: 0, 3, 18, 14. Both 0 and 3 are below k, but total - (18 + 14) = 3 + 0 still
+    # reveals the 3: a zero cell is no second suppression, so the smallest published cell goes.
+    df = pl.DataFrame({"period": ["P"] * 4, "persons": [0, 3, 18, 14]})
+    out = kanon.suppress_partition(df, "persons", "period", K)
+    assert out["persons"].to_list() == [None, None, 18, None]
+
+
+def test_already_suppressed_cells_count_as_hidden() -> None:
+    # R2 re-suppresses a table whose small cells are already null: one null plus a new small
+    # cell are two hidden cells and need no complement.
+    df = pl.DataFrame({"period": ["P"] * 3, "persons": pl.Series([None, 2, 9], dtype=pl.Int64)})
+    assert kanon.suppress_partition(df, "persons", "period", K)["persons"].to_list() == [
+        None,
+        None,
+        9,
+    ]
 
 
 def test_two_suppressed_cells_need_no_complement() -> None:
     df = pl.DataFrame({"period": ["P"] * 3, "persons": [1, 2, 9]})
-    out = kanon.complementary_suppress(kanon.suppress_below(df, "persons", K), "persons", "period")
+    out = kanon.suppress_partition(df, "persons", "period", K)
     assert out["persons"].to_list() == [None, None, 9]
 
 
@@ -119,9 +139,16 @@ def test_property_degree_tables_pass_check_after_enforcement(periods: list[list[
         for j, n in enumerate(cells)
     ]
     df = pl.DataFrame(rows)
-    out = kanon.complementary_suppress(kanon.suppress_below(df, "persons", K), "persons", "period")
+    out = kanon.suppress_partition(df, "persons", "period", K)
     kanon.check("degree_distribution", out, K)
     assert (out["persons"].drop_nulls() >= K).all()
+    hidden = df.with_columns(out["persons"].is_null().alias("hidden"))
+    for _, cells in hidden.group_by("period"):
+        hidden_small = cells.filter(pl.col("hidden") & pl.col("persons").is_between(1, K - 1))
+        positive_hidden = cells.filter(pl.col("hidden") & (pl.col("persons") > 0)).height
+        published = cells.filter(~pl.col("hidden")).height
+        # A small count is never the only non-zero hidden value next to published cells.
+        assert not (hidden_small.height and positive_hidden == 1 and published > 0)
 
 
 @given(position=st.integers(min_value=0, max_value=9), token=st.sampled_from([PID, "a@b"]))
@@ -131,3 +158,7 @@ def test_property_identifier_anywhere_is_refused(position: int, token: str) -> N
     df = pl.DataFrame({"group": labels, "n_persons": [K] * 10})
     with pytest.raises(PrivacyViolation):
         kanon.check("community_groups", df, K)
+
+
+def test_release_fixture_degree_table_passes_check(synth: SynthOutput) -> None:
+    kanon.check("degree_distribution", synth.table("degree_distribution"), K)

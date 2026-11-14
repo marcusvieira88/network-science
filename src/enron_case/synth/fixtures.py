@@ -656,12 +656,15 @@ class FixtureBuilder:
             pl.when(pl.col("n_active") >= k).then(pl.col("value")).alias("value"),
             pl.when(pl.col("n_active") >= k).then(pl.col("n_active")).alias("n_active"),
         )
+        # The 3 in `10+` is each period's only hidden non-zero cell, so the smallest published
+        # cell (the 6 in `1`) is suppressed with it (complementary suppression).
         degree = pl.DataFrame(
             [
-                {"period": p, "degree_bucket": b, "persons": n if n >= k else None}
+                {"period": p, "degree_bucket": b, "persons": n}
                 for p in ("2000H1", "2000H2", "2001H1", "2001H2")
-                for b, n in (("1", 6), ("2-4", 18), ("5-9", 14), ("10+", 3))
-            ]
+                for b, n in (("1", None), ("2-4", 18), ("5-9", 14), ("10+", None))
+            ],
+            schema={"period": pl.Utf8, "degree_bucket": pl.Utf8, "persons": pl.Int64},
         )
         comm = self.communities_table()
         labels = {i: f"G{i + 1:02d}" for i in sorted(set(comm.get_column("community").to_list()))}

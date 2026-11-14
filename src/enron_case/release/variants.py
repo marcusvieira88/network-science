@@ -52,9 +52,7 @@ def build_r2(
     scale = mitigate.R2_NOISE_SCALE
     degree = r1["degree_distribution"]
     degree = degree.with_columns(mitigate.add_laplace(degree.get_column("persons"), scale, rng))
-    degree = kanon.complementary_suppress(
-        kanon.suppress_below(degree, "persons", k_min), "persons", "period"
-    )
+    degree = kanon.suppress_partition(degree, "persons", "period", k_min)
     graph = r1["community_graph"]
     graph = graph.with_columns(
         mitigate.add_laplace(graph.get_column("weight"), scale, rng),
@@ -95,9 +93,7 @@ def degree_distribution(edges: pl.DataFrame, k: int) -> pl.DataFrame:
         pl.col("persons").fill_null(0)
     )
     full = full.sort("period", "degree_bucket")
-    return kanon.complementary_suppress(
-        kanon.suppress_below(full, "persons", k), "persons", "period"
-    )
+    return kanon.suppress_partition(full, "persons", "period", k)
 
 
 def group_sizes(communities: pl.DataFrame, k: int) -> pl.DataFrame:

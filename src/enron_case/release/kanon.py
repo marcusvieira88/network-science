@@ -1,6 +1,6 @@
 """The single enforcement point for minimum group size and identifier patterns.
 
-Builders use `suppress_below`, `drop_below` and `complementary_suppress` to make a table
+Builders use `suppress_below`, `drop_below` and `suppress_partition` to make a table
 compliant; `check` verifies the result and `write` is the only way a release table reaches
 disk. Every violation raises `PrivacyViolation` (exit code 6).
 """
@@ -41,16 +41,23 @@ def drop_below(df: pl.DataFrame, count_col: str, k: int) -> pl.DataFrame:
     return df.filter(pl.col(count_col) >= k)
 
 
-def complementary_suppress(df: pl.DataFrame, count_col: str, partition: str) -> pl.DataFrame:
-    """Where a partition has exactly one suppressed cell, also suppress its smallest published
-    cell, so the partition total minus the published cells does not reveal it."""
-    suppressed = pl.col(count_col).is_null()
-    lone = suppressed.sum().over(partition) == 1
-    smallest = pl.col(count_col) == pl.col(count_col).min().over(partition)
+def suppress_partition(df: pl.DataFrame, count_col: str, partition: str, k: int) -> pl.DataFrame:
+    """Suppress counts below k, then protect each partition against differencing: where it hides
+    exactly one cell with a true value above zero, also suppress its smallest published cell,
+    so the partition total minus the published cells does not reveal that count. A hidden true
+    zero is no protection, as the difference still equals the one small count. A partition
+    hiding a single cell of any value is complemented too, because `check` cannot tell a
+    hidden zero from a hidden small count."""
+    true = pl.col(count_col)
+    # A cell that is already null was suppressed earlier; its value is unknown, so it counts as
+    # a hidden non-zero cell.
+    small = true.is_null() | (true < k)
+    positive_hidden = (small & (true.is_null() | (true > 0))).sum().over(partition)
+    lone = (positive_hidden == 1) | (small.sum().over(partition) == 1)
+    smallest = ~small & (true == true.filter(~small).min().over(partition))
     first_smallest = smallest & (smallest.cum_sum().over(partition) == 1)
-    return df.with_columns(
-        pl.when(lone & first_smallest).then(None).otherwise(pl.col(count_col)).alias(count_col)
-    )
+    hide = small | (lone & first_smallest)
+    return df.with_columns(pl.when(hide).then(None).otherwise(true).alias(count_col))
 
 
 def assert_no_identifiers(df: pl.DataFrame) -> None:

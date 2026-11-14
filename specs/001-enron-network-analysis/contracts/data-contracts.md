@@ -206,7 +206,7 @@ Written only by S8 (WP-H) through `release/kanon.py`; rendered by S9 (WP-I).
 | `release/weekly_metrics.csv` | scope, week, metric, value, n_active (suppressed if < k), variant. Only `variant = default` is published: a sensitivity variant next to it would let default minus variant `n_active` reveal groups below k. The variants stay restricted and feed `robust_variants_*` |
 | `release/hypotheses.csv` | `hypothesis_results` without per-mailbox detail |
 | `release/risk.csv` | `risk_results` |
-| `release/degree_distribution.csv` | period (half-year), degree bucket (`1`, `2-4`, `5-9`, `10+`; degree = number of distinct contacts in either direction), persons (≥ k or suppressed; a lone suppressed cell per period forces a second suppression) |
+| `release/degree_distribution.csv` | period (half-year), degree bucket (`1`, `2-4`, `5-9`, `10+`; degree = number of distinct contacts in either direction), persons (≥ k or suppressed; when a period hides only one cell with a true value above zero, or only one cell at all, its smallest published cell is suppressed too: a hidden true zero does not protect a small count) |
 | `release/community_graph.csv` | week, src_group, dst_group, weight, n_messages; plus `community_groups.csv`: group, n_persons. Groups are baseline communities with ≥ k persons, labelled `G01…` in an order unrelated to pseudonyms; smaller communities are merged into `other`; ties with fewer than k distinct senders are suppressed |
 | `ui/public/data/release.json` | written by S10 (WP-J) from the files above and nothing else; same content, one file, for the explorer UI |
 | `release/report.md` | the report: quality, finding, risk, limits |

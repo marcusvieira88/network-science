@@ -34,6 +34,7 @@ describe("QualityPanel", () => {
     renderPanel();
     const labels = screen.getAllByRole("row").map((row) => row.firstChild?.textContent);
     expect(labels.filter((l) => ["1", "2-4", "5-9", "10+"].includes(l ?? ""))).toEqual(["1", "2-4", "5-9", "10+"]);
-    expect(screen.getAllByText("suppressed")).toHaveLength(4);
+    // Per half-year: the 10+ cell below k and its complementary suppression in bucket 1.
+    expect(screen.getAllByText("suppressed")).toHaveLength(8);
   });
 });
