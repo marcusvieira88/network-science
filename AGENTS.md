@@ -12,9 +12,15 @@ conflicts with the constitution, the constitution wins.
 
 ## Privacy rules (non-negotiable)
 
-- Never read, store or log message content: bodies, subjects, attachments, folder names.
+- Never decode, parse, hold, store or log message content: bodies, subjects, attachments,
+  folder names. `Subject` lines are discarded as the header is scanned; body bytes pass through
+  the decompressor and are skipped; a folder name is reduced at once to one of four classes
+  and never kept.
 - Addresses and names exist only in ingest-side packages. Downstream code sees pseudonyms only.
-- Never log a header value, an address, a name or the key. Log counts.
+  One documented exception: `risk/aux_public.py` reads the raw archive as the attacker would,
+  and `risk/score.py` reads the ingest zone to score guesses; both emit counts only.
+- Never log a header value, an address, a name, a pseudonym or the key. Log counts (and
+  `file_id` inside the ingest zone).
 - Never commit anything from `data/`, a key, or a real address or name.
 
 ## Clean code
@@ -30,7 +36,10 @@ conflicts with the constitution, the constitution wins.
   - No `# type: ignore` without an error code and a reason on the same line; no `cast()` to hide
     a real mismatch.
   - TypeScript in `ui/` is strict: no `any`, no `@ts-ignore`.
-- No magic numbers or strings; name them in `config.py`.
+- No magic numbers or strings. A tunable parameter is a `Config` field in `config.py`, echoed
+  in the run manifest. The definition of a stated hypothesis (for example its working hours or
+  its placebo fraction) is a named constant in its own module, on purpose: changing it would
+  change the hypothesis.
 - Fail loudly: raise a specific error with the documented exit code. Never swallow an
   exception or return a silent default.
 - Be deterministic: seed all randomness from `config.py`, sort before writing, no wall-clock
