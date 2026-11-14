@@ -477,7 +477,8 @@ flowchart LR
 - **Typed and reviewed.** `mypy --strict` checks `src/` and `tests/`, with no `Any` in a
   signature. Every change is reviewed with three skills: `/code-review` (correctness),
   `/data-privacy-review` (the content and identifier promises) and the project's own
-  `/code-quality-review` (AGENTS.md rules, typing, and a gate whose exit code was checked).
+  `/code-quality-review` (AGENTS.md rules, typing, and a gate whose exit code was checked);
+  changes to the analysis, cleaning or hypotheses also with `/data-scientist-review` (methodology).
 - **Reproducibility.** One command, a pinned lockfile and corpus checksum, and seeded randomness.
   Two full real runs with one key give identical fingerprints for every output.
 - **Numbers are never typed.** The report, decision record and slides are rendered from release
