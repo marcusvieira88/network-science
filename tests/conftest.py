@@ -5,10 +5,13 @@ from pathlib import Path
 
 import pytest
 
+from enron_case.config import KEY_ENV, KEY_FILE_ENV
 from enron_case.synth import SynthOutput, SynthSpec, generate
 from helpers import TEST_KEY_HEX
 
-os.environ.setdefault("ENRON_CASE_KEY", TEST_KEY_HEX)
+# Tests always run on the fixed sample key, never on a real key the shell may export.
+os.environ[KEY_ENV] = TEST_KEY_HEX
+os.environ.pop(KEY_FILE_ENV, None)
 
 
 @pytest.fixture(scope="session")
