@@ -125,15 +125,25 @@ retention schedules, and works council review of questions and thresholds before
 
 Built spec-first with GitHub Spec Kit (in `specs/`). A lead agent froze the configuration,
 contracts and a synthetic corpus with known answers; ten agents then built one work package each
-in parallel worktrees, testing against that ground truth.
+in parallel worktrees, testing against that ground truth. `make gate` (lint, strict typing, tests,
+a privacy canary, an import-boundary test) ran on every change.
 
-`make gate` (lint, strict typing, tests, a privacy canary, an import-boundary test) and four
-review skills kept it correct. They caught a header reader that could run on into message bodies and showed
-H2/H3, then H16, to be artifacts; a final review against prior work found the record change and
-added H25 and attacker A3.
+Skills used ([`.claude/skills/`](.claude/skills/); detail in
+[`docs/ai-workflow.md`](docs/ai-workflow.md)):
 
-A person decided the content line, judged a sample of real identity merges in a terminal (so real
-identifiers never entered an AI conversation) and rejected the artifact results.
+- **Spec Kit (SDD):** `speckit-constitution` (seven principles), `speckit-specify` (five user
+  stories), `speckit-plan` (zones, contracts), `speckit-tasks` (about a hundred tasks),
+  `speckit-implement` (lead plus ten agents). Planned, not run: `speckit-converge`.
+- **Review skills (custom, written for this project):** `data-privacy-review` (caught
+  differencing below the minimum group size), `code-quality-review` (strict typing of tests, no
+  `Any`), `data-scientist-review` (showed H16 to be a retention artifact).
+- **Built-in:** `code-review` (blocked a header reader running into message bodies). Planned, not
+  run: `security-review`.
+
+The lead's checks showed H2/H3 to be artifacts; a final review against prior work added the
+record change, H25 and attacker A3. A person decided the content line, judged a sample
+of real identity merges in a terminal (so real identifiers never entered an AI conversation) and
+rejected the artifact results.
 
 ## Compared with prior work
 
