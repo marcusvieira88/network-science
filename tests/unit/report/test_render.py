@@ -319,3 +319,33 @@ def test_release_descriptions_do_not_overclaim() -> None:
     r2 = render.RELEASE_VARIANTS["R2"]
     assert "not calibrated" in r2
     assert "calibrated noise" not in r2
+
+
+def test_limits_name_the_optimistic_interval_and_the_n2_risk(
+    synth: SynthOutput, tmp_path: Path
+) -> None:
+    text = render_report(synth, tmp_path)
+    limits = text.split("## Limits", 1)[1]
+    assert "change week chosen from the same data" in limits
+    assert "optimistic" in limits
+    assert "regional subdomains" in limits
+    assert "no manual check of merges was run" in limits  # the fixture has no manual step
+
+
+def test_n2_limit_reports_the_manual_check_from_data_quality(synth: SynthOutput) -> None:
+    manual = pl.DataFrame(
+        {
+            "order": [4],
+            "step": ["manual merge check"],
+            "count_in": [50],
+            "count_out": [50],
+            "removed": [0],
+            "rule": ["seeded sample, judged by a person"],
+            "precision": [1.0],
+            "recall": [None],
+        },
+        schema=synth.table("data_quality").schema,
+    )
+    quality = pl.concat([synth.table("data_quality"), manual])
+    text = " ".join(render.limits(quality))
+    assert "a manual check of 50 sampled real merges found 0 wrong merges" in text

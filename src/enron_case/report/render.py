@@ -18,6 +18,7 @@ from enron_case.context import StageContext
 from enron_case.contracts import vocab
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import ContractViolation, PrivacyViolation
+from enron_case.release.tables import STEP_MANUAL
 from enron_case.report import quality
 from enron_case.report.markdown import bullets, format_value, table
 
@@ -85,6 +86,9 @@ LIMITS = (
     "No group-level attack on the community graph was run: an attacker who knows some group "
     "members could try to infer ties or membership from group-to-group weights, and that risk "
     "is bounded only by the minimum of k distinct senders per published tie, not measured.",
+    "The effect interval is computed at a change week chosen from the same data (the week that "
+    "maximises the change statistic), so it is optimistic: it ignores the uncertainty of where "
+    "the change happened.",
     "The artifact checks were added after the first real-data run, because two hypotheses "
     "passed every pre-registered check yet looked implausibly strong. They are documented as a "
     "post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.",
@@ -437,8 +441,30 @@ def risk_section(risk: pl.DataFrame, k_min: int) -> str:
 # ---- report -------------------------------------------------------------------------------
 
 
-def limits_section() -> str:
-    return "\n\n".join(("## Limits", bullets(LIMITS)))
+def n2_limit(data_quality: pl.DataFrame) -> str:
+    """The rule N2 risk, with the manual merge check from `data_quality` when one was run."""
+    risk = (
+        "Rule N2 merges addresses with the same local part under one registered domain, so it "
+        "can merge two different people who share a local part across an ISP's regional "
+        "subdomains"
+    )
+    manual = data_quality.filter(pl.col("step") == STEP_MANUAL).rows(named=True)
+    if not manual:
+        return f"{risk}; no manual check of merges was run."
+    row = manual[0]
+    wrong = row["count_in"] - row["count_out"]
+    return (
+        f"{risk}; a manual check of {format_value(row['count_in'])} sampled real merges found "
+        f"{format_value(wrong)} wrong merges."
+    )
+
+
+def limits(data_quality: pl.DataFrame) -> list[str]:
+    return [*LIMITS, n2_limit(data_quality)]
+
+
+def limits_section(data_quality: pl.DataFrame) -> str:
+    return "\n\n".join(("## Limits", bullets(limits(data_quality))))
 
 
 def render_report(tables: ReleaseTables, config: Config) -> str:
@@ -450,7 +476,7 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
         finding_section(tables.hypotheses, tables.artifact_checks),
         hypotheses_section(tables.hypotheses),
         risk_section(tables.risk, config.k_min),
-        limits_section(),
+        limits_section(tables.data_quality),
     )
     text = "\n\n".join(sections) + "\n"
     check_no_identifiers(text)
@@ -550,7 +576,7 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
             "risk_table": risk_table(tables.risk),
             "risk_summary": risk_summary(tables.risk),
             "risk_verdicts": bullets(risk_verdicts(tables.risk)),
-            "limits": bullets(LIMITS),
+            "limits": bullets(limits(tables.data_quality)),
         }
     )
     return values
