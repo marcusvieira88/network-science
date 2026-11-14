@@ -64,4 +64,14 @@ describe("App", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Glossary" })).toBeInTheDocument();
     expect(screen.getByText("Pseudonym")).toBeInTheDocument();
   });
+
+  it("opens an evidence link at the top of the new view, with focus on its content", async () => {
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    render(<App load={() => Promise.resolve({ status: "ok", data: sampleData(), source: "sample" })} />);
+    await userEvent.click(await screen.findByRole("button", { name: /See the attacks/ }));
+    expect(screen.getByRole("heading", { level: 1, name: "Privacy and risk" })).toBeInTheDocument();
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    expect(document.activeElement).toBe(screen.getByRole("main"));
+    scrollTo.mockRestore();
+  });
 });
