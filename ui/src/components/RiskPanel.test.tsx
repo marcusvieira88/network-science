@@ -40,7 +40,9 @@ describe("RiskPanel", () => {
     );
     const [table] = screen.getAllByRole("table");
     if (!table) throw new Error("table missing");
-    const lastCells = [...table.querySelectorAll("tbody tr")].map((tr) => tr.lastElementChild?.textContent);
-    expect(lastCells).toEqual(["n/a", "no", "yes"]);
+    const column = [...table.querySelectorAll("thead th")].findIndex((th) => th.textContent === "Finding survives");
+    expect(column).toBeGreaterThanOrEqual(0);
+    const cells = [...table.querySelectorAll("tbody tr")].map((tr) => tr.children[column]?.textContent);
+    expect(cells).toEqual(["n/a", "no", "yes"]);
   });
 });

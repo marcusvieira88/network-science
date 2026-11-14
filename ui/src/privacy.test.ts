@@ -8,7 +8,7 @@ import { CommunityGraph } from "@/components/CommunityGraph";
 import { totalPoints } from "@/lib/cells";
 import { baselinePeriod } from "@/lib/series";
 import { TABLE_COLUMNS } from "@/lib/data";
-import { LEAK_PATTERN, PERSON_COUNT_COLUMNS, identifierCount, minimumGroupSize, smallPersonCounts } from "@/lib/privacy";
+import { K_FLOOR, LEAK_PATTERN, PERSON_COUNT_COLUMNS, identifierCount, minimumGroupSize, smallPersonCounts } from "@/lib/privacy";
 import { type LabelCanvas, drawGroupHover, networkPalette } from "@/lib/sigmaNetwork";
 import { VIEWS } from "@/lib/views";
 import { layerStub, resetLayerStub } from "@/test/layerWebgl";
@@ -39,12 +39,12 @@ describe("privacy of the loaded data", () => {
     expect(identifierCount(rawSample())).toBe(0);
   });
 
-  it("takes the minimum group size from k_min, never below the floor of 5", () => {
+  it("takes the minimum group size from k_min, never below the floor", () => {
     const withK = (kMin: unknown) => ({ ...data, run: { ...data.run, parameters: { ...data.run.parameters, k_min: kMin } } });
-    expect(minimumGroupSize(withK(9))).toBe(9);
-    expect(minimumGroupSize(withK(3))).toBe(5);
-    expect(minimumGroupSize(withK("9"))).toBe(5);
-    expect(minimumGroupSize(withK(undefined))).toBe(5);
+    expect(minimumGroupSize(withK(K_FLOOR + 4))).toBe(K_FLOOR + 4);
+    expect(minimumGroupSize(withK(K_FLOOR - 2))).toBe(K_FLOOR);
+    expect(minimumGroupSize(withK(String(K_FLOOR + 4)))).toBe(K_FLOOR);
+    expect(minimumGroupSize(withK(undefined))).toBe(K_FLOOR);
   });
 
   it("publishes no person count below the minimum group size", () => {

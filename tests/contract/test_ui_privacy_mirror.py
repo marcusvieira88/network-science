@@ -21,7 +21,7 @@ def _source() -> str:
 
 
 def _constant(name: str) -> str:
-    found = re.search(rf"^const {name} = (.+);$", _source(), re.MULTILINE)
+    found = re.search(rf"^(?:export )?const {name} = (.+);$", _source(), re.MULTILINE)
     assert found, name
     return found.group(1)
 

@@ -8,7 +8,7 @@ import type { ReleaseData } from "@/lib/data";
 export const LEAK_PATTERN = /@|p_[a-z2-7]{16}|o_[a-z2-7]{16}/;
 
 /** The release's smallest publishable group; never trust a data file to lower it. */
-const K_FLOOR = 5;
+export const K_FLOOR = 5;
 
 /** Release columns that count persons (PERSON_COUNT_COLUMNS in contracts/schemas.py). */
 export const PERSON_COUNT_COLUMNS = {
