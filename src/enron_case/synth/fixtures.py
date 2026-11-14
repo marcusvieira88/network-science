@@ -35,6 +35,8 @@ from enron_case.synth.model import Entity, Message, Organisation, SynthSpec
 
 # Fixture-only key. Never used for real data.
 FIXTURE_KEY = b"fixture-key-for-synthetic-data-only"
+# Decimals kept in generated metric values, so libm differences between platforms vanish.
+FIXTURE_DECIMALS = 9
 # Reference rulings (contracts/header-allowlist.md); the parser emits its own in ingest_counts.
 HEADER_RULINGS = {
     "Date": "usable",
@@ -421,7 +423,9 @@ class FixtureBuilder:
                                 "scope": scope,
                                 "week": week,
                                 "metric": metric,
-                                "value": base[metric] + jump + noise,
+                                # random.gauss calls the platform's libm, whose last bit differs
+                                # between macOS and Linux; rounding keeps the fixture identical.
+                                "value": round(base[metric] + jump + noise, FIXTURE_DECIMALS),
                                 "n_active": n_active,
                                 "variant": variant,
                             }
