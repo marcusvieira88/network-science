@@ -40,11 +40,13 @@ class Dependencies:
 
 
 def run(ctx: StageContext) -> None:
-    run_with(ctx, real_dependencies())
+    run_with(ctx, real_dependencies(ctx.read("communities"), ctx.config.k_min))
 
 
-def real_dependencies() -> Dependencies:
-    """Resolve the other packages' public interfaces at run time, as the orchestrator does."""
+def real_dependencies(communities: pl.DataFrame, k_min: int) -> Dependencies:
+    """Bind the other packages' public interfaces (release.variants, finding.stats, pseudo)
+    to the shapes this stage calls. R1/R2 are built from R0 edges plus the baseline
+    communities, exactly as the release stage builds what it publishes."""
     variants: Any = importlib.import_module("enron_case.release.variants")
     stats: Any = importlib.import_module("enron_case.finding.stats")
     keys: Any = importlib.import_module("enron_case.pseudo.keys")
@@ -55,17 +57,27 @@ def real_dependencies() -> Dependencies:
         pid: str = pseudonymize.person_pid(key, entity_id)
         return pid
 
+    def build_r1(
+        events: pl.DataFrame, entities_p: pl.DataFrame, metric_series: pl.DataFrame
+    ) -> dict[str, pl.DataFrame]:
+        edges = variants.build_r0(events, entities_p)
+        tables: dict[str, pl.DataFrame] = variants.build_r1(
+            edges, metric_series, communities, k_min
+        )
+        return tables
+
     def build_r2(
         events: pl.DataFrame, entities_p: pl.DataFrame, metric_series: pl.DataFrame, seed: int
     ) -> dict[str, pl.DataFrame]:
+        edges = variants.build_r0(events, entities_p)
         tables: dict[str, pl.DataFrame] = variants.build_r2(
-            events, entities_p, metric_series, seed=seed
+            edges, metric_series, communities, k_min, seed
         )
         return tables
 
     return Dependencies(
         build_r0=variants.build_r0,
-        build_r1=variants.build_r1,
+        build_r1=build_r1,
         build_r2=build_r2,
         effect_size=stats.effect_size,
         pid_of=pid_of,

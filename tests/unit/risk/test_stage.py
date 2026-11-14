@@ -6,8 +6,8 @@ from pathlib import Path
 
 import polars as pl
 import pytest
-import risk_fakes
 
+import risk_fakes
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.risk import attack, aux_public, score, stage
