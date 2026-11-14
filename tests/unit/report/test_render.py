@@ -22,7 +22,7 @@ from enron_case.synth import SynthOutput
 from enron_case.zones import Zone
 from helpers import ctx_with_fixtures
 
-REPORT_TABLES = ("data_quality", "header_fields", "hypotheses", "risk")
+REPORT_TABLES = ("data_quality", "header_fields", "hypotheses", "risk", "artifact_checks")
 RELEASE_TABLES = (*REPORT_TABLES, "weekly_metrics")
 
 DATE_TOKEN = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")

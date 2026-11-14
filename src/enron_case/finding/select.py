@@ -72,15 +72,21 @@ def _loo_range(effects: tuple[float, ...]) -> tuple[float, float]:
     return min(effects), max(effects)
 
 
-def results_table(evidence: Sequence[Evidence]) -> pl.DataFrame:
-    """The `hypothesis_results` table: one row per hypothesis, at most one headline."""
+def results_table(
+    evidence: Sequence[Evidence], failed_artifacts: frozenset[str] = frozenset()
+) -> pl.DataFrame:
+    """The `hypothesis_results` table: one row per hypothesis, at most one headline.
+
+    A hypothesis in `failed_artifacts` failed its check against a known artifact
+    (artifacts.py) and is capped at low confidence, so it cannot be the headline."""
     p_holm = stats.holm([e.p_perm for e in evidence])
     supported = [
         support(e.hypothesis.direction, p, e.ci_low, e.ci_high)
         for e, p in zip(evidence, p_holm, strict=True)
     ]
     confidences = [
-        confidence(s, robustness_checks(e)) for e, s in zip(evidence, supported, strict=True)
+        LOW if e.hypothesis.id in failed_artifacts else confidence(s, robustness_checks(e))
+        for e, s in zip(evidence, supported, strict=True)
     ]
     headline = _headline(evidence, supported, confidences)
     rows = []

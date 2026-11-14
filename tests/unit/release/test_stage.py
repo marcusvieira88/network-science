@@ -20,6 +20,7 @@ INPUTS = (
     "metric_series",
     "hypothesis_results",
     "risk_results",
+    "artifact_results",
     "snapshots",
     "communities",
     "events",
@@ -34,6 +35,7 @@ RELEASE_TABLES = (
     "degree_distribution",
     "community_graph",
     "community_groups",
+    "artifact_checks",
 )
 EXACT = (
     "data_quality",

@@ -98,3 +98,13 @@ def header_fields(ingest: dict[str, Any]) -> pl.DataFrame:
         {"field": names, "occurrences": counts, "ruling": labels},
         schema=schemas.table("header_fields").polars_schema,
     )
+
+
+def artifact_checks(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
+    """The artifact checks; a count of custodians below k is suppressed."""
+    return results.with_columns(
+        pl.when((pl.col("check") == "within_custodian") & (pl.col("n_units") < k_min))
+        .then(None)
+        .otherwise(pl.col("n_units"))
+        .alias("n_units")
+    )

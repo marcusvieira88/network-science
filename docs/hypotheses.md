@@ -111,3 +111,27 @@ replaces "largest supported effect" so that it matches the pre-registered rule i
 - The null model preserves in-weight per person per week, so in-degree concentration (H1) is
   largely reproduced by the null by construction; H1 will rarely pass (c) and so rarely reach
   high confidence. This is reported, not tuned away.
+
+## Artifact checks (added after the first real-data run)
+
+**This section was written after seeing real results, and says so.** On the first real run, H2
+(+13.8 standard deviations) and H3 passed every pre-registered check. Two diagnostics run by the
+lead before accepting either showed the pre-registered checks could not tell a behavioural change
+from two known artifacts:
+
+- **H2, `baseline_placebo`.** Communities fixed on a baseline go stale, and any partition fits
+  best on the period it was fitted to, so cross-community share rises right after the baseline
+  ends whatever happens. Placebo: fit communities on the first half of the baseline year and
+  measure the jump into the calm second half (out of sample, before any 2001 event). A jump of
+  more than `PLACEBO_MAX_EFFECT` (2.0) baseline standard deviations fails: drift alone then
+  produces effects of the size being tested.
+- **H3, `within_custodian`.** The aggregate external share moves when the mix of mailboxes
+  holding mail changes. The check holds people fixed: the median, over custodians with at least
+  30 sent events in both periods, of the change in each custodian's own external share between
+  the baseline and the period after the change point. Passes only if its bootstrap interval lies
+  below zero (the hypothesised direction).
+
+A failed check caps the hypothesis at **low** confidence, so it cannot be the headline. H1 and H4
+have no artifact check: neither was supported. The checks are in `src/enron_case/finding/
+artifacts.py`, their results in `release/artifact_checks.csv`, and both are tested on synthetic
+data where groups do not drift and the planted change is behavioural (both checks pass there).

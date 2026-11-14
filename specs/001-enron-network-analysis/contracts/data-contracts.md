@@ -9,7 +9,7 @@ tested without the others.
 bump and a note in `docs/ai-workflow-log.md`. Adding a nullable column is minor; anything else
 stops the affected packages until fixtures are regenerated.
 
-**Version**: 1.1 (adds `communities`, `data_quality.order`, counts side outputs).
+**Version**: 1.2 (1.1 added `communities`, `data_quality.order`, counts side outputs; 1.2 adds `artifact_results` / `artifact_checks`).
 
 **Common rules**: tables are written sorted by the stated sort key; lists are sorted; timestamps
 are UTC; strings are lower-case where they are addresses or domains; no column may be added to a

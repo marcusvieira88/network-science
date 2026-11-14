@@ -494,6 +494,35 @@ class FixtureBuilder:
         )
         return schemas.conform(df, "risk_results")
 
+    def artifact_results_table(self) -> pl.DataFrame:
+        """Planted change is behavioural and communities never drift: both checks pass."""
+        rows = [
+            {
+                "hypothesis": "H2",
+                "check": "baseline_placebo",
+                "statistic": 0.4,
+                "ci_low": -0.3,
+                "ci_high": 1.1,
+                "n_units": 26,
+                "passes": True,
+                "note": "out-of-sample jump within the calm baseline year is small",
+            },
+            {
+                "hypothesis": "H3",
+                "check": "within_custodian",
+                "statistic": -0.05,
+                "ci_low": -0.08,
+                "ci_high": -0.02,
+                "n_units": 12,
+                "passes": True,
+                "note": "custodians themselves shifted their mail inward",
+            },
+        ]
+        return schemas.conform(
+            pl.DataFrame(rows, schema=schemas.table("artifact_results").polars_schema),
+            "artifact_results",
+        )
+
     # ---- counts side outputs ----------------------------------------------------------------
     def counts(self) -> dict[str, dict[str, Any]]:
         header = self.header_records()
@@ -669,6 +698,7 @@ class FixtureBuilder:
             "weekly_metrics": weekly,
             "hypotheses": self.hypothesis_results_table(),
             "risk": self.risk_results_table(),
+            "artifact_checks": self.artifact_results_table(),
             "degree_distribution": degree,
             "community_graph": graph,
             "community_groups": groups,
@@ -688,6 +718,7 @@ class FixtureBuilder:
             "metric_series": self.metric_series_table(),
             "hypothesis_results": self.hypothesis_results_table(),
             "risk_results": self.risk_results_table(),
+            "artifact_results": self.artifact_results_table(),
         }
         tables.update(self.release_tables())
         return tables

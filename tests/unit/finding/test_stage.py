@@ -105,7 +105,8 @@ def test_recompute_called_per_custodian_and_null_replicate(
     loo = [excluded for _variant, excluded, _n in fake.calls if excluded]
     assert sorted(loo, key=sorted) == sorted(({p} for p in custodians), key=sorted)
     null = [call for call in fake.calls if not call[1]]
-    assert len(null) == hypotheses.NULL_REPLICATES
+    # The null replicates, plus one recompute for the H2 baseline placebo (artifacts.py).
+    assert len(null) == hypotheses.NULL_REPLICATES + 1
     assert {variant for variant, _e, _n in fake.calls} == {"default"}
 
 

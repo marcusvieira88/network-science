@@ -15,7 +15,7 @@ from enron_case.contracts import vocab as v
 from enron_case.errors import ContractViolation
 from enron_case.zones import Zone
 
-CONTRACT_VERSION = "1.1"
+CONTRACT_VERSION = "1.2"
 
 STR = pl.String()
 INT = pl.Int64()
@@ -96,6 +96,20 @@ _RISK_COLS = (
     Col("utility_effect_ratio", FLOAT, nullable=True),
     Col("finding_survives", BOOL, nullable=True),
 )
+
+
+def _artifact_cols(n_units_nullable: bool) -> tuple[Col, ...]:
+    return (
+        Col("hypothesis", STR, enum=v.HYPOTHESES),
+        Col("check", STR),
+        Col("statistic", FLOAT),
+        Col("ci_low", FLOAT),
+        Col("ci_high", FLOAT),
+        Col("n_units", INT, nullable=n_units_nullable),
+        Col("passes", BOOL, nullable=True),
+        Col("note", STR),
+    )
+
 
 TABLES: dict[str, Table] = {
     t.name: t
@@ -218,6 +232,7 @@ TABLES: dict[str, Table] = {
         ),
         _t("hypothesis_results", Zone.RESTRICTED, ("hypothesis",), *_HYPOTHESIS_COLS),
         _t("risk_results", Zone.RESTRICTED, ("release_variant", "attacker"), *_RISK_COLS),
+        _t("artifact_results", Zone.RESTRICTED, ("hypothesis",), *_artifact_cols(False)),
         # ---- Zone 3: release (aggregates, k-thresholded; committed) ----
         _t(
             "data_quality",
@@ -256,6 +271,7 @@ TABLES: dict[str, Table] = {
         ),
         _t("hypotheses", Zone.RELEASE, ("hypothesis",), *_HYPOTHESIS_COLS, fmt="csv"),
         _t("risk", Zone.RELEASE, ("release_variant", "attacker"), *_RISK_COLS, fmt="csv"),
+        _t("artifact_checks", Zone.RELEASE, ("hypothesis",), *_artifact_cols(True), fmt="csv"),
         _t(
             "degree_distribution",
             Zone.RELEASE,

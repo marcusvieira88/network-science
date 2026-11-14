@@ -1,0 +1,3 @@
+hypothesis,check,statistic,ci_low,ci_high,n_units,passes,note
+H2,baseline_placebo,10.783951639729162,8.200753682263036,17.394911960623006,52,false,a calm half-year out of sample already jumps: the test effect is baseline drift
+H3,within_custodian,-0.009869178928172573,-0.08409058566079938,0.06753631385380876,42,false,no within-custodian change: the aggregate shift is a change in who is in the data
