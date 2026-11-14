@@ -143,7 +143,7 @@ Added after the first real-data run, which showed that the pre-registered checks
 
 ## Hypotheses H1–H4 (pre-registered)
 
-Written down before the analysis ran on the real corpus. Every outcome is shown, including those not supported. When each hypothesis of this report was stated: H1–H4: pre-registered (before any real data was analysed); H5–H24: stated before computed, after earlier results; H25 and H26: post hoc (stated after every other result was known, still before its own result was computed).
+Written down before the analysis ran on the real corpus. Every outcome is shown, including those not supported. When each hypothesis of this report was stated: H1–H4: pre-registered (before any real data was analysed); H5–H24: stated before computed, after earlier results; H25 and H26: post hoc (stated after every other result was known, each still before its own result was computed).
 
 | Hypothesis | Claim | Metric | Scope | Change week | Effect | Interval | p | Holm p | Null z | Leave-one-out range | Robust variants | Supported | Confidence | Headline |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -162,7 +162,7 @@ H14, H21 and H22 are listed as not supported because they moved against the pred
 
 H20 (distinct senders per active week) is inconclusive: it changed in the predicted direction by a median of 5.85 (interval 5.05 to 7.74), significant after Holm's correction (p = 0.000000000521), but its pre-crisis placebo fails (3.3 (interval 1.6 to 4.7)), so it is not held true.
 
-How to read two columns. **Placebo**: the same comparison between two pre-crisis windows a year apart. It passes when that calm period shows no change in the predicted direction: its interval includes zero, or its median lies below half the crisis median on the predicted side. A calm-period change against the prediction therefore passes; where the placebo already shows the crisis change (on the side the crisis median moved to, its interval excludes zero or its median is at least as large), the cell says so. **Leave-one-out**: stable only if the median change keeps the predicted sign with each custodian left out in turn. It therefore reads unstable both when single custodians carry the result and when the result is not in the predicted direction to begin with; it is not, by itself, a statement that one person drives the result.
+How to read two columns. **Placebo**: the same comparison between two pre-crisis windows a year apart. It passes when that calm period shows no change in the predicted direction: its interval includes zero, or its median lies below half the crisis median on the predicted side. A calm-period change against the prediction therefore passes, and so does one whose interval includes zero however large its median. The cell says so where the calm period moved as the crisis did: its interval excludes zero on the side the crisis median moved to, or the crisis median is on the predicted side and the placebo median is at least as large. **Leave-one-out**: stable only if the median change keeps the predicted sign with each custodian left out in turn. It therefore reads unstable both when single custodians carry the result and when the result is not in the predicted direction to begin with; it is not, by itself, a statement that one person drives the result.
 
 | ID | Stated | Measure | Predicted | Custodians | Median change | Interval | Holm p | Placebo custodians | Placebo | Leave-one-out | Outcome | Caveat |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -172,9 +172,9 @@ How to read two columns. **Placebo**: the same comparison between two pre-crisis
 | H8 | stated before computed, after earlier results | share of sent messages with a Cc recipient | up | 32 | 0 | -0.0179 to 0.0336 | 1 | 15 | passes | unstable | not supported | — |
 | H9 | stated before computed, after earlier results | mean recipients per sent message | up | 32 | 0.0294 | -0.192 to 0.104 | 1 | 15 | passes | stable | not supported | — |
 | H10 | stated before computed, after earlier results | share of sent messages with five or more recipients | up | 32 | 0.00205 | -0.0105 to 0.0182 | 1 | 15 | passes | unstable | not supported | — |
-| H11 | stated before computed, after earlier results | distinct internal contacts per active week | down | 32 | 1.03 | -0.608 to 2.93 | 1 | 15 | passes; the calm period already shows this change | unstable | not supported | — |
+| H11 | stated before computed, after earlier results | distinct internal contacts per active week | down | 32 | 1.03 | -0.608 to 2.93 | 1 | 15 | passes | unstable | not supported | — |
 | H12 | stated before computed, after earlier results | sent messages per active week | up | 32 | 1.82 | -1.26 to 5.3 | 1 | 15 | fails | stable | not supported | — |
-| H13 | stated before computed, after earlier results | share of sent messages to the top three recipients | up | 32 | -0.00636 | -0.0466 to 0.0349 | 1 | 15 | passes; the calm period already shows this change | unstable | not supported | — |
+| H13 | stated before computed, after earlier results | share of sent messages to the top three recipients | up | 32 | -0.00636 | -0.0466 to 0.0349 | 1 | 15 | passes | unstable | not supported | — |
 | H14 | stated before computed, after earlier results | share of received messages sent to 20 or more | up | 75 | -0.168 | -0.272 to -0.102 | 0.00000178 | 28 | passes | unstable | not supported | — |
 | H15 | stated before computed, after earlier results | share of sent messages with one recipient (derived from H14) | up | 32 | -0.00136 | -0.0403 to 0.0286 | 1 | 15 | passes | unstable | not supported | — |
 | H16 | stated before computed, after earlier results | share of sent-to contacts who also wrote to the custodian | up | 32 | 0.267 | 0.144 to 0.386 | 0.00000257 | 15 | passes | stable | inconclusive | fails the retention check: among custodian-to-custodian contacts, whose messages can survive in either mailbox and so depend less on what one inbox kept, the change is not established |
@@ -182,11 +182,11 @@ How to read two columns. **Placebo**: the same comparison between two pre-crisis
 | H18 | stated before computed, after earlier results | share of received messages from another custodian | up | 75 | 0.0167 | -0.00811 to 0.0401 | 1 | 28 | passes | stable | not supported | — |
 | H19 | stated before computed, after earlier results | share of contacts new against the prior 26 weeks | down | 27 | -0.0261 | -0.0988 to 0.0582 | 1 | 14 | fails | stable | not supported | retention-sensitive: the 26-week look-back depends on how much older mail was kept |
 | H20 | stated before computed, after earlier results | distinct senders per active week | up | 75 | 5.85 | 5.05 to 7.74 | 0.000000000521 | 28 | fails | stable | inconclusive | — |
-| H21 | stated before computed, after earlier results | share of received messages from the top three senders | up | 75 | -0.148 | -0.191 to -0.106 | 0.0000026 | 28 | passes; the calm period already shows this change | unstable | not supported | — |
+| H21 | stated before computed, after earlier results | share of received messages from the top three senders | up | 75 | -0.148 | -0.191 to -0.106 | 0.0000026 | 28 | passes; the calm period shows the same move | unstable | not supported | — |
 | H22 | stated before computed, after earlier results | share of received messages from external senders | down | 75 | 0.0578 | 0.0405 to 0.0908 | 0.0000264 | 28 | passes | unstable | not supported | — |
 | H23 | stated before computed, after earlier results | share of weeks with at least one sent message | up | 32 | 0 | -0.1 to 0.0667 | 1 | 15 | passes | unstable | not supported | — |
 | H24 | stated before computed, after earlier results | share of sent messages to a list, role or system address | down | 32 | 0 | -0.0161 to 0.027 | 1 | 15 | passes | unstable | not supported | — |
-| H25 | post hoc | share of the other custodians exchanged mail with (post hoc) | up | 31 | 0.00826 | 0 to 0.0331 | 0.239 | 13 | passes; the calm period already shows this change | stable | not supported | — |
+| H25 | post hoc | share of the other custodians exchanged mail with (post hoc) | up | 31 | 0.00826 | 0 to 0.0331 | 0.239 | 13 | passes; the calm period shows the same move | stable | not supported | — |
 
 ## Privacy and re-identification risk
 

@@ -142,7 +142,7 @@ its own worktree, removed `Any` from signatures and dead scaffolding. What the r
 - **One list of hypotheses**: the twenty exploratory hypotheses E1–E20 were renumbered H5–H24
   so the report, release and explorer show a single list; the dated record keeps the E-numbers
   (the replication test is E21 there and the departure question O1). The timing of each
-  statement is kept, because it decides how to read the statistics. H1–H4: pre-registered (before any real data was analysed); H5–H24: stated before computed, after earlier results; H25 and H26: post hoc (stated after every other result was known, still before its own result was computed).
+  statement is kept, because it decides how to read the statistics. H1–H4: pre-registered (before any real data was analysed); H5–H24: stated before computed, after earlier results; H25 and H26: post hoc (stated after every other result was known, each still before its own result was computed).
 - **What to cut**: the dedupe-rule variant, a formal privacy budget, a group-level attack.
 
 ## What did not work

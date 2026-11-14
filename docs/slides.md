@@ -79,7 +79,7 @@ The crisis window lies after the change, the reference window and both placebo w
 
 ## Behaviour: every hypothesis, and when it was stated
 
-H1–H4: pre-registered (before any real data was analysed); H5–H24: stated before computed, after earlier results; H25 and H26: post hoc (stated after every other result was known, still before its own result was computed).
+H1–H4: pre-registered (before any real data was analysed); H5–H24: stated before computed, after earlier results; H25 and H26: post hoc (stated after every other result was known, each still before its own result was computed).
 
 | Hypothesis | Claim | Effect | Interval | Holm p | Supported | Confidence |
 |---|---|---|---|---|---|---|
