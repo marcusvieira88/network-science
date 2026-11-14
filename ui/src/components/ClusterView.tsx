@@ -12,6 +12,7 @@ import {
   clusterMatrix,
   groupSummaries,
   largestCrossShareChange,
+  MIN_COMPARABLE_WEIGHT,
   outsideWeightShare,
   periodRange,
   periodWeeks,
@@ -71,13 +72,14 @@ function WhatChanged({ change, driftCheck, onShowHypotheses }: WhatChangedProps)
     <p className="text-sm text-muted-foreground" data-testid="what-changed">
       <span className="font-medium text-foreground">What changed. </span>
       {change === null ? (
-        "No group has published ties in both the baseline year and the crisis weeks, so there is nothing to compare. "
+        `No group has a weight of at least ${MIN_COMPARABLE_WEIGHT} among groups in both the baseline year and the crisis weeks, so there is nothing to compare. `
       ) : (
         <>
           From the baseline year to the crisis weeks, the cross-group share of group{" "}
           <span className="text-foreground">{change.group}</span> changed most: from {formatShare(change.before)} to{" "}
           {formatShare(change.after)} ({pointChange(change.change)}), counted between groups only; mail with outside
-          people is left out. This describes the published ties; it does not say why they changed.{" "}
+          people is left out, and only groups with a weight of at least {MIN_COMPARABLE_WEIGHT} in both periods are
+          compared. This describes the published ties; it does not say why they changed.{" "}
         </>
       )}
       The groups were fixed on the baseline year, and a grouping fits the period it was fitted on best, so cross-group

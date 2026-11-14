@@ -113,6 +113,8 @@ export interface GroupSummary {
    * outside bucket and for a group with no weight among real groups in the period.
    */
   withinNamedShare: number | null;
+  /** Weight among real groups: total minus weight with the outside bucket (0 for the bucket). */
+  namedTotal: number;
   /** The heaviest partner groups (both directions summed), at most TOP_PARTNERS; never the outside bucket. */
   partners: Partner[];
 }
@@ -137,6 +139,7 @@ export function groupSummaries(matrix: ClusterMatrix): GroupSummary[] {
       within,
       withinShare: total > 0 ? within / total : null,
       withinNamedShare: group !== OTHER_GROUP && named > 0 ? within / named : null,
+      namedTotal: group === OTHER_GROUP ? 0 : named,
       partners,
     };
   });
@@ -156,18 +159,32 @@ export interface ShareChange {
 }
 
 /**
+ * A group is named as the largest change only if its weight among real groups reaches this in
+ * both periods. Post-hoc presentation rule, added after the real release named a group whose
+ * crisis share rested on a single tie of weight 2.12: a share over almost no weight is noise.
+ * At 50 the smallest groups with near-empty crisis periods (weights about 2 to 28) are skipped.
+ */
+export const MIN_COMPARABLE_WEIGHT = 50;
+
+/**
  * The named group whose cross-group share among real groups changed most (either way); null if
  * none is comparable. Weight with the outside bucket is left out: it is not a community but the
  * people with no tie in the baseline period plus communities under k, and it grows after the
  * baseline as new people appear, so counting it would read new arrivals as groups mixing.
  */
-export function largestCrossShareChange(before: GroupSummary[], after: GroupSummary[]): ShareChange | null {
-  const later = new Map(after.map((s) => [s.group, s.withinNamedShare]));
+export function largestCrossShareChange(
+  before: GroupSummary[],
+  after: GroupSummary[],
+  minWeight: number = MIN_COMPARABLE_WEIGHT,
+): ShareChange | null {
+  const later = new Map(after.map((s) => [s.group, s]));
   let largest: ShareChange | null = null;
   for (const summary of before) {
+    const afterSummary = later.get(summary.group);
     const withinBefore = summary.withinNamedShare;
-    const withinAfter = later.get(summary.group);
-    if (withinBefore === null || withinAfter === null || withinAfter === undefined) continue;
+    const withinAfter = afterSummary?.withinNamedShare ?? null;
+    if (withinBefore === null || withinAfter === null) continue;
+    if (summary.namedTotal < minWeight || (afterSummary?.namedTotal ?? 0) < minWeight) continue;
     const candidate = {
       group: summary.group,
       before: 1 - withinBefore,

@@ -164,7 +164,10 @@ describe("ClusterView", () => {
   });
 
   it("names the group whose cross-group share changed most, without a causal claim", () => {
-    const onShowHypotheses = renderView();
+    // The fixture's weights are scaled by 100 so both groups pass MIN_COMPARABLE_WEIGHT (50);
+    // shares are unchanged by scaling.
+    const scaled = edges.map((e) => ({ ...e, weight: e.weight === null ? null : e.weight * 100 }));
+    const onShowHypotheses = renderView(scaled);
     const line = screen.getByTestId("what-changed");
     // G02 cross-group share among real groups: 3/6 = 50% in the baseline year (its 1 to outside
     // people is left out), 3/3 = 100% in the crisis weeks.
@@ -172,6 +175,7 @@ describe("ClusterView", () => {
       "the cross-group share of group G02 changed most: from 50% to 100% (+50 percentage points)",
     );
     expect(line).toHaveTextContent("counted between groups only; mail with outside people is left out");
+    expect(line).toHaveTextContent("only groups with a weight of at least 50 in both periods are compared");
     expect(line).toHaveTextContent("it does not say why they changed");
     expect(line).toHaveTextContent("The groups were fixed on the baseline year");
     expect(line).toHaveTextContent("The H2 artifact check (baseline placebo) found this drift large enough to explain H2");

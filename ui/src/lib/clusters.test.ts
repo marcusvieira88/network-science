@@ -6,6 +6,7 @@ import {
   driftCheckPasses,
   groupSummaries,
   largestCrossShareChange,
+  MIN_COMPARABLE_WEIGHT,
   outsideWeightShare,
   periodRange,
   periodWeeks,
@@ -117,6 +118,7 @@ describe("groupSummaries", () => {
         within: 4,
         withinShare: 4 / 7,
         withinNamedShare: 4 / 7,
+        namedTotal: 7,
         partners: [{ group: "G02", weight: 3 }],
       },
       {
@@ -127,10 +129,12 @@ describe("groupSummaries", () => {
         withinShare: 3 / 7,
         // Among real groups only: 3 of 6.
         withinNamedShare: 3 / 6,
+        // 7 minus the 1 with the outside bucket.
+        namedTotal: 6,
         // The weight to the outside bucket still counts in the total, so the within share is 3 / 7.
         partners: [{ group: "G01", weight: 3 }],
       },
-      { group: "other", nPersons: 5, total: 1, within: 0, withinShare: 0, withinNamedShare: null, partners: [] },
+      { group: "other", nPersons: 5, total: 1, within: 0, withinShare: 0, withinNamedShare: null, namedTotal: 0, partners: [] },
     ]);
   });
 
@@ -189,12 +193,14 @@ describe("driftCheckPasses", () => {
 });
 
 describe("largestCrossShareChange", () => {
+  // The fixtures below use weights of 1 to 20, so they pass minWeight 0 to test the ranking itself;
+  // the threshold has its own tests at the end.
   it("finds the group whose cross-group share moved most between two periods", () => {
     const before = groupSummaries(clusterMatrix(groups, edges, periods.baseline));
     const after = groupSummaries(clusterMatrix(groups, edges, periods.crisis));
     // Among real groups: G01 3/7 -> 3/4 (+0.32); G02 3/6 -> 1 (+0.5): its 1 to the outside
     // bucket in the baseline is not a group crossing.
-    const change = largestCrossShareChange(before, after);
+    const change = largestCrossShareChange(before, after, 0);
     expect(change?.group).toBe("G02");
     expect(change?.before).toBeCloseTo(1 / 2);
     expect(change?.after).toBe(1);
@@ -204,8 +210,8 @@ describe("largestCrossShareChange", () => {
   it("counts a fall as much as a rise", () => {
     const before = groupSummaries(clusterMatrix(groups, edges, periods.crisis));
     const after = groupSummaries(clusterMatrix(groups, edges, periods.baseline));
-    expect(largestCrossShareChange(before, after)).toMatchObject({ group: "G02", before: 1 });
-    expect(largestCrossShareChange(before, after)?.change).toBeCloseTo(-1 / 2);
+    expect(largestCrossShareChange(before, after, 0)).toMatchObject({ group: "G02", before: 1 });
+    expect(largestCrossShareChange(before, after, 0)?.change).toBeCloseTo(-1 / 2);
   });
 
   it("never names the outside bucket", () => {
@@ -216,6 +222,7 @@ describe("largestCrossShareChange", () => {
     const change = largestCrossShareChange(
       groupSummaries(clusterMatrix(groups, pooled, null)),
       groupSummaries(clusterMatrix(groups, later, null)),
+      0,
     );
     expect(change?.group).toBe("G01");
     expect(change?.change).toBe(0);
@@ -234,6 +241,7 @@ describe("largestCrossShareChange", () => {
     const change = largestCrossShareChange(
       groupSummaries(clusterMatrix(groups, before, null)),
       groupSummaries(clusterMatrix(groups, after, null)),
+      0,
     );
     expect(change?.group).toBe("G02");
     expect(change?.before).toBeCloseTo(1 / 4);
@@ -248,6 +256,7 @@ describe("largestCrossShareChange", () => {
     const change = largestCrossShareChange(
       groupSummaries(clusterMatrix(groups, before, null)),
       groupSummaries(clusterMatrix(groups, after, null)),
+      0,
     );
     expect(change?.group).toBe("G02");
   });
@@ -255,6 +264,30 @@ describe("largestCrossShareChange", () => {
   it("is null when no group has weight in both periods", () => {
     const empty = groupSummaries(clusterMatrix(groups, [], null));
     const before = groupSummaries(clusterMatrix(groups, edges, periods.baseline));
-    expect(largestCrossShareChange(before, empty)).toBeNull();
+    expect(largestCrossShareChange(before, empty, 0)).toBeNull();
+  });
+  it("skips a group whose weight among real groups is below the minimum in either period", () => {
+    // G01: before 100 within, 1 to G02 (cross 1/101); after 1 within, 2 to G02 (cross 2/3) but only
+    // 3 weight among real groups. G02: before 60 within + 1 (cross 1/61); after 60 within + 2
+    // (cross 2/62).
+    const before = [edge("2000-01-03", "G01", "G01", 100), edge("2000-01-03", "G01", "G02", 1), edge("2000-01-03", "G02", "G02", 60)];
+    const after = [edge("2000-01-03", "G01", "G01", 1), edge("2000-01-03", "G01", "G02", 2), edge("2000-01-03", "G02", "G02", 60)];
+    const b = groupSummaries(clusterMatrix(groups, before, null));
+    const a = groupSummaries(clusterMatrix(groups, after, null));
+    // Without a minimum G01 is named; with 50 it has 3 after and is skipped, so G02 is named.
+    expect(largestCrossShareChange(b, a, 0)?.group).toBe("G01");
+    const change = largestCrossShareChange(b, a, 50);
+    expect(change?.group).toBe("G02");
+    expect(change?.before).toBeCloseTo(1 / 61);
+    expect(change?.after).toBeCloseTo(2 / 62);
+  });
+
+  it("uses MIN_COMPARABLE_WEIGHT by default", () => {
+    expect(MIN_COMPARABLE_WEIGHT).toBe(50);
+    const before = [edge("2000-01-03", "G01", "G01", 1), edge("2000-01-03", "G01", "G02", 1)];
+    const after = [edge("2000-01-03", "G01", "G02", 1)];
+    expect(
+      largestCrossShareChange(groupSummaries(clusterMatrix(groups, before, null)), groupSummaries(clusterMatrix(groups, after, null))),
+    ).toBeNull();
   });
 });
