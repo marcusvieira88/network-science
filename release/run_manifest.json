@@ -1,5 +1,5 @@
 {
-  "code_version": "913e22d",
+  "code_version": "0d00445",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -110,53 +110,47 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.17,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
     },
     {
       "stage": "parse",
-      "seconds": 28.9,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
     },
     {
       "stage": "clean",
-      "seconds": 23.97,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
     },
     {
       "stage": "identity",
-      "seconds": 4.21,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
     },
     {
       "stage": "pseudo",
-      "seconds": 14.8,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
     },
     {
       "stage": "network",
-      "seconds": 0.58,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
     },
     {
       "stage": "finding",
-      "seconds": 21.85,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
     },
     {
       "stage": "risk",
-      "seconds": 41.04,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
     },
     {
       "stage": "release",
-      "seconds": 0.08,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
     },
     {
       "stage": "report",
-      "seconds": 0.01,
-      "code_version": "913e22d"
+      "code_version": "0d00445"
+    },
+    {
+      "stage": "ui-data",
+      "code_version": "0d00445"
     }
   ]
 }
