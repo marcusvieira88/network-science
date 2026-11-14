@@ -3,15 +3,16 @@
 
 # How this was built with AI agents
 
-Distilled from `docs/ai-workflow-log.md`, which records every delegation as it happened. Counts
+Distilled from `docs/ai-workflow-log.md`, which records the main delegations as they happened.
+Counts
 are written as words on purpose: every number in a generated document must trace to a release
 table.
 
 ## Spec-driven development with Spec Kit
 
 The work followed Spec Kit's sequence. A **constitution** fixed seven principles first, two of
-them non-negotiable: message content never enters the system, and privacy is designed in, not
-added. The **spec** stated five user stories and their acceptance scenarios; the **plan** chose
+them non-negotiable: message content is never decoded, parsed, held, stored or logged, and
+privacy is designed in, not added. The **spec** stated five user stories and their acceptance scenarios; the **plan** chose
 the design (data zones, versioned table contracts, one stage per package) and the research notes
 settled each open question; **tasks** broke the plan into a little over a hundred tasks, each
 owned by one work package. **Implementation** ran from the task list through briefs to a lead
@@ -27,8 +28,10 @@ then built a frozen foundation: configuration, data zones with a path guard, a s
 `StageContext` through which every stage reads and writes, the table contracts in code, and a
 synthetic corpus with ground truth and a reference fixture for every table.
 
-Ten agents then built ten work packages in parallel, each in its own git worktree: ingest,
-clean, identity, pseudonymize, network, finding, risk, release, report, and the explorer UI.
+Ten agents then built ten work packages, each in its own git worktree: ingest, clean, identity,
+pseudonymize, network, finding, risk, release, report, and the explorer UI. They ran in parallel
+waves, not all at once: the log records a wave of six and a wave of three, and has no row of
+its own for the tenth package, the explorer UI.
 Each had a brief naming its tasks, the contracts it read and wrote, the only paths it could
 change, the function the orchestrator would call, and what to put in its final report: tasks
 done, tasks not done and why, anything unclear in the contracts, and what it had not verified.
@@ -105,8 +108,8 @@ its own worktree, removed `Any` from signatures and dead scaffolding. What the r
   late spring and late summer of the crisis year. Every within-custodian comparison sets a
   crisis window after that change against a reference window before it, and the placebo windows
   both lie before it, so the placebo could never have caught it. The review published the
-  evidence as a release table and made it the finding: what changed is the record, with high
-  confidence; whether behaviour changed is not established.
+  evidence as a release table and made it the finding. The finding: the record changed (high confidence that it changed; cause not established). Whether
+  behaviour changed is not established.
 - **A replication test, stated before it was computed.** The best-known published result, a
   denser network in the crisis, comes from single months with no test. The review committed
   H25 (each custodian's share of the other custodians they exchanged mail with) and its
@@ -125,19 +128,21 @@ its own worktree, removed `Any` from signatures and dead scaffolding. What the r
 
 ## Where the person decided
 
-- **The content line**: subject lines and folder names are content and are never read, at the
-  cost of threads and topics.
+- **The content line**: subject lines and folder names are content, at the cost of threads and
+  topics. A subject line is discarded as the header is scanned; a folder name is reduced at
+  once to one of four classes and never kept.
 - **The manual merge check**: the person, not an agent, judged a seeded sample of fifty real
   identity merges in a terminal, so real identifiers never entered an AI conversation; all
   fifty were judged correct and only those two counts were kept.
-- **No finding about the crisis year**: rejecting H2 as the headline once its artifact was
-  shown, although it had passed the pre-registered rule.
+- **No behavioural finding about the crisis year**: the lead agent's diagnostics showed the
+  artifact behind H2; the person then decided not to claim H2 as the headline, although it had
+  passed the pre-registered rule. What is claimed is a finding about the record.
 - **H16 is not held true**: after the retention test, the person decided that the strongest
   lead is not a finding. No hypothesis is held true.
-- **One list H1–H25**: the twenty exploratory hypotheses E1–E20 were renumbered H5–H24 so the
-  report, release and explorer show a single list; the dated record keeps the E-numbers, and the
-  timing of each statement is kept because it decides how to read the statistics. The
-  post-hoc replication test was added as H25 (E21).
+- **One list of hypotheses**: the twenty exploratory hypotheses E1–E20 were renumbered H5–H24
+  so the report, release and explorer show a single list; the dated record keeps the E-numbers
+  (the replication test is E21 there and the departure question O1). The timing of each
+  statement is kept, because it decides how to read the statistics. H1–H4: pre-registered (before any real data was analysed); H5–H24: stated before computed, after earlier results; H25 and H26: post hoc (stated after every other result was known, still before its own result was computed).
 - **What to cut**: the dedupe-rule variant, a formal privacy budget, a group-level attack.
 
 ## What did not work
@@ -152,6 +157,11 @@ its own worktree, removed `Any` from signatures and dead scaffolding. What the r
 - Pre-registered robustness checks were necessary but not sufficient. The threats that mattered,
   baseline drift, a changing mailbox mix and inbox retention, were found by looking at the shape
   of the data and by a methodology review, not by the plan.
-- The planned validation scenarios and a security review had not been run when this note was
+- The planned validation scenarios had not been run as a logged checklist when this note was
   written. A fresh clone did run the one command end to end, most of its time spent on the
   download.
+- The security review could not use its skill as written, because the skill reviews a diff. It
+  was run by hand, following the skill's method, on the whole repository at `ce3efa3`: no
+  critical or high findings, and its fixes are listed in the task list. A whole-repository
+  `/data-privacy-review` ran before delivery too and passed with findings, seven of them fixed.
+  The log holds the dates and commits.
