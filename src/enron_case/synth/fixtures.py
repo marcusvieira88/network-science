@@ -14,13 +14,21 @@ import math
 import random
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import TypedDict
 
 import polars as pl
 
 from enron_case.config import Config
 from enron_case.contracts import schemas
 from enron_case.contracts import vocab as v
+from enron_case.contracts.counts import (
+    CleanCounts,
+    IdentityCounts,
+    IngestCounts,
+    JsonObject,
+    PseudoCounts,
+)
+from enron_case.contracts.truth import GroundTruth, TruthEntity
 from enron_case.release import tables as release_tables
 from enron_case.synth.archive import FileRecord
 from enron_case.synth.model import Entity, Message, Organisation, SynthSpec
@@ -48,6 +56,32 @@ HEADER_RULINGS = {
     "Content-Transfer-Encoding": "dropped",
 }
 EXCLUSION_FLAGS = {"date_out_of_range", "no_recipients", "self_only", "mass_mailing"}
+
+
+class MessageRow(TypedDict):
+    """One reference `messages` row plus the fixture's own bookkeeping (`_` keys, dropped)."""
+
+    msg_key: str
+    ts_utc: datetime | None
+    sender_addr: str
+    recipients: list[dict[str, str]]
+    n_recipients: int
+    n_copies: int
+    dedupe_rule: str
+    owner_copies: list[str]
+    sent_copy_owner: str | None
+    flags: list[str]
+    _truth: str
+    _distinct_sets: int
+
+
+class FixtureCounts(TypedDict):
+    """Reference counts side outputs, one per stage that writes them."""
+
+    ingest_counts: IngestCounts
+    clean_counts: CleanCounts
+    identity_counts: IdentityCounts
+    pseudo_counts: PseudoCounts
 
 
 def _digest(label: str, value: str) -> bytes:
@@ -137,8 +171,8 @@ class FixtureBuilder:
                     roles[addr] = role
         return [{"addr": a, "role": roles[a]} for a in sorted(roles)]
 
-    def message_rows(self) -> list[dict[str, Any]]:
-        rows = []
+    def message_rows(self) -> list[MessageRow]:
+        rows: list[MessageRow] = []
         for msg in self.messages:
             copies = self.copies[msg.truth_id]
             recipients = self._recipients(msg)
@@ -486,10 +520,13 @@ class FixtureBuilder:
         rows = [
             ("R0", "A1", 50, 0.94, 1.0, 0.90, 0.82, 0.96, 1.0, True),
             ("R0", "A2", 50, 0.94, 1.0, 0.62, 0.48, 0.75, 1.0, True),
+            ("R0", "A3", 40, 0.94, 1.0, 0.7, 0.55, 0.82, 1.0, True),
             ("R1", "A1", 50, 0.0, 12.0, 0.0, 0.0, 0.06, 0.97, True),
             ("R1", "A2", 50, 0.0, 12.0, 0.02, 0.0, 0.08, 0.97, True),
+            ("R1", "A3", 40, 0.0, 12.0, 0.0, 0.0, 0.09, 0.97, True),
             ("R2", "A1", 50, 0.0, 12.0, 0.0, 0.0, 0.06, 0.91, True),
             ("R2", "A2", 50, 0.0, 12.0, 0.0, 0.0, 0.06, 0.91, True),
+            ("R2", "A3", 40, 0.0, 12.0, 0.0, 0.0, 0.09, 0.91, True),
         ]
         cols = [c.name for c in schemas.table("risk_results").cols]
         df = pl.DataFrame(
@@ -499,11 +536,12 @@ class FixtureBuilder:
         return schemas.conform(df, "risk_results")
 
     def exploratory_results_table(self) -> pl.DataFrame:
-        """Reference shape only: twenty rows, E12 confident with its volume-equalised check,
-        E16 inconclusive, the caveated three marked, the rest not supported."""
+        """Reference shape only: twenty-one rows (H5–H25), H16 and H20 inconclusive with their
+        volume-equalised check, H16 failing its retention check, the caveated three marked, the
+        rest not supported."""
         caveats = schemas.EXPLORATORY_CAVEATS
         rows = []
-        for i in range(1, 21):
+        for i in range(1, 22):
             hid = f"H{i + 4}"
             outcome = {"H16": "inconclusive", "H20": "inconclusive"}.get(hid, "not supported")
             strong = outcome != "not supported"
@@ -511,7 +549,7 @@ class FixtureBuilder:
                 {
                     "order": i + 4,
                     "hypothesis": hid,
-                    "family": schemas.EXPLORATORY_FAMILIES[0 if i < 11 else 1],
+                    "family": schemas.EXPLORATORY_FAMILIES[0 if i < 11 else 1 if i < 21 else 2],
                     "measure": f"measure {hid}",
                     "direction": "down" if i in (7, 15, 18, 20) else "up",
                     "custodians": 32,
@@ -527,7 +565,9 @@ class FixtureBuilder:
                     "placebo_passes": hid != "H20",
                     "loo_stable": strong,
                     "outcome": outcome,
-                    "caveat": schemas.RETENTION_FAILED if hid == "H16" else caveats.get(hid, ""),
+                    "caveat": schemas.RETENTION_FAILED["H16"]
+                    if hid == "H16"
+                    else caveats.get(hid, ""),
                     "equalised_median": 0.1 if strong else None,
                     "equalised_ci_low": 0.06 if strong else None,
                     "equalised_ci_high": 0.17 if strong else None,
@@ -540,6 +580,27 @@ class FixtureBuilder:
                 }
             )
         spec = schemas.table("exploratory_results")
+        return schemas.conform(pl.DataFrame(rows, schema=spec.polars_schema), spec.name)
+
+    def profile_results_table(self) -> pl.DataFrame:
+        """Reference shape only: every month of the analysis window, the after-hours share
+        dropping from one half to a tenth in mid-2001 as the timestamp convention changes."""
+        months = pl.date_range(
+            self.config.analysis_start, self.config.analysis_end, "1mo", eager=True
+        )
+        switch = date(2001, 6, 1)
+        rows = [
+            {
+                "month": month,
+                "custodians_sending": 6,
+                "sent_messages": 120,
+                "after_hours_share": 0.5 if month < switch else 0.1,
+                "custodians_receiving": 7,
+                "received_messages": 200,
+            }
+            for month in months.to_list()
+        ]
+        spec = schemas.table("profile_results")
         return schemas.conform(pl.DataFrame(rows, schema=spec.polars_schema), spec.name)
 
     def artifact_results_table(self) -> pl.DataFrame:
@@ -572,7 +633,7 @@ class FixtureBuilder:
         )
 
     # ---- counts side outputs ----------------------------------------------------------------
-    def counts(self) -> dict[str, dict[str, Any]]:
+    def counts(self) -> FixtureCounts:
         header = self.header_records()
         msgs = self.message_rows()
         flags: dict[str, int] = defaultdict(int)
@@ -757,15 +818,14 @@ class FixtureBuilder:
             "risk": self.risk_results_table(),
             "artifact_checks": self.artifact_results_table(),
             "exploratory": self.exploratory_results_table(),
+            "record_profile": self.profile_results_table(),
             "degree_distribution": degree,
             "community_graph": graph,
             "community_groups": groups,
         }
         return {name: schemas.conform(df, name) for name, df in out.items()}
 
-    def _funnel_detail_rows(
-        self, c: dict[str, dict[str, Any]], first_order: int
-    ) -> list[dict[str, Any]]:
+    def _funnel_detail_rows(self, c: FixtureCounts, first_order: int) -> list[JsonObject]:
         """Reference funnel detail, counted from the fixture's own messages and events: no
         rejected files, the exact/subset split, the five flags and events in the network."""
         msgs = self.message_rows()
@@ -833,14 +893,15 @@ class FixtureBuilder:
             "risk_results": self.risk_results_table(),
             "artifact_results": self.artifact_results_table(),
             "exploratory_results": self.exploratory_results_table(),
+            "profile_results": self.profile_results_table(),
         }
         tables.update(self.release_tables())
         return tables
 
     # ---- ground truth ---------------------------------------------------------------------
-    def truth(self) -> dict[str, Any]:
+    def truth(self) -> GroundTruth:
         ids = self.entity_ids()
-        entities = []
+        entities: list[TruthEntity] = []
         for e in self.org.everyone:
             entities.append(
                 {

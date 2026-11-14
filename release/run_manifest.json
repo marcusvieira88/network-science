@@ -1,5 +1,5 @@
 {
-  "code_version": "65ef424",
+  "code_version": "a63fd00",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -62,16 +62,18 @@
     "entities": "397cac15e1bc104b4ae5b770c130007ff9757175e22b764f828978dede8a45d2",
     "entities_p": "807c6b92ddaebacd9f2df97adc2067267380da3ebb0fadbe5a1238b76709e357",
     "events": "b77a33ef0dc912cf14817e6f64f69acd0cc38bcde6b30f9e8342b5e7d20966bf",
-    "exploratory": "b42c4b58be5e3c5d24457d2a10f9fe20bdce9e6282717e442af43063e376e17f",
-    "exploratory_results": "b42c4b58be5e3c5d24457d2a10f9fe20bdce9e6282717e442af43063e376e17f",
+    "exploratory": "6fa99588051207194c08f1986c50ea8d4df1d5ff2940c119e5e74e652e7b2eed",
+    "exploratory_results": "6fa99588051207194c08f1986c50ea8d4df1d5ff2940c119e5e74e652e7b2eed",
     "header_fields": "abe77c7a00f3a9f98aa0375ff3add6e1e7d4f68f643f825b08b0e6c22f1640e3",
     "header_records": "b49d34453c50a23d81d245db2c25b83a31b3ab893988578af8064b1d6f16126b",
-    "hypotheses": "a7a1e034d7597946d5fadd5c80f58061bbfea688e905411e88541d1084349538",
-    "hypothesis_results": "a7a1e034d7597946d5fadd5c80f58061bbfea688e905411e88541d1084349538",
+    "hypotheses": "e2af4910b67e9efc3a2dadab46547aad43ab92e88e8685691f128222eb977e87",
+    "hypothesis_results": "e2af4910b67e9efc3a2dadab46547aad43ab92e88e8685691f128222eb977e87",
     "messages": "a0e2a7483f3fffa60e57f77d3a2f84afc10eefea70163bcf2c1b41a2125d0864",
     "metric_series": "dace4a99b51d9aa250eafa74f9f216561d79e0551f4649050dc70635de060771",
-    "risk": "0f07687bd801d79521bed8613455e5a03ccf92dd47e6f7241506aa945f9bb26d",
-    "risk_results": "0f07687bd801d79521bed8613455e5a03ccf92dd47e6f7241506aa945f9bb26d",
+    "profile_results": "8b67f3751af6ae606ab42a95d00faae780ac0f827369d910aa3d20e13819fd62",
+    "record_profile": "8b67f3751af6ae606ab42a95d00faae780ac0f827369d910aa3d20e13819fd62",
+    "risk": "f6a9008f16643614f5b28feb3138f00376ae2134eb36c265409f774d4992f3e9",
+    "risk_results": "f6a9008f16643614f5b28feb3138f00376ae2134eb36c265409f774d4992f3e9",
     "snapshots": "0ff13d6a46caa97ef95cdef217131fdb90b036129da16d3c9dbb291e3dcf9fe8",
     "weekly_metrics": "8e41d497efb8f7c69da3a8f3c40879c821f100cba5a755bcfb964cb78821f4a2"
   },
@@ -84,39 +86,39 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.21
+      "seconds": 0.18
     },
     {
       "stage": "parse",
-      "seconds": 30.24
+      "seconds": 28.63
     },
     {
       "stage": "clean",
-      "seconds": 25.57
+      "seconds": 24.16
     },
     {
       "stage": "identity",
-      "seconds": 4.36
+      "seconds": 4.3
     },
     {
       "stage": "pseudo",
-      "seconds": 16.63
+      "seconds": 15.68
     },
     {
       "stage": "network",
-      "seconds": 0.74
+      "seconds": 0.65
     },
     {
       "stage": "finding",
-      "seconds": 26.21
+      "seconds": 21.89
     },
     {
       "stage": "risk",
-      "seconds": 47.63
+      "seconds": 43.08
     },
     {
       "stage": "release",
-      "seconds": 0.16
+      "seconds": 0.08
     },
     {
       "stage": "report",

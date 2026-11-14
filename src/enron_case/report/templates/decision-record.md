@@ -44,26 +44,26 @@ injected from release tables; none is typed.
   k = {{k_min}}. On the aggregate release (R1) the shares fall to {{risk_r1_a1_reid_top1}} and
   {{risk_r1_a2_reid_top1}}. {{utility_phrase}}
 
-**Finding.** {{headline_statement}} {{exploratory_statement}}
+**Finding.** The change in the crisis year that the headers establish is in the record, not
+in behaviour. {{record_summary}}
+
+**Behaviour.** {{headline_statement}} {{replication_statement}} Details: the report.
 
 ## What changes with real customer data
 
-- **Metadata-only connectors**: request header fields from the mail system, so content never
-  leaves the source instead of being skipped after download.
-- **Customer-side key custody and an entity registry**: the key and a persisted registry of
-  surrogate IDs stay with the customer, so pseudonyms survive changes in identity resolution.
-- **Retention**: restricted data expires on a schedule; release tables are re-keyed per release
-  so two releases cannot be joined.
-- **Works council review** of the questions asked, the minimum group size and the outputs,
-  before the first run.
-- **Data residency**: processing in the customer's region, with no third-party services.
-- **Formal privacy budget**: replace the noise sketch (R2) with differential privacy accounted
-  across every published output.
+- **Metadata-only connectors**, so content never leaves the source.
+- **Customer-side key custody and an entity registry**, so pseudonyms survive changes in
+  identity resolution.
+- **Retention schedule, data residency, works council review** of the questions, the minimum
+  group size and the outputs before the first run.
+- **Formal privacy budget**: differential privacy across every published output instead of the
+  noise sketch (R2).
 
 ## Not done, and why
 
-- **No finding claimed.** The two apparent crisis-year signals failed checks against known artifacts;
-  those checks were added after the first real run and are labelled post hoc.
+- **No behavioural finding claimed.** The apparent crisis-year signals failed checks against
+  known artifacts (stale groups, mailbox mix, inbox retention); those checks, the record
+  profile and the replication test were added after results were seen and are labelled post hoc.
 - **Dropped for time**: the dedupe-rule sensitivity variant.
 - **A sketch, not a guarantee**: the noise release (R2) has no formal privacy budget.
 - **Identity precision on real data** rests on a manual sample judged by a person, not on ground

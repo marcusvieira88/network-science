@@ -9,6 +9,7 @@ export const VARIANT_LABELS: Record<RiskRow["release_variant"], string> = {
 export const ATTACKER_LABELS: Record<RiskRow["attacker"], string> = {
   A1: "A1 · outsider with the public corpus",
   A2: "A2 · insider with known seeds",
+  A3: "A3 · every custodian known (public folder names)",
 };
 
 type ReidByVariant = { variant: string } & Partial<Record<RiskRow["attacker"], number>>;

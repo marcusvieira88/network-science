@@ -72,16 +72,19 @@ KEEP_INGEST_WARNING = "warning: the ingest zone (addresses, names) stays on disk
 STAGE_NAMES = tuple(s.name for s in STAGES)
 
 
-def resolve(stage: Stage) -> Callable[[StageContext], None] | None:
-    """The stage function, or None if its package has not implemented it yet."""
+def resolve(stage: Stage) -> Callable[[StageContext], object]:
+    """The stage function; a stage without one is a PipelineError."""
+    missing = PipelineError(f"stage '{stage.name}' is not implemented")
     try:
         module = importlib.import_module(f"enron_case.{stage.package}.stage")
     except ModuleNotFoundError as exc:
         if exc.name == f"enron_case.{stage.package}.stage":
-            return None
+            raise missing from exc
         raise
-    fn = getattr(module, stage.function, None)
-    return fn if callable(fn) else None
+    fn: object = getattr(module, stage.function, None)
+    if not callable(fn):
+        raise missing
+    return fn
 
 
 def select(first: str | None, last: str | None) -> list[Stage]:
@@ -114,7 +117,6 @@ def ensure_sample_corpus(paths: Paths) -> None:
 class RunResult:
     manifest: RunManifest
     ran: list[str]
-    skipped: list[str]
 
 
 def run_pipeline(
@@ -123,14 +125,10 @@ def run_pipeline(
     sample: bool,
     stages: Sequence[Stage],
     keep_ingest: bool = False,
-    stop_at_missing: bool = False,
     log: LogFn = stderr_log,
 ) -> RunResult:
-    """Run `stages` in order and write the run manifest to the release zone.
-
-    With `stop_at_missing`, an unimplemented stage ends the run quietly (used by tests while
-    work packages are being built); otherwise it is an error.
-    """
+    """Run `stages` in order and write the run manifest to the release zone. A stage without
+    a stage function is a PipelineError."""
     manifest = RunManifest(
         parameters=config.as_record(),
         seed=config.seed,
@@ -141,18 +139,11 @@ def run_pipeline(
         ensure_sample_corpus(paths)
         manifest.corpus_sha256 = file_sha256(paths.dir(Zone.RAW) / SAMPLE_ARCHIVE)
     ran: list[str] = []
-    skipped: list[str] = []
     try:
         for stage in stages:
             if sample and stage.name == "fetch":
-                skipped.append(stage.name)
                 continue
             fn = resolve(stage)
-            if fn is None:
-                if stop_at_missing:
-                    skipped.extend(s.name for s in stages[stages.index(stage) :])
-                    break
-                raise PipelineError(f"stage '{stage.name}' is not implemented")
             if stage.package == "pseudo":
                 manifest.key_fingerprint = load_key_fingerprint(sample)
             ctx = StageContext(stage.package, config, paths, sample, log)
@@ -171,7 +162,7 @@ def run_pipeline(
     full_run = bool(stages) and stages[0].name in {"fetch", PARSE_STAGE}
     target = zones.path_for(paths, "cli", Zone.RELEASE, MANIFEST_FILE, "w")
     manifest.write(target, merge=not full_run)
-    return RunResult(manifest, ran, skipped)
+    return RunResult(manifest, ran)
 
 
 def verify(config: Config, log: LogFn) -> int:
@@ -181,9 +172,7 @@ def verify(config: Config, log: LogFn) -> int:
         for i in (1, 2):
             root = Path(tmp) / f"run{i}"
             paths = Paths(root / "data", root / "release", root / "ui", root / "docs")
-            result = run_pipeline(
-                paths, config, True, select(None, None), stop_at_missing=True, log=log
-            )
+            result = run_pipeline(paths, config, True, select(None, None), log=log)
             prints.append(result.manifest.analytical_fingerprints())
     differ = sorted(
         k for k in prints[0].keys() | prints[1].keys() if prints[0].get(k) != prints[1].get(k)

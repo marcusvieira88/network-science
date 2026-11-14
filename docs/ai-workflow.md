@@ -91,6 +91,32 @@ definition, a noise draw in a fixture that held a real chance shift.
   each other are kept in the sender's own mailbox whatever the recipient kept, the H16 effect is not established and the same subset rises
   before the crisis. The retention check is now pipeline code and caps H16 at inconclusive.
 
+## A hiring-style review against prior work
+
+A final agent reviewed the whole repository as the hiring company's senior data scientist
+would, and compared it with published work on the corpus. A research agent read the papers and
+dataset pages (never their data) while the reviewer worked on the code, and a second agent, in
+its own worktree, removed `Any` from signatures and dead scaffolding. What the review changed:
+
+- **The record changed in the crisis year.** Looking at the custodians' weekday sent mail month
+  by month showed that its stamped hours move by several hours, for the same people, between
+  late spring and late summer of the crisis year. Every within-custodian comparison sets a
+  crisis window after that change against a reference window before it, and the placebo windows
+  both lie before it, so the placebo could never have caught it. The review published the
+  evidence as a release table and made it the finding: what changed is the record, with high
+  confidence; whether behaviour changed is not established.
+- **A replication test, stated before it was computed.** The best-known published result, a
+  denser network in the crisis, comes from single months with no test. The review committed
+  H25 (each custodian's share of the other custodians they exchanged mail with) and its
+  retention check before computing it, added it to the Holm family and labelled it post hoc.
+- **Two null-model defects that made the robustness check optimistic**: recipients could move
+  between a person's and a list's message, and null replicates were measured at the observed
+  change week instead of searching their own. Both fixed with known-answer tests; neither
+  changes a published outcome.
+- **Documented rather than fixed**, because they cannot change what is claimed: the liberal
+  permutation test, the fixed-split H2 placebo, the smaller placebo samples, the utility
+  interval.
+
 ## Where the person decided
 
 - **The content line**: subject lines and folder names are content and are never read, at the
@@ -102,9 +128,10 @@ definition, a noise draw in a fixture that held a real chance shift.
   shown, although it had passed the pre-registered rule.
 - **H16 is not held true**: after the retention test, the person decided that the strongest
   lead is not a finding. No hypothesis is held true.
-- **One list H1–H24**: the twenty exploratory hypotheses E1–E20 were renumbered H5–H24 so the
+- **One list H1–H25**: the twenty exploratory hypotheses E1–E20 were renumbered H5–H24 so the
   report, release and explorer show a single list; the dated record keeps the E-numbers, and the
-  timing of each statement is kept because it decides how to read the statistics.
+  timing of each statement is kept because it decides how to read the statistics. The
+  post-hoc replication test was added as H25 (E21).
 - **What to cut**: the dedupe-rule variant, a formal privacy budget, a group-level attack.
 
 ## What did not work

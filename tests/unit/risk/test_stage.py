@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 import pytest
@@ -13,6 +12,7 @@ from enron_case import config
 from enron_case.config import Config
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
+from enron_case.contracts.counts import JsonObject
 from enron_case.pseudo import pseudonymize
 from enron_case.release import variants
 from enron_case.risk import attack, aux_public, score, stage
@@ -67,17 +67,24 @@ def outcome(synth: SynthOutput, tmp_path_factory: pytest.TempPathFactory) -> Out
     return ctx, ctx.read("risk_results"), logs
 
 
-def row(results: pl.DataFrame, variant: str, attacker: str) -> dict[str, Any]:
-    return results.filter(
+def row(results: pl.DataFrame, variant: str, attacker: str) -> JsonObject:
+    found: JsonObject = results.filter(
         (pl.col("release_variant") == variant) & (pl.col("attacker") == attacker)
     ).row(0, named=True)
+    return found
+
+
+def number(reported: JsonObject, column: str) -> float:
+    value = reported[column]
+    assert isinstance(value, int | float) and not isinstance(value, bool), column
+    return float(value)
 
 
 def test_writes_one_valid_row_per_variant_and_attacker(outcome: Outcome) -> None:
     _, results, _ = outcome
     schemas.validate(results, "risk_results")
     pairs = results.select("release_variant", "attacker").rows()
-    assert pairs == [(r, a) for r in ("R0", "R1", "R2") for a in ("A1", "A2")]
+    assert pairs == [(r, a) for r in ("R0", "R1", "R2") for a in ("A1", "A2", "A3")]
 
 
 def test_reported_rates_equal_rates_from_ground_truth(outcome: Outcome, synth: SynthOutput) -> None:
@@ -87,10 +94,14 @@ def test_reported_rates_equal_rates_from_ground_truth(outcome: Outcome, synth: S
     aux = aux_public.load_aux_edges(ctx)
     pid_of_address, custodians = truth_pids(synth)
     targets = stage.node_level_persons(r0)
-    seeds = score.Scorer.from_context(ctx, fixture_pid).seeds(custodians & targets, CONFIG.a2_seeds)
+    scorer = score.Scorer.from_context(ctx, fixture_pid)
+    seeds = scorer.seeds(custodians & targets, CONFIG.a2_seeds)
+    every = scorer.seeds(custodians & targets, len(custodians & targets))
+    assert len(every) > len(seeds)
     for attacker, guesses, scored in (
         ("A1", attack.attack_a1(r0, aux, CONFIG.distance_chunk_rows), targets),
         ("A2", attack.attack_a2(r0, aux, seeds, CONFIG.a2_min_support), targets - set(seeds)),
+        ("A3", attack.attack_a2(r0, aux, every, CONFIG.a2_min_support), targets - set(every)),
     ):
         correct = sum(pid_of_address.get(guesses.get(p, "")) == p for p in scored)
         reported = row(results, "R0", attacker)
@@ -105,18 +116,18 @@ def test_a1_reidentifies_most_active_custodians_in_r0(outcome: Outcome, synth: S
     pid_of_address, custodians = truth_pids(synth)
     hits = sum(pid_of_address.get(guesses.get(p, "")) == p for p in custodians)
     assert hits / len(custodians) >= 0.9
-    assert row(results, "R0", "A1")["reid_top1"] >= 0.8
-    assert row(results, "R0", "A1")["unique_share"] >= 0.8
+    assert number(row(results, "R0", "A1"), "reid_top1") >= 0.8
+    assert number(row(results, "R0", "A1"), "unique_share") >= 0.8
 
 
 def test_aggregate_releases_give_nothing_to_match(outcome: Outcome) -> None:
     _, results, logs = outcome
     for variant in ("R1", "R2"):
-        for attacker in ("A1", "A2"):
+        for attacker in ("A1", "A2", "A3"):
             reported = row(results, variant, attacker)
             assert reported["reid_top1"] == 0.0
             assert reported["unique_share"] == 0.0
-            assert reported["median_anonymity_set"] >= 5
+            assert number(reported, "median_anonymity_set") >= 5
         assert any(f"{variant}: no person-level records" in line for line in logs)
 
 

@@ -16,13 +16,14 @@ A headers-only, privacy-first analysis of the public Enron email corpus
 
 ---
 
-## The rule, and where the line is
+## The rule, the line, the pseudonyms
 
 - The parser stops at the first blank line: bodies are never decoded, held or stored
 - **Content, never stored**: {{fields_content}}
-- **Identifiers, ingest zone only**: {{fields_identifier}}
-- **Usable metadata**: {{fields_usable}}
+- **Identifiers, ingest zone only**: {{fields_identifier}}; **usable metadata**: {{fields_usable}}
 - `Subject` counts as content: it is a summary of the body. Cost: no threads, no reply times
+- Keyed HMAC per resolved person; identifiers purged after every run; downstream code sees
+  pseudonyms only; the release holds aggregates meeting k = {{k_min}}
 
 ---
 
@@ -30,49 +31,53 @@ A headers-only, privacy-first analysis of the public Enron email corpus
 
 {{quality_table}}
 
-Duplicates are found without content (sender, second, recipients); precision and recall are
-measured on a synthetic corpus with known answers.
+Duplicates are found without content (sender, second, recipients) and land close to the
+published content-based dedupes of this corpus (technical overview, related work).
 
 ---
 
-## Pseudonymization
+## The finding: the record changed under the analysis
 
-- Keyed HMAC per resolved entity: stable for one key, not confirmable by hashing guessed addresses
-- Identifiers live only in the ingest zone, which is purged after every run
-- Downstream code sees pseudonyms only; the release holds aggregates meeting k = {{k_min}}
-- Pseudonymized is not anonymous: the next slides attack our own output
+{{record_statement}}
 
 ---
 
-## The finding
+## The record, month by month
 
-{{headline_statement}}
+{{record_chart}}
+
+The crisis window lies after the change, the reference window and both placebo windows before it.
 
 ---
 
-## Every hypothesis, fixed before the results
+## Behaviour: every hypothesis, fixed before its result
 
 {{hypotheses_summary}}
+
+{{headline_statement}}
 
 {{exploratory_statement}}
 
 ---
 
-## The strongest signal, over time
-
-{{headline_chart}}
-
-The jump comes right after the baseline year used to fit the groups ends.
-
----
-
-## Why we do not believe it
+## Why we do not believe the two signals that passed
 
 {{artifact_table}}
 
 - A calm half-year, out of sample, already jumps: groups fixed on a baseline go stale
 - Custodians did not change their own external share: the aggregate moved with who is in the data
 - Checks added after the first real run, and labelled as such
+
+---
+
+## Prior work, tested at the scope we can defend
+
+- Diesner, Frantz and Carley: a denser network in the crisis, from single months, untested
+- {{replication_statement}}
+- Priebe et al. flag anomalies in late spring and mid-August of the crisis year; our change
+  weeks and the change of the record fall in the same months
+- Our design (custodians against themselves, frozen groups, retention checks) is why we do not
+  report what they report
 
 ---
 
@@ -92,19 +97,12 @@ The jump comes right after the baseline year used to fit the groups ends.
 
 ---
 
-## What changes with real customer data
+## Real customer data, and how this was built
 
-- Metadata-only connectors: content never leaves the source
-- Key and entity registry held by the customer; pseudonyms re-keyed per release
-- Retention schedule, works council review, data residency
-- A formal privacy budget across every published output
-
----
-
-## How it was built with agents
-
-- Spec, plan and contracts first; then parallel agents, one work package each
-- Synthetic corpus with ground truth, so tests check answers no agent produced
-- Gates on every package: lint, strict types, tests, privacy canary, import boundary
-- Independent review before each merge; a person decided every judgment call
-- Details: `docs/ai-workflow.md`
+- Metadata-only connectors, so content never leaves the source; key and entity registry held
+  by the customer; retention schedule, works council review, data residency; a formal privacy
+  budget across every published output
+- Built spec-first with parallel agents, one work package each, tested against a synthetic
+  corpus with ground truth; gates on every package (lint, strict types, tests, privacy canary,
+  import boundary); independent review skills before each merge; a person decided every
+  judgment call. Details: `docs/ai-workflow.md`

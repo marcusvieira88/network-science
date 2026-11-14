@@ -9,8 +9,8 @@ import dataclasses
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any
 
+from enron_case.contracts.counts import JsonObject
 from enron_case.errors import UsageError
 
 CORPUS_URL = "https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz"
@@ -137,14 +137,16 @@ class Config:
     def with_overrides(self, overrides: dict[str, str]) -> Config:
         """Return a copy with string overrides parsed to each field's type."""
         current = dataclasses.asdict(self)
-        updates: dict[str, Any] = {}
+        updates: dict[str, object] = {}
         for name, raw in overrides.items():
             if name not in current:
                 raise UsageError(f"unknown parameter: {name}")
             updates[name] = _parse_like(current[name], raw, name)
-        return dataclasses.replace(self, **updates)
+        # Each value has its field's type by construction of `_parse_like`, which the checker
+        # cannot follow through a name-keyed mapping.
+        return dataclasses.replace(self, **updates)  # type: ignore[arg-type]  # parsed per field
 
-    def as_record(self) -> dict[str, Any]:
+    def as_record(self) -> JsonObject:
         """JSON-serialisable view for the run manifest."""
         return {k: _jsonable(v) for k, v in dataclasses.asdict(self).items()}
 

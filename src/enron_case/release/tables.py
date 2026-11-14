@@ -7,12 +7,12 @@ imports ingest code.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import polars as pl
 from scipy.stats import beta
 
 from enron_case.contracts import schemas, vocab
+from enron_case.contracts.counts import JsonObject
 from enron_case.errors import ContractViolation
 from enron_case.finding.artifacts import WITHIN_CUSTODIAN
 
@@ -46,7 +46,7 @@ STEP_EVENTS = "events in the network"
 RULE_EVENTS = "sender-recipient events of messages without an exclusion flag"
 
 
-def require(counts: dict[str, Any], file: str, key: str) -> object:
+def require(counts: JsonObject, file: str, key: str) -> object:
     """A counts value, or a ContractViolation naming the missing file or key."""
     if key not in counts:
         raise ContractViolation(f"counts '{file}' lack '{key}'")
@@ -54,14 +54,14 @@ def require(counts: dict[str, Any], file: str, key: str) -> object:
     return value
 
 
-def require_int(counts: dict[str, Any], file: str, key: str) -> int:
+def require_int(counts: JsonObject, file: str, key: str) -> int:
     value = require(counts, file, key)
     if isinstance(value, bool) or not isinstance(value, int):
         raise ContractViolation(f"counts '{file}': '{key}' is not an integer")
     return value
 
 
-def require_rate(counts: dict[str, Any], file: str, key: str) -> float | None:
+def require_rate(counts: JsonObject, file: str, key: str) -> float | None:
     """A precision or recall: a number, or null where there is no ground truth."""
     value = require(counts, file, key)
     if value is None:
@@ -83,7 +83,7 @@ def _ruling(value: object, field: str) -> str:
     return value
 
 
-def require_mapping(counts: dict[str, Any], file: str, key: str) -> dict[str, object]:
+def require_mapping(counts: JsonObject, file: str, key: str) -> JsonObject:
     value = require(counts, file, key)
     if not isinstance(value, dict) or not all(isinstance(k, str) for k in value):
         raise ContractViolation(f"counts '{file}': '{key}' is not a mapping")
@@ -104,12 +104,12 @@ class Step:
 
 
 def data_quality(
-    ingest: dict[str, Any],
-    clean: dict[str, Any],
-    identity: dict[str, Any],
-    pseudo: dict[str, Any],
+    ingest: JsonObject,
+    clean: JsonObject,
+    identity: JsonObject,
+    pseudo: JsonObject,
     ci_level: float,
-    manual: dict[str, Any] | None = None,
+    manual: JsonObject | None = None,
 ) -> pl.DataFrame:
     """One row per pipeline step: what went in, what came out, the rule and its measured
     precision and recall where ground truth exists. The main steps come first (with the manual
@@ -189,7 +189,7 @@ def _judged(name: str, checked: int, correct: int, rule: str, level: float) -> S
     )
 
 
-def _manual_steps(manual: dict[str, Any], level: float) -> list[Step]:
+def _manual_steps(manual: JsonObject, level: float) -> list[Step]:
     """The manual merge check and, when the review stored it, one row per identity rule. A
     review run before per-rule counts were kept has none; that is not an error."""
     checked = manual.get("manual_checked")
@@ -218,13 +218,13 @@ def _manual_steps(manual: dict[str, Any], level: float) -> list[Step]:
     ]
 
 
-def _mapping(value: object, key: str) -> dict[str, Any]:
+def _mapping(value: object, key: str) -> JsonObject:
     if not isinstance(value, dict):
         raise ContractViolation(f"identity_manual: counts of rule '{key}' are not a mapping")
     return value
 
 
-def _rejected_steps(ingest: dict[str, Any], files_seen: int, files_parsed: int) -> list[Step]:
+def _rejected_steps(ingest: JsonObject, files_seen: int, files_parsed: int) -> list[Step]:
     """One row per rejection reason; the reasons must account for every unparsed file."""
     rejected = {
         reason: _count(n, reason)
@@ -243,7 +243,7 @@ def _rejected_steps(ingest: dict[str, Any], files_seen: int, files_parsed: int) 
     ]
 
 
-def _dedupe_steps(clean: dict[str, Any], records: int, messages: int) -> list[Step]:
+def _dedupe_steps(clean: JsonObject, records: int, messages: int) -> list[Step]:
     exact = require_int(clean, "clean_counts", "removed_exact")
     subset = require_int(clean, "clean_counts", "removed_subset")
     if records - exact - subset != messages:
@@ -255,7 +255,7 @@ def _dedupe_steps(clean: dict[str, Any], records: int, messages: int) -> list[St
     ]
 
 
-def _flag_steps(clean: dict[str, Any], messages: int) -> list[Step]:
+def _flag_steps(clean: JsonObject, messages: int) -> list[Step]:
     """The five message flags, zero when absent. Flagged messages are kept in `messages`."""
     flags = {
         flag: _count(n, flag) for flag, n in require_mapping(clean, "clean_counts", "flags").items()
@@ -274,18 +274,18 @@ def _flag_steps(clean: dict[str, Any], messages: int) -> list[Step]:
     ]
 
 
-def _untimed_step(pseudo: dict[str, Any], messages: int) -> Step:
+def _untimed_step(pseudo: JsonObject, messages: int) -> Step:
     untimed = require_int(pseudo, "pseudo_counts", "messages_without_time")
     return Step(STEP_UNTIMED, messages, messages - untimed, RULE_UNTIMED)
 
 
-def _events_step(pseudo: dict[str, Any]) -> Step:
+def _events_step(pseudo: JsonObject) -> Step:
     events = require_int(pseudo, "pseudo_counts", "events")
     in_network = require_int(pseudo, "pseudo_counts", "events_in_network")
     return Step(STEP_EVENTS, events, in_network, RULE_EVENTS)
 
 
-def header_fields(ingest: dict[str, Any]) -> pl.DataFrame:
+def header_fields(ingest: JsonObject) -> pl.DataFrame:
     """Every header field name seen, how often, and the ruling the parser applied to it."""
     occurrences = {
         name: _count(n, name)
@@ -354,4 +354,17 @@ def exploratory(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
     return results.with_columns(
         *[pl.when(small_crisis).then(None).otherwise(pl.col(c)).alias(c) for c in crisis_derived],
         *[pl.when(small_placebo).then(None).otherwise(pl.col(c)).alias(c) for c in placebo_derived],
+    )
+
+
+def record_profile(profile: pl.DataFrame, k_min: int) -> pl.DataFrame:
+    """The monthly record profile. A side (sending or receiving) of a month with fewer than k
+    custodians is suppressed with every number computed from it."""
+    small_sending = pl.col("custodians_sending") < k_min
+    small_receiving = pl.col("custodians_receiving") < k_min
+    sending = ("custodians_sending", "sent_messages", "after_hours_share")
+    receiving = ("custodians_receiving", "received_messages")
+    return profile.with_columns(
+        *[pl.when(small_sending).then(None).otherwise(pl.col(c)).alias(c) for c in sending],
+        *[pl.when(small_receiving).then(None).otherwise(pl.col(c)).alias(c) for c in receiving],
     )

@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
 
 import polars as pl
 
@@ -19,7 +18,7 @@ from enron_case.contracts import schemas, vocab
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.release.tables import STEP_MANUAL, STEP_MANUAL_RULE
-from enron_case.report import quality
+from enron_case.report import quality, record
 from enron_case.report.markdown import bullets, format_value, table
 
 PLACEHOLDER = re.compile(r"\{\{([a-z0-9_]+)\}\}")
@@ -51,6 +50,8 @@ RELEASE_VARIANTS = {
 ATTACKERS = {
     "A1": "outsider who holds the public corpus and matches per-address activity features",
     "A2": "insider who knows a few true identities and propagates from them through the graph",
+    "A3": "the same propagation seeded with every custodian: the public corpus names every "
+    "mailbox owner, so anyone holding it knows them all",
 }
 ALTERNATIVE_EXPLANATIONS = (
     "Retention: what each person kept, and what was collected, differs by person and period, "
@@ -90,10 +91,21 @@ LIMITS = (
     "The effect interval is computed at a change week chosen from the same data (the week that "
     "maximises the change statistic), so it is optimistic: it ignores the uncertainty of where "
     "the change happened.",
-    "For H5–H24, the pre-crisis placebos run on fewer custodians than the crisis comparison "
+    "For H5–H25, the pre-crisis placebos run on fewer custodians than the crisis comparison "
     "(fewer meet the minimum message count in the January-to-April windows; see the placebo "
     "custodians column), so they have less power: a passing placebo does not exclude a "
-    "pre-existing trend.",
+    "pre-existing trend. Both placebo windows also lie before the change of the timestamp "
+    "convention (see the record section), so the placebo cannot detect an artifact of it.",
+    "The permutation p-values of H1–H4 treat weeks as exchangeable; weekly network metrics are "
+    "autocorrelated, and a calibration test in the suite shows the test rejects far more often "
+    "than its nominal level on autocorrelated series without a change. A small p alone is weak "
+    "evidence here.",
+    "Deduplication matches copies on the second they were sent. If two stored copies of one "
+    "message carry different timestamp conventions (see the record section), they do not "
+    "merge, so the months around the change may hold hidden duplicates; not checked.",
+    "The H2 baseline placebo splits the baseline year at a fixed midpoint instead of searching "
+    "a change week; a searched split could only make its jump larger, so this can only make H2 "
+    "fail its check more clearly.",
     "The artifact checks were added after the first real-data run, because two hypotheses "
     "passed every pre-registered check yet looked implausibly strong. They are documented as a "
     "post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.",
@@ -155,6 +167,7 @@ class ReleaseTables:
     weekly_metrics: pl.DataFrame
     artifact_checks: pl.DataFrame
     exploratory: pl.DataFrame
+    record_profile: pl.DataFrame
 
     @classmethod
     def read(cls, ctx: StageContext) -> ReleaseTables:
@@ -166,21 +179,32 @@ class ReleaseTables:
             weekly_metrics=ctx.read("weekly_metrics"),
             artifact_checks=ctx.read("artifact_checks"),
             exploratory=ctx.read("exploratory"),
+            record_profile=ctx.read("record_profile"),
         )
 
 
 # ---- the finding --------------------------------------------------------------------------
 
 
-def headline(hypotheses: pl.DataFrame) -> dict[str, Any] | None:
+Row = Mapping[str, object]
+
+
+def headline(hypotheses: pl.DataFrame) -> Row | None:
     rows = hypotheses.filter(pl.col("is_headline")).rows(named=True)
     if len(rows) > 1:
         raise ContractViolation(f"hypotheses: {len(rows)} headline rows, at most one allowed")
     return rows[0] if rows else None
 
 
-def _f(row: Mapping[str, Any], column: str) -> str:
+def _f(row: Row, column: str) -> str:
     return format_value(row[column])
+
+
+def _number(row: Row, column: str) -> float:
+    value = row[column]
+    if not isinstance(value, int | float):
+        raise ContractViolation(f"{column}: expected a number")
+    return float(value)
 
 
 def claim(hypothesis: str) -> str:
@@ -189,7 +213,7 @@ def claim(hypothesis: str) -> str:
     return HYPOTHESIS_CLAIMS[hypothesis]
 
 
-def change_phrase(row: Mapping[str, Any]) -> str:
+def change_phrase(row: Row) -> str:
     if row["change_week"] is None:
         return "no single change week was estimated"
     return f"the change point is the week of {_f(row, 'change_week')}"
@@ -247,7 +271,7 @@ def headline_statement(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
     if row is None:
         return no_headline_statement(hypotheses, checks)
     return (
-        f"{row['hypothesis']} is supported: {claim(row['hypothesis'])}. "
+        f"{row['hypothesis']} is supported: {claim(_f(row, 'hypothesis'))}. "
         f"Metric `{row['metric']}` in the {row['scope']} network; {change_phrase(row)}; "
         f"standardized effect of {_f(row, 'effect')} "
         f"(bootstrap interval {_f(row, 'ci_low')} to {_f(row, 'ci_high')}), "
@@ -256,7 +280,7 @@ def headline_statement(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
     )
 
 
-def evidence(row: Mapping[str, Any]) -> list[str]:
+def evidence(row: Row) -> list[str]:
     return [
         f"Effect size: {_f(row, 'effect')} standard deviations against the baseline period, "
         f"block-bootstrap interval {_f(row, 'ci_low')} to {_f(row, 'ci_high')}.",
@@ -305,25 +329,35 @@ def artifact_section(checks: pl.DataFrame) -> str:
 SUPPRESSED = "suppressed (fewer than k custodians)"
 
 
+def _span_of(exploratory: pl.DataFrame) -> str:
+    """`H5–H25`: the first and last hypothesis of the within-custodian table (released in
+    hypothesis order)."""
+    ids = exploratory.get_column("hypothesis").to_list()
+    return f"{ids[0]}–{ids[-1]}" if ids else "the within-custodian hypotheses"
+
+
 def exploratory_statement(exploratory: pl.DataFrame) -> str:
     """One sentence per hypothesis held true among H5–H24, or a sentence saying there is none.
     With none, each hypothesis that met every other part of its rule (placebo, leave-one-out)
     and failed only the retention check is named with that check's result."""
     rows = exploratory.filter(pl.col("outcome") == schemas.EXPLORATORY_CONFIDENT).rows(named=True)
     if not rows:
-        return "Among H5–H24, no hypothesis reached the standard to be held true." + "".join(
-            f" {r['hypothesis']} ({r['measure']}) met its stated rule (median change "
-            f"{format_value(r['median_change'])}, interval {format_value(r['ci_low'])} to "
-            f"{format_value(r['ci_high'])}) but {r['caveat']}: there the change is "
-            f"{format_value(r['retention_median'])} (interval "
-            f"{format_value(r['retention_ci_low'])} to {format_value(r['retention_ci_high'])}). "
-            "It remains the strongest lead, but it is not established once how much inbox mail "
-            "was kept is held fixed."
-            for r in exploratory.filter(
-                pl.col("retention_passes").eq(False)
-                & pl.col("placebo_passes").eq(True)
-                & pl.col("loo_stable").eq(True)
-            ).rows(named=True)
+        return (
+            "Among the within-custodian hypotheses, none reached the standard to be held true."
+            + "".join(
+                f" {r['hypothesis']} ({r['measure']}) met its stated rule (median change "
+                f"{format_value(r['median_change'])}, interval {format_value(r['ci_low'])} to "
+                f"{format_value(r['ci_high'])}) but {r['caveat']}: there the change is "
+                f"{format_value(r['retention_median'])} (interval "
+                f"{format_value(r['retention_ci_low'])} to "
+                f"{format_value(r['retention_ci_high'])}). "
+                "It is not established once how much inbox mail was kept is held fixed."
+                for r in exploratory.filter(
+                    pl.col("retention_passes").eq(False)
+                    & pl.col("placebo_passes").eq(True)
+                    & pl.col("loo_stable").eq(True)
+                ).rows(named=True)
+            )
         )
     parts = []
     for r in rows:
@@ -344,8 +378,10 @@ def exploratory_statement(exploratory: pl.DataFrame) -> str:
         parts.append(text + ".")
     return (
         " ".join(parts)
-        + " It was stated after the results of H1–H4 and before being computed, so it is a lead"
-        " for confirmation on independent data rather than a pre-registered finding."
+        + " Each was stated after the results of H1–H4 and before being computed (H25 also after"
+        " every other result, as a post-hoc replication test), and each comparison crosses the"
+        " change of the record described above, so a held-true result is a lead for confirmation"
+        " on independent data rather than a pre-registered finding."
     )
 
 
@@ -369,14 +405,16 @@ def exploratory_section(exploratory: pl.DataFrame) -> str:
     ]
     return "\n\n".join(
         (
-            "## Hypotheses H5–H24",
-            "Twenty further hypotheses, stated by the project owner in two groups of ten, each "
-            "committed before it was computed (recorded under their original numbers E1–E20 in "
-            "docs/hypotheses-exploratory.md). Every comparison is a custodian against "
-            "themselves between fixed windows (the crisis weeks against the same weeks a year "
-            "earlier), with a pre-crisis placebo, leave-one-out and Holm's correction across all "
-            "twenty. A hypothesis is held true only if all of these pass. Mail-volume "
-            "equalisation was added after the first such result and is labelled as such.",
+            f"## Hypotheses {_span_of(exploratory)}",
+            "Further hypotheses: H5–H24 stated by the project owner in two groups of ten, each "
+            "committed before it was computed, and H25, stated in the review after every other "
+            "result as a replication test of Diesner, Frantz and Carley (post hoc; recorded "
+            "with their original numbers E1–E21 in docs/hypotheses-exploratory.md). Every "
+            "comparison is a custodian against themselves between fixed windows (the crisis "
+            "weeks against the same weeks a year earlier), with a pre-crisis placebo, "
+            "leave-one-out and Holm's correction across all of them. A hypothesis is held true "
+            "only if all of these pass. Mail-volume equalisation and the retention checks were "
+            "added after results were seen and are labelled as such.",
             exploratory_statement(exploratory),
             table(
                 [
@@ -406,7 +444,7 @@ def finding_section(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
         parts += [
             "### Evidence",
             bullets(evidence(row)),
-            f"**Confidence**: {CONFIDENCE_WORDS[row['confidence']]}.",
+            f"**Confidence**: {CONFIDENCE_WORDS[_f(row, 'confidence')]}.",
             "### Alternative explanations considered",
             bullets(ALTERNATIVE_EXPLANATIONS),
             "### What would falsify it",
@@ -415,12 +453,12 @@ def finding_section(hypotheses: pl.DataFrame, checks: pl.DataFrame) -> str:
     return "\n\n".join(parts)
 
 
-def hypothesis_row(row: Mapping[str, Any]) -> list[str]:
+def hypothesis_row(row: Row) -> list[str]:
     return [
-        row["hypothesis"],
-        claim(row["hypothesis"]),
+        _f(row, "hypothesis"),
+        claim(_f(row, "hypothesis")),
         f"`{row['metric']}`",
-        row["scope"],
+        _f(row, "scope"),
         _f(row, "change_week"),
         _f(row, "effect"),
         f"{_f(row, 'ci_low')} to {_f(row, 'ci_high')}",
@@ -429,8 +467,8 @@ def hypothesis_row(row: Mapping[str, Any]) -> list[str]:
         _f(row, "null_z"),
         f"{_f(row, 'loo_min_effect')} to {_f(row, 'loo_max_effect')}",
         f"{_f(row, 'robust_variants_passed')} of {_f(row, 'robust_variants_total')}",
-        row["supported"],
-        row["confidence"],
+        _f(row, "supported"),
+        _f(row, "confidence"),
         _f(row, "is_headline"),
     ]
 
@@ -493,7 +531,7 @@ def risk_summary(risk: pl.DataFrame) -> str:
     return table(headers, rows)
 
 
-def _risk_row(risk: pl.DataFrame, variant: str, attacker: str) -> dict[str, Any]:
+def _risk_row(risk: pl.DataFrame, variant: str, attacker: str) -> Row:
     rows = risk.filter(
         (pl.col("release_variant") == variant) & (pl.col("attacker") == attacker)
     ).rows(named=True)
@@ -510,7 +548,7 @@ def risk_verdicts(risk: pl.DataFrame) -> list[str]:
             continue
         before = _risk_row(risk, "R0", attacker)
         after = _risk_row(risk, variant, attacker)
-        halved = after["reid_top1"] <= before["reid_top1"] * MITIGATION_TARGET
+        halved = _number(after, "reid_top1") <= _number(before, "reid_top1") * MITIGATION_TARGET
         lines.append(
             f"{variant} against {attacker}: re-identified share {_f(before, 'reid_top1')} on R0, "
             f"{_f(after, 'reid_top1')} on {variant} "
@@ -523,7 +561,7 @@ def risk_verdicts(risk: pl.DataFrame) -> list[str]:
 NO_HEADLINE_UTILITY = (
     'The effect ratio and "finding survives" columns are empty because there is no headline '
     "finding to recompute on the mitigated releases: they measure how much of the headline "
-    "effect R1 and R2 keep. H5–H24 are computed in the finding stage on restricted data, not "
+    "effect R1 and R2 keep. H5–H25 are computed in the finding stage on restricted data, not "
     "from a release, so the release mitigations do not change them."
 )
 
@@ -595,6 +633,7 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
         "Generated by the pipeline from the release tables in this directory; no number below "
         f"is typed by hand. Minimum group size k = {config.k_min}; seed {config.seed}.",
         quality.quality_section(tables.data_quality, tables.header_fields),
+        record.record_section(tables.record_profile, tables.exploratory),
         finding_section(tables.hypotheses, tables.artifact_checks),
         hypotheses_section(tables.hypotheses),
         exploratory_section(tables.exploratory),
@@ -619,11 +658,11 @@ def slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
 
 
-def _row_values(prefix: str, row: Mapping[str, Any], skip: tuple[str, ...]) -> dict[str, str]:
+def _row_values(prefix: str, row: Row, skip: tuple[str, ...]) -> dict[str, str]:
     return {f"{prefix}_{col}": format_value(v) for col, v in row.items() if col not in skip}
 
 
-def utility_phrase(risk: pl.DataFrame, top: Mapping[str, Any] | None) -> str:
+def utility_phrase(risk: pl.DataFrame, top: Row | None) -> str:
     if top is None:
         return "With no finding claimed, there is no effect whose loss to measure."
     row = _risk_row(risk, "R1", "A1")
@@ -633,7 +672,7 @@ def utility_phrase(risk: pl.DataFrame, top: Mapping[str, Any] | None) -> str:
     )
 
 
-def charted_row(hypotheses: pl.DataFrame) -> dict[str, Any] | None:
+def charted_row(hypotheses: pl.DataFrame) -> Row | None:
     """The headline; failing that, the supported hypothesis with the largest effect (an
     apparent signal that failed its artifact check); None when nothing is supported."""
     row = headline(hypotheses)
@@ -685,12 +724,17 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
     top = headline(tables.hypotheses)
     if top is not None:
         values.update(_row_values("headline", top, ()))
-        values["headline_claim"] = claim(top["hypothesis"])
+        values["headline_claim"] = claim(_f(top, "hypothesis"))
     values.update(
         {
             "headline_statement": headline_statement(tables.hypotheses, tables.artifact_checks),
             "utility_phrase": utility_phrase(tables.risk, top),
             "exploratory_statement": exploratory_statement(tables.exploratory),
+            "record_statement": record.record_statement(tables.record_profile, tables.exploratory),
+            "record_table": record.profile_table(tables.record_profile),
+            "record_chart": record.record_chart(tables.record_profile),
+            "record_summary": record.record_summary(tables.record_profile, tables.exploratory),
+            "replication_statement": record.replication_statement(tables.exploratory),
             "headline_chart": headline_chart(tables),
             "artifact_table": artifact_section(tables.artifact_checks).split("\n\n", 2)[2],
             "quality_table": quality.funnel_table(tables.data_quality),

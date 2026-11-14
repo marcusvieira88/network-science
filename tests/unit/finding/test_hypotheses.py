@@ -80,6 +80,8 @@ def _events() -> pl.DataFrame:
             "ts_hour": [datetime(2001, 1, 1, tzinfo=UTC)],
             "in_network": [True],
             "weight": [1.0],
+            "sender_type": ["person"],
+            "sender_internal": [True],
             **{c: ["x"] for c in ("recipient_pid", "recipient_type", "recipient_org_pid")},
             "recipient_internal": [True],
         }
@@ -139,3 +141,15 @@ def test_missing_metric_is_a_contract_violation() -> None:
     series = _series(4).filter(pl.col("metric") != "external_share")
     with pytest.raises(ContractViolation):
         _gather(series)
+
+
+def test_null_replicate_effect_is_taken_at_its_own_searched_change_week() -> None:
+    """The observed effect sits at the week that maximises the change statistic, so a null
+    replicate must get the same search; taking it at the observed week understates the null."""
+    weeks = _weeks(FAST)
+    step_at = 90
+    values = np.array([0.1 * (-1) ** i + (5.0 if i >= step_at else 0.0) for i in range(len(weeks))])
+    series = hypotheses.Series(weeks, values)
+    searched = hypotheses.searched_effect(series, hypotheses.UP, FAST)
+    assert searched == pytest.approx(hypotheses.effect_at(series, weeks[step_at], FAST))
+    assert searched > hypotheses.effect_at(series, weeks[step_at - 30], FAST)

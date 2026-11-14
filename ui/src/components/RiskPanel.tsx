@@ -17,6 +17,7 @@ import { ATTACKER_LABELS, VARIANT_LABELS, reidByVariant } from "@/lib/risk";
 const config: ChartConfig = {
   A1: { label: ATTACKER_LABELS.A1, color: "var(--chart-1)" },
   A2: { label: ATTACKER_LABELS.A2, color: "var(--chart-2)" },
+  A3: { label: ATTACKER_LABELS.A3, color: "var(--chart-3)" },
 };
 
 export function RiskPanel({ rows }: { rows: RiskRow[] }) {

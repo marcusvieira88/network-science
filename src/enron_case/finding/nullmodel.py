@@ -1,9 +1,11 @@
 """Volume-preserving null network and the deviation of an observed effect from it.
 
-Within each week, recipients are shuffled among events with the same weight and the same
-`in_network` flag. Each event keeps its sender and weight, and each recipient receives events of
-the same weights as before, so every sender's out-weight and every recipient's in-weight per week
-(inside and outside the analysed network) is unchanged. What changes is who is tied to whom.
+Within each week, recipients are shuffled among events with the same weight, the same
+`in_network` flag and the same kind of sender (person or not, internal or not). Each event keeps
+its sender and weight, and each recipient receives events of the same weights from the same kind
+of sender as before, so every sender's out-weight and every recipient's in-weight per week is
+unchanged, including the in-weight from internal persons that the network is built from. What
+changes is who is tied to whom.
 """
 
 from __future__ import annotations
@@ -18,7 +20,9 @@ from enron_case.finding.stats import InsufficientData
 
 # A recipient's attributes travel with the recipient.
 RECIPIENT_COLUMNS = ("recipient_pid", "recipient_type", "recipient_internal", "recipient_org_pid")
-STRATUM = ("_week", "in_network", "weight")
+# The sender kind is in the stratum because only ties from internal persons enter the network:
+# without it a recipient could trade a person's message for a list's of equal weight.
+STRATUM = ("_week", "in_network", "sender_type", "sender_internal", "weight")
 _ROW = "_row"
 _DRAW = "_draw"
 

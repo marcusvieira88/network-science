@@ -24,12 +24,18 @@ where the report and the UI are. It takes a few minutes, mostly the download.
   read; only `Date` and the address fields are used, and addresses never leave the ingest zone.
 - **Data quality:** about 517,000 files parsed, about half of them duplicate copies, leaving about
   250,000 messages; about 85,400 addresses resolved to about 84,800 entities.
-- **Finding:** no hypothesis among H1–H24 is held true. H2 and H3 passed their tests but are
-  artifacts of the data (stale baseline groups; a change in which mailboxes hold mail). H16 (a larger share of
-  contacts writing back in the crisis) is the strongest lead but fails the retention check: it is largely
-  explained by how much inbox mail was kept.
+- **Finding:** what changed in the crisis year is the *record*, not measurable behaviour. For
+  the same custodians, the share of weekday sent mail stamped outside working hours drops from
+  about half to a few percent between April and May 2001, and the mail kept per month grows
+  several-fold: the `Date` convention changed (most likely the mail system) right between the
+  windows every comparison sets against each other. Confidence: high that the record changed;
+  its cause is not established. Behaviour: no hypothesis among H1–H25 is held true. H2/H3 passed
+  their tests but are artifacts (stale baseline groups; a changing mailbox mix); H16 fails its
+  retention check; H25, a post-hoc replication of the published "denser network in the crisis",
+  finds no change within custodians.
 - **Risk:** person-level pseudonymized edges are re-identifiable: one attack matches about a
-  quarter of people, a second more than half. So only aggregates are published, every group at
+  quarter of people, a second more than half; a third that knows every custodian (the public
+  corpus names them) matches about as many of the remaining people. So only aggregates are published, every group at
   least five people, where both attacks match nobody.
 
 ## Decision record
@@ -70,6 +76,14 @@ two-run determinism check caught a bootstrap that depended on row order.
 
 A person decided the content line, judged a sample of real identity merges in a terminal (so real
 identifiers never entered an AI conversation), rejected the artifact results, and chose what to cut.
+
+## Compared with prior work
+
+Our counts agree with published ones (517,401 files = the 2004 release minus 30 later deletions;
+250,537 messages, within 1 % of content-based dedupes, without reading content); our identity
+resolution is weaker than published manual cleanups; and we do not find the published network
+changes of 2001 within custodians, because our design removes the record effects that produce
+them. Details and citations: [related work](docs/technical-overview.md#related-work-and-how-this-compares).
 
 ## Limits
 

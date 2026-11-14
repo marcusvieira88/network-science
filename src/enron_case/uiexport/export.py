@@ -33,12 +33,12 @@ import math
 import re
 from collections.abc import Iterator
 from datetime import date
-from typing import Any
 
 import polars as pl
 
 from enron_case.config import CRISIS_WINDOW, PUBLIC_EVENTS, REFERENCE_WINDOW
 from enron_case.contracts import schemas
+from enron_case.contracts.counts import JsonObject
 from enron_case.contracts.vocab import LEAK_PATTERNS
 from enron_case.errors import ContractViolation, PrivacyViolation
 
@@ -61,8 +61,6 @@ MANIFEST_RUN_FIELDS = ("code_version", "sample", "seed", "parameters")
 
 _LEAK = re.compile("|".join(f"(?:{pattern})" for pattern in LEAK_PATTERNS))
 
-Row = dict[str, Any]
-
 
 def check_person_counts(tables: dict[str, pl.DataFrame], k_min: int) -> None:
     """Raise PrivacyViolation if any published person count is below k_min."""
@@ -72,7 +70,7 @@ def check_person_counts(tables: dict[str, pl.DataFrame], k_min: int) -> None:
             raise PrivacyViolation(f"{name}: {small} person counts below k={k_min}")
 
 
-def table_rows(df: pl.DataFrame) -> list[Row]:
+def table_rows(df: pl.DataFrame) -> list[JsonObject]:
     return [
         {key: _jsonable(value) for key, value in row.items()} for row in df.iter_rows(named=True)
     ]
@@ -86,14 +84,14 @@ def _jsonable(value: object) -> object:
     return value
 
 
-def run_block(manifest: dict[str, Any]) -> dict[str, Any]:
+def run_block(manifest: JsonObject) -> JsonObject:
     missing = [name for name in MANIFEST_RUN_FIELDS if name not in manifest]
     if missing:
         raise ContractViolation(f"run manifest lacks {missing}")
     return {name: manifest[name] for name in MANIFEST_RUN_FIELDS}
 
 
-def build_document(tables: dict[str, pl.DataFrame], manifest: dict[str, Any]) -> dict[str, Any]:
+def build_document(tables: dict[str, pl.DataFrame], manifest: JsonObject) -> JsonObject:
     return {
         "format_version": FORMAT_VERSION,
         "contract_version": schemas.CONTRACT_VERSION,
@@ -125,13 +123,13 @@ def strings(value: object) -> Iterator[str]:
             yield from strings(item)
 
 
-def check_no_identifiers(document: dict[str, Any]) -> None:
+def check_no_identifiers(document: JsonObject) -> None:
     hits = sum(1 for text in strings(document) if _LEAK.search(text))
     if hits:
         raise PrivacyViolation(f"release.json: {hits} identifier-shaped values")
 
 
-def render(document: dict[str, Any]) -> str:
+def render(document: JsonObject) -> str:
     """Compact JSON text. Key order is fixed by construction, so no wall-clock or hash order
     can change the bytes."""
     try:

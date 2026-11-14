@@ -12,11 +12,12 @@ import json
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 
 import enron_case
+from enron_case.contracts.counts import JsonObject, json_object
+from enron_case.errors import ContractViolation
 
 
 def fingerprint(df: pl.DataFrame) -> str:
@@ -51,7 +52,7 @@ def code_version(repo_root: Path) -> str:
 
 @dataclass
 class RunManifest:
-    parameters: dict[str, Any]
+    parameters: JsonObject
     seed: int
     sample: bool
     code_version: str
@@ -59,7 +60,7 @@ class RunManifest:
     corpus_sha256: str | None = None
     tables: dict[str, str] = field(default_factory=dict)
     counts: dict[str, str] = field(default_factory=dict)
-    stages: list[dict[str, Any]] = field(default_factory=list)
+    stages: list[JsonObject] = field(default_factory=list)
 
     def record_stage(self, name: str, seconds: float) -> None:
         self.stages.append({"stage": name, "seconds": round(seconds, 2)})
@@ -73,13 +74,15 @@ class RunManifest:
         fingerprints of the tables it rewrote and the timings of the stages it ran."""
         if merge and path.exists():
             previous = read_manifest(path)
-            self.tables = {**previous.get("tables", {}), **self.tables}
-            self.counts = {**previous.get("counts", {}), **self.counts}
+            self.tables = {**_string_map(previous, "tables"), **self.tables}
+            self.counts = {**_string_map(previous, "counts"), **self.counts}
             ran = {s["stage"] for s in self.stages}
-            kept = [s for s in previous.get("stages", []) if s["stage"] not in ran]
+            kept = [s for s in _objects(previous, "stages") if s["stage"] not in ran]
             self.stages = kept + self.stages
-            self.key_fingerprint = self.key_fingerprint or previous.get("key_fingerprint")
-            self.corpus_sha256 = self.corpus_sha256 or previous.get("corpus_sha256")
+            self.key_fingerprint = self.key_fingerprint or _optional_string(
+                previous, "key_fingerprint"
+            )
+            self.corpus_sha256 = self.corpus_sha256 or _optional_string(previous, "corpus_sha256")
         payload = {
             "code_version": self.code_version,
             "sample": self.sample,
@@ -95,6 +98,30 @@ class RunManifest:
         path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
 
-def read_manifest(path: Path) -> dict[str, Any]:
-    data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-    return data
+def read_manifest(path: Path) -> JsonObject:
+    return json_object(path.read_text(encoding="utf-8"), "run manifest")
+
+
+def _string_map(manifest: JsonObject, key: str) -> dict[str, str]:
+    """A name -> fingerprint block of a previous manifest; absent means empty."""
+    value = manifest.get(key, {})
+    if not isinstance(value, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in value.items()
+    ):
+        raise ContractViolation(f"run manifest: '{key}' is not a mapping of strings")
+    return value
+
+
+def _objects(manifest: JsonObject, key: str) -> list[JsonObject]:
+    """A list-of-objects block of a previous manifest; absent means empty."""
+    value = manifest.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise ContractViolation(f"run manifest: '{key}' is not a list of objects")
+    return value
+
+
+def _optional_string(manifest: JsonObject, key: str) -> str | None:
+    value = manifest.get(key)
+    if value is not None and not isinstance(value, str):
+        raise ContractViolation(f"run manifest: '{key}' is not a string")
+    return value

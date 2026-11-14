@@ -22,6 +22,7 @@ INPUTS = (
     "risk_results",
     "artifact_results",
     "exploratory_results",
+    "profile_results",
     "snapshots",
     "communities",
     "events",
@@ -38,6 +39,7 @@ RELEASE_TABLES = (
     "community_groups",
     "artifact_checks",
     "exploratory",
+    "record_profile",
 )
 EXACT = (
     "data_quality",

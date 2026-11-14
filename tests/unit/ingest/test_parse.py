@@ -14,6 +14,7 @@ from enron_case.contracts import vocab
 from enron_case.ingest.parse import member_location, parse_archive, parse_member
 from enron_case.ingest.stage import parse
 from enron_case.manifest import fingerprint
+from enron_case.release.tables import require_mapping
 from enron_case.synth import SynthOutput
 from helpers import ctx_with_fixtures, scan
 
@@ -46,7 +47,7 @@ def test_stage_counts(synth: SynthOutput, tmp_path: Path) -> None:
     assert counts["rejected"] == {}
     assert counts["parse_flags"] == reference["parse_flags"]
     assert counts["header_rulings"] == reference["header_rulings"]
-    fields = counts["header_fields"]
+    fields = require_mapping(counts, "ingest_counts", "header_fields")
     for always in ("Message-ID", "Date", "From", "Subject", "X-From", "X-To", "X-Folder"):
         assert fields[always] == n_files, always
     assert fields["Bcc"] == int((records.get_column("bcc_addrs").list.len() > 0).sum())

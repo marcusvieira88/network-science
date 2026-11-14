@@ -70,10 +70,12 @@ undefined estimate and the 20 null replicates were added in the same commit. His
 
 ## Robustness checks
 
-- **Null model (c)**: within each week, recipients are shuffled among events of equal weight
-  and equal `in_network` flag, which preserves every sender's out-weight and every recipient's
-  in-weight in that week. The metric series is recomputed on each of 20 (`config.null_replicates`) rewired networks and the
-  effect taken at the same change week. `null_z = (effect − mean null effect) / sd null effect`.
+- **Null model (c)**: within each week, recipients are shuffled among events of equal weight,
+  equal `in_network` flag and the same kind of sender (type and internal flag), which preserves
+  every sender's out-weight and every recipient's in-weight from each kind of sender in that
+  week. The metric series is recomputed on each of 20 (`config.null_replicates`) rewired
+  networks and each replicate's effect taken at its own searched change week (amended; see
+  below). `null_z = (effect − mean null effect) / sd null effect`.
   Passes when `d · null_z > z_{1−α}` (one-sided, 1.645). A change that the volume-preserving
   null reproduces is a volume or degree change, not a structural one.
 - **Leave-one-mailbox-out (d)**: the series is recomputed without each custodian in turn and the
@@ -84,6 +86,19 @@ undefined estimate and the 20 null replicates were added in the same commit. His
   when its own `p_perm < α` and its interval lies wholly on the hypothesised side.
   `robust_variants_passed / robust_variants_total`. Passes when at least one variant exists and
   all pass.
+
+*Amendment to the null model, made after every real-data result was known (review of
+2026-11-14):* two defects made `null_z` optimistic, and both are fixed. (1) Recipients were
+shuffled among events of equal week, weight and `in_network` flag only, so a recipient could
+trade a person's message for a list's or an outsider's; the network is built from ties sent by
+internal persons, so in-weight *from persons* was not preserved. The stratum now also holds the
+sender's type and internal flag. (2) Each null replicate's effect was taken at the observed
+change week, while the observed effect is the maximum over candidate weeks; each replicate now
+searches its own change week with the same CUSUM. Both changes can only lower `null_z`. They
+change no published outcome: no hypothesis among H1–H4 is held true either way. With the
+corrected null, H3's `null_z` moves from −4.7 to +2.0, so H3 now also fails the null-model check
+(its change is reproduced by rewiring with the same volumes); H2's stays far above the threshold
+and is explained by its artifact check instead.
 
 ## Confidence and headline
 

@@ -74,7 +74,9 @@ HYPOTHESES = ("H1", "H2", "H3", "H4")
 SUPPORT = ("yes", "no", "inconclusive")
 CONFIDENCE = ("high", "moderate", "low")
 RELEASE_VARIANTS = ("R0", "R1", "R2")
-ATTACKERS = ("A1", "A2")
+# A1 outsider; A2 insider who knows a few custodians; A3 the same propagation seeded with every
+# custodian, because the mailbox folder names of the public corpus name them all.
+ATTACKERS = ("A1", "A2", "A3")
 
 PSEUDONYM_LEN = 16
 PERSON_PREFIX = "p_"

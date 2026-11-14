@@ -68,11 +68,12 @@ describe("parseRelease", () => {
     expect(data.tables.artifact_checks[0]?.passes).toBeNull();
   });
 
-  it("reads the twenty exploratory hypotheses with nullable equalised results, whatever their id prefix", () => {
+  it("reads the twenty-one exploratory hypotheses with nullable equalised results, whatever their id prefix", () => {
     const data = parseRelease(rawSample());
     const rows = data.tables.exploratory;
-    // H5–H24 continue the numbering after H1–H4.
-    expect(rows.map((r) => r.order)).toEqual(Array.from({ length: 20 }, (_, i) => i + 5));
+    // H5–H25 continue the numbering after H1–H4; H25 is post hoc.
+    expect(rows.map((r) => r.order)).toEqual(Array.from({ length: 21 }, (_, i) => i + 5));
+    expect(rows[20]?.family).toBe("post hoc");
     // No hypothesis is held true: H16 fails its retention check.
     expect(rows.filter((r) => r.outcome === "confident")).toEqual([]);
     expect(rows[0]?.equalised_median).toBeNull();

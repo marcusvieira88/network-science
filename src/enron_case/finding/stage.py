@@ -1,9 +1,9 @@
-"""S6: test H1–H4 on the metric series and write `hypothesis_results`."""
+"""S6: test H1–H4 and H5–H25, run the artifact checks, and profile the record by month."""
 
 from __future__ import annotations
 
 from enron_case.context import StageContext
-from enron_case.finding import artifacts, exploratory, hypotheses, select
+from enron_case.finding import artifacts, exploratory, hypotheses, profile, select
 from enron_case.finding.hypotheses import Network, Recompute
 from enron_case.network.metrics import compute_series
 
@@ -19,10 +19,9 @@ def run_with(ctx: StageContext, recompute: Recompute) -> None:
     ctx.write("artifact_results", artifacts.table(checks))
     failed = frozenset(artifacts.failed(checks))
     table = ctx.write("hypothesis_results", select.results_table(evidence, ctx.config, failed))
-    explored = ctx.write(
-        "exploratory_results",
-        exploratory.run_family(network.events, network.entities_p, ctx.config),
-    )
+    custodians = exploratory.custodian_tables(network.events, network.entities_p)
+    explored = ctx.write("exploratory_results", exploratory.run_family_on(custodians, ctx.config))
+    ctx.write("profile_results", profile.monthly_profile(custodians, ctx.config))
     confident = explored.filter(explored["outcome"] == exploratory.CONFIDENT).height
     ctx.log(f"[finding] hypotheses H5-H{4 + explored.height}: {confident} held true")
     supported = table.filter(table["supported"] == select.YES).height
