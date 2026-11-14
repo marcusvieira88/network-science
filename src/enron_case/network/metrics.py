@@ -180,8 +180,11 @@ def metric_columns(k_min: int) -> list[pl.Expr]:
         "external_share": pl.when(pl.col("sent_weight") > 0).then(
             pl.col("external_weight") / pl.col("sent_weight")
         ),
+        # (union - shared) / union, not 1 - shared / union: one exact integer subtraction and one
+        # correctly rounded division give the same bits on every CPU; the two-step float form
+        # rounded differently on arm64 and x86_64.
         "tie_turnover": pl.when(previous_defined & (union > 0)).then(
-            1 - pl.col("n_shared") / union
+            (union - pl.col("n_shared")) / union
         ),
     }
     assert tuple(values) == v.METRICS
