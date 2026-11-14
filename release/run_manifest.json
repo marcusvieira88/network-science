@@ -1,5 +1,5 @@
 {
-  "code_version": "2703cba",
+  "code_version": "75e8cec",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -121,6 +121,10 @@
     {
       "stage": "report",
       "seconds": 0.02
+    },
+    {
+      "stage": "ui-data",
+      "seconds": 0.11
     }
   ]
 }
