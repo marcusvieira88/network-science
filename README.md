@@ -157,7 +157,8 @@ In order; each step is a gate for the next. Details: [technical overview](docs/t
    it with a read-only query API: Polars stays the processing engine of the pipeline, which writes
    the release tables as Parquet; DuckDB serves them, querying Parquet in place with no load step.
    Every answer passes the same k ≥ 5 suppression as the release, plus a differencing guard.
-2. **Security on the API.** JWT authentication (customer IdP via OIDC), user roles (viewer,
+2. **Security on the API.** JWT authentication through the customer's own identity provider (IdP: the system their staff
+   already sign in with, such as Microsoft Entra ID, Okta or Google Workspace) via OIDC, user roles (viewer,
    analyst, admin) checked on every route, rate limits and a query budget per user and tenant,
    HTTPS only, encrypted storage with per-tenant keys, an audit log of who asked what.
 3. **Load and penetration tests** against that architecture: load tests (k6 or Locust) with
