@@ -10,12 +10,13 @@ import pytest
 import risk_fakes
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
+from enron_case.pseudo import keys, pseudonymize
 from enron_case.release import variants
 from enron_case.risk import attack, aux_public, score, stage
 from enron_case.synth import SynthOutput
 from enron_case.synth.fixtures import fixture_pid
 from enron_case.zones import Zone
-from helpers import ctx_with_fixtures
+from helpers import TEST_KEY_HEX, ctx_with_fixtures
 
 INPUTS = (
     "snapshots",
@@ -155,3 +156,19 @@ def test_r0_is_the_observed_snapshot_edges(synth: SynthOutput, tmp_path: Path) -
     assert expected.isdisjoint(removed)
     stage.run_with(ctx, risk_fakes.fixture_dependencies())
     assert row(ctx.read("risk_results"), "R0", "A1")["n_targets"] == len(expected)
+
+
+def test_scorer_builds_the_keyed_pseudonym_function_itself(
+    synth: SynthOutput, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without an injected pid function, the scorer loads the run key and maps an address to
+    `person_pid(key, entity_id)`: a seed's address must belong to its own pseudonym."""
+    monkeypatch.setenv(keys.KEY_ENV, TEST_KEY_HEX)
+    ctx = fixture_context(synth, tmp_path, [])
+    amap = ctx.read("address_map")
+    key = bytes.fromhex(TEST_KEY_HEX)
+    entity = {a: e for a, e in amap.select("addr", "entity_id").iter_rows()}
+    pids = {pseudonymize.person_pid(key, e) for e in entity.values()}
+    seeds = score.Scorer.from_context(ctx).seeds(pids, 3)
+    assert len(seeds) == 3
+    assert all(pseudonymize.person_pid(key, entity[addr]) == pid for pid, addr in seeds.items())

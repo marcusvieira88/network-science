@@ -30,13 +30,14 @@ BuildNoisy = Callable[[pl.DataFrame, pl.DataFrame, int], dict[str, pl.DataFrame]
 
 @dataclass(frozen=True)
 class Dependencies:
-    """Interfaces owned by other work packages (WP-D, WP-F, WP-H), injectable for tests."""
+    """Interfaces owned by other work packages (WP-F, WP-H), injectable for tests. `pid_of`
+    is None in a real run: the scorer then builds the keyed pseudonym function itself."""
 
     build_r0: BuildR0
     build_r1: BuildAggregate
     build_r2: BuildNoisy
     effect_size: utility.EffectFn
-    pid_of: score.PidOf
+    pid_of: score.PidOf | None
 
 
 def run(ctx: StageContext) -> None:
@@ -44,19 +45,12 @@ def run(ctx: StageContext) -> None:
 
 
 def real_dependencies(communities: pl.DataFrame, k_min: int) -> Dependencies:
-    """Bind the other packages' public interfaces (release.variants, finding.stats, pseudo)
+    """Bind the other packages' public interfaces (release.variants, finding.stats)
     to the shapes this stage calls. R0 is the observed-scope snapshots; R1/R2 are built from
     those edges plus the baseline communities, exactly as the release stage builds what it
     publishes."""
     variants: Any = importlib.import_module("enron_case.release.variants")
     stats: Any = importlib.import_module("enron_case.finding.stats")
-    keys: Any = importlib.import_module("enron_case.pseudo.keys")
-    pseudonymize: Any = importlib.import_module("enron_case.pseudo.pseudonymize")
-    key: bytes = keys.load_key()
-
-    def pid_of(entity_id: str) -> str:
-        pid: str = pseudonymize.person_pid(key, entity_id)
-        return pid
 
     def build_r1(edges: pl.DataFrame, metric_series: pl.DataFrame) -> dict[str, pl.DataFrame]:
         tables: dict[str, pl.DataFrame] = variants.build_r1(
@@ -77,7 +71,7 @@ def real_dependencies(communities: pl.DataFrame, k_min: int) -> Dependencies:
         build_r1=build_r1,
         build_r2=build_r2,
         effect_size=stats.effect_size,
-        pid_of=pid_of,
+        pid_of=None,
     )
 
 
