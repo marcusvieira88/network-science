@@ -1,6 +1,5 @@
 {
-  "written_utc": "2026-11-14T11:15:17Z",
-  "code_version": "ec749a3",
+  "code_version": "94affb0",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -33,8 +32,8 @@
     "communities": "75e8456f71e028cf225bdda26ceb77fa688fdc9e491d1065a0b7d13244619ec5",
     "community_graph": "d5cfef45c919c2c245d72b45b9956920dd7de15bee172b3176c231fcea0cf0dd",
     "community_groups": "9eacfc92d01fb77d18c71e226a3f399c9269b5827621487fbcf71c0b24b2fefa",
-    "data_quality": "36a89e830cfae1381f162fc2b00090cd74639294e003f1fa851779b783c3e20c",
-    "degree_distribution": "69fa4426a3ef35a9434ffd5df29309b581603a78a8ad4719d0e3aa07b4707cd7",
+    "data_quality": "b25f79db3d28a71df0da1c91fa02d785298f36bf0f5cc56d861b0fcb731fe1c7",
+    "degree_distribution": "428004c79d9da95950529686820dd98adf5094dbfd2f6d75ebdd8c374bb50244",
     "entities": "397cac15e1bc104b4ae5b770c130007ff9757175e22b764f828978dede8a45d2",
     "entities_p": "807c6b92ddaebacd9f2df97adc2067267380da3ebb0fadbe5a1238b76709e357",
     "events": "b77a33ef0dc912cf14817e6f64f69acd0cc38bcde6b30f9e8342b5e7d20966bf",
@@ -44,10 +43,10 @@
     "hypothesis_results": "a7a1e034d7597946d5fadd5c80f58061bbfea688e905411e88541d1084349538",
     "messages": "a0e2a7483f3fffa60e57f77d3a2f84afc10eefea70163bcf2c1b41a2125d0864",
     "metric_series": "dace4a99b51d9aa250eafa74f9f216561d79e0551f4649050dc70635de060771",
-    "risk": "ab8d21f5f8dca118cadc35590e2cfd9db2182d7e6f75bd05fe724288713fd74f",
-    "risk_results": "ab8d21f5f8dca118cadc35590e2cfd9db2182d7e6f75bd05fe724288713fd74f",
+    "risk": "0f07687bd801d79521bed8613455e5a03ccf92dd47e6f7241506aa945f9bb26d",
+    "risk_results": "0f07687bd801d79521bed8613455e5a03ccf92dd47e6f7241506aa945f9bb26d",
     "snapshots": "0ff13d6a46caa97ef95cdef217131fdb90b036129da16d3c9dbb291e3dcf9fe8",
-    "weekly_metrics": "c6552f51992094bdaad59fb85de2a1c5bb83f9174109554a2e4b201bd2424496"
+    "weekly_metrics": "8e41d497efb8f7c69da3a8f3c40879c821f100cba5a755bcfb964cb78821f4a2"
   },
   "counts": {
     "clean_counts": "e4486083fb58b0d5320a2e044d332112835543a2ab9ded3816149d092f01e63f",
@@ -58,35 +57,35 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.34
+      "seconds": 0.19
     },
     {
       "stage": "parse",
-      "seconds": 31.27
+      "seconds": 30.86
     },
     {
       "stage": "clean",
-      "seconds": 25.84
+      "seconds": 25.85
     },
     {
       "stage": "identity",
-      "seconds": 5.47
+      "seconds": 4.89
     },
     {
       "stage": "pseudo",
-      "seconds": 16.5
+      "seconds": 16.18
     },
     {
       "stage": "network",
-      "seconds": 0.73
+      "seconds": 0.94
     },
     {
       "stage": "finding",
-      "seconds": 21.25
+      "seconds": 30.5
     },
     {
       "stage": "risk",
-      "seconds": 35.66
+      "seconds": 36.57
     },
     {
       "stage": "release",

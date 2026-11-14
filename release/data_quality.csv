@@ -2,3 +2,4 @@ order,step,count_in,count_out,removed,rule,precision,recall
 1,files parsed,517401,517364,37,,,
 2,deduplicate,517364,250537,266827,exact+subset,,
 3,resolve identities,85388,84759,629,N1-N4,,
+4,manual merge check,50,50,0,"seeded sample, judged by a person",1.0,

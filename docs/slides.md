@@ -33,6 +33,7 @@ A headers-only, privacy-first analysis of the public Enron email corpus
 | files parsed | 517401 | 517364 | 37 | — | — | — |
 | deduplicate | 517364 | 250537 | 266827 | exact+subset | — | — |
 | resolve identities | 85388 | 84759 | 629 | N1-N4 | — | — |
+| manual merge check | 50 | 50 | 0 | seeded sample, judged by a person | 1 | — |
 
 Duplicates are found without content (sender, second, recipients); precision and recall are
 measured on a synthetic corpus with known answers.
@@ -50,7 +51,7 @@ measured on a synthetic corpus with known answers.
 
 ## The finding
 
-No finding about the crisis year is claimed. H2, H3 passed every pre-registered test, but each failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
+No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
 
 ---
 
@@ -95,16 +96,16 @@ The jump comes right after the baseline year used to fit the groups ends.
 
 | Release | Attacker | Unique share | Re-identified | Interval | Survives |
 |---|---|---|---|---|---|
-| R0 | A1 | 0.641 | 0.267 | 0.26 to 0.274 | — |
-| R0 | A2 | 0.641 | 0.591 | 0.583 to 0.599 | — |
+| R0 | A1 | 0.639 | 0.251 | 0.244 to 0.259 | — |
+| R0 | A2 | 0.639 | 0.591 | 0.583 to 0.599 | — |
 | R1 | A1 | 0 | 0 | 0 to 0 | — |
 | R1 | A2 | 0 | 0 | 0 to 0 | — |
 | R2 | A1 | 0 | 0 | 0 to 0 | — |
 | R2 | A2 | 0 | 0 | 0 to 0 | — |
 
-- R1 against A1: re-identified share 0.267 on R0, 0 on R1 (at least halved); finding survives: —.
+- R1 against A1: re-identified share 0.251 on R0, 0 on R1 (at least halved); finding survives: —.
 - R1 against A2: re-identified share 0.591 on R0, 0 on R1 (at least halved); finding survives: —.
-- R2 against A1: re-identified share 0.267 on R0, 0 on R2 (at least halved); finding survives: —.
+- R2 against A1: re-identified share 0.251 on R0, 0 on R2 (at least halved); finding survives: —.
 - R2 against A2: re-identified share 0.591 on R0, 0 on R2 (at least halved); finding survives: —.
 
 "Survives" needs a headline to recompute; with no finding claimed it does not apply.
@@ -119,7 +120,10 @@ The jump comes right after the baseline year used to fit the groups ends.
 - Identity resolution is rule-based and favours precision; aliases it misses split one person into several nodes.
 - Pseudonymization is not anonymization: person-level pseudonymized data must be treated as re-identifiable (see the attack on R0), so only aggregates are published; the noise variant is a sketch, not a formal privacy budget.
 - Observational design: a structural change near public events does not show what people knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.
+- No group-level attack on the community graph was run: an attacker who knows some group members could try to infer ties or membership from group-to-group weights, and that risk is bounded only by the minimum of k distinct senders per published tie, not measured.
+- The effect interval is computed at a change week chosen from the same data (the week that maximises the change statistic), so it is optimistic: it ignores the uncertainty of where the change happened.
 - The artifact checks were added after the first real-data run, because two hypotheses passed every pre-registered check yet looked implausibly strong. They are documented as a post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.
+- Rule N2 merges addresses with the same local part under one registered domain, so it can merge two different people who share a local part across an ISP's regional subdomains; a manual check of 50 sampled real merges found 0 wrong merges.
 
 ---
 

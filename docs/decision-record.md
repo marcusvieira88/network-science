@@ -38,13 +38,13 @@ injected from release tables; none is typed.
 - **Keyed HMAC pseudonyms, and their limit.** Stable for one key, not confirmable by hashing
   guessed addresses. It is still pseudonymization: whoever holds the key can test a candidate,
   and structure re-identifies people. Our own attack on the person-level output (R0)
-  re-identified a share of 0.267 of targets for the outsider and
+  re-identified a share of 0.251 of targets for the outsider and
   0.591 for the insider.
 - **Aggregates-only release.** So nothing person-level is published. Every cell meets
   k = 5. On the aggregate release (R1) the shares fall to 0 and
   0. With no finding claimed, there is no effect whose loss to measure.
 
-**Finding.** No finding about the crisis year is claimed. H2, H3 passed every pre-registered test, but each failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
+**Finding.** No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.
 
 ## What changes with real customer data
 
