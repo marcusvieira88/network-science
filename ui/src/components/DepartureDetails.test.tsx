@@ -32,7 +32,7 @@ describe("H26 in the Hypotheses view", () => {
     const item = screen.getByText("H26").closest("li");
     if (!item) throw new Error("no H26 item");
     expect(item.closest("details")).toBeNull();
-    expect(within(item).getByText("No real change")).toBeInTheDocument();
+    expect(within(item).getByText("Not established")).toBeInTheDocument();
     expect(within(item).getByText("post hoc")).toBeInTheDocument();
     expect(item).toHaveTextContent("No wave of custodian departures in the crisis can be established");
   });
@@ -40,7 +40,7 @@ describe("H26 in the Hypotheses view", () => {
   it("shows the statement, windows, counts, test, variants and power", async () => {
     render(<PlainHypotheses entries={releaseHypotheses(realShapedFile())} />);
     const details = await openDetails();
-    expect(details).toHaveTextContent("Stated post hoc, after every other result and before being computed.");
+    expect(details).toHaveTextContent("Stated post hoc: after every other result was known, still before its own result was computed.");
     expect(details).toHaveTextContent(/departs when they send nothing for 16 weeks/);
     expect(details).toHaveTextContent("fewer than 5 of 66 at risk in the crisis window");
     expect(details).toHaveTextContent("Of the 9 robustness variants in the rule, 2 keep the crisis share above the reference share");

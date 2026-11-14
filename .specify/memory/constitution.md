@@ -1,7 +1,11 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.0.1 (PATCH: working budget set to 12 hours in Principle VII)
-- Modified principles: none (initial ratification)
+- Version change: 1.0.1 → 1.0.2 (PATCH, 2026-11-14: clarification of Principle I to the precise
+  content promise; the documented `risk` exception named in Principle II; logs carry counts,
+  never pseudonyms)
+- Earlier: 1.0.0 → 1.0.1 (PATCH: working budget set to 12 hours in Principle VII)
+- Modified principles: I and II and the logging constraint, wording only; no rule is weakened
+  beyond what the code already did when the plan's constitution check passed
 - Added sections: Core Principles I–VII, Privacy & Data Handling Constraints,
   Development Workflow & Quality Gates, Governance
 - Removed sections: none
@@ -17,8 +21,11 @@ engineering case study. The corpus is public; the pipeline is built as if it wer
 
 ### I. Content Never Enters the System (NON-NEGOTIABLE)
 
-- The parser MUST stop reading each message at the end of the header block. Bodies and
-  attachments MUST never be read into memory, persisted, or logged.
+- The parser MUST stop reading each message at the end of the header block. Message content
+  (bodies, attachments, subject lines, folder names) MUST never be decoded, parsed, held,
+  stored, or logged. Stated precisely: body bytes pass through the decompressor and are
+  skipped; `Subject` lines are discarded as the header is scanned; a folder name is reduced at
+  once to one of four classes and never kept.
 - Header fields are admitted only through an explicit allowlist. Every field not on the allowlist
   is dropped at the parser and never reaches any later stage.
 - `Subject` and every other free-text header are classified as content and MUST be dropped.
@@ -33,7 +40,10 @@ that is only a convention will be broken by the first careless change.
 
 - Direct identifiers (addresses, display names, mailbox owner folder names) MAY exist only inside
   a clearly bounded ingestion zone. Everything downstream of the pseudonymization boundary MUST
-  see pseudonyms only.
+  see pseudonyms only. One documented exception serves the re-identification test: the risk
+  stage reads the public raw archive as an attacker would (`risk/aux_public.py`) and reads the
+  ingestion zone to score its guesses (`risk/score.py`); both are pinned to those modules by
+  the path guard and its test, and emit counts only.
 - Pseudonyms MUST be keyed, stable across runs for the same key, irreversible without the key,
   and consistent with identity resolution (one resolved person → one pseudonym).
 - The key MUST never be committed, logged, or written to an output artifact.
@@ -95,8 +105,8 @@ The design has to assume an informed adversary.
 - Raw corpus and any artifact containing direct identifiers live under a git-ignored directory and
   MUST never be committed.
 - Only pseudonymized, k-thresholded outputs MAY be committed or shown.
-- Logs MUST contain counts and pseudonyms only; logging an address, name, or header value from
-  the ingestion zone is a defect.
+- Logs MUST contain counts only (and, inside the ingestion zone, opaque file ids); logging an
+  address, name, pseudonym, or header value is a defect.
 - The repository MUST document what would change with real customer data (key custody,
   retention, works council review, data residency), even where the case does not implement it.
 
@@ -119,4 +129,10 @@ section added; PATCH: clarification) and a one-line reason in the commit message
 compliance with Principles I and II first; a violation of either blocks the change regardless of
 other merits.
 
-**Version**: 1.0.1 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
+**Version**: 1.0.2 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
+
+Amendment 1.0.2 (2026-11-14, PATCH, clarification): Principle I said content must "never be
+read into memory", which the decompressor and the header scan cannot literally satisfy; it now
+states the promise the code keeps. Principle II names the `risk` exception that the path guard
+already documented. The logging constraint no longer allows pseudonyms in logs. Recorded in the
+constitution check of `specs/001-enron-network-analysis/plan.md`.

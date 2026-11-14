@@ -33,10 +33,15 @@ EXPLORATORY_CSV = (
 )
 
 
+# H26: one hypothesis, whose outcome sits on the primary variant; here it is not established.
+DEPARTURE_TESTS_CSV = "variant,outcome\nprimary,not established\nsilence 8,\n"
+
+
 def _write_release(root: Path, hypotheses: str, exploratory: str) -> Path:
     root.mkdir()
     (root / "hypotheses.csv").write_text(hypotheses, encoding="utf-8")
     (root / "exploratory.csv").write_text(exploratory, encoding="utf-8")
+    (root / "departure_tests.csv").write_text(DEPARTURE_TESTS_CSV, encoding="utf-8")
     return root
 
 
@@ -525,14 +530,14 @@ def test_cli_routes_the_one_command(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_summary_counts_headline_and_confident_outcomes(tmp_path: Path) -> None:
     release = _write_release(tmp_path / "release", HYPOTHESES_CSV, EXPLORATORY_CSV)
-    assert summary_line(release) == "3 of 8 hypotheses held true"
+    assert summary_line(release) == "3 of 9 hypotheses held true"
 
 
 def test_summary_counts_zero_when_nothing_is_held_true(tmp_path: Path) -> None:
     hypotheses = HYPOTHESES_CSV.replace("true\n", "false\n")
     exploratory = "hypothesis,outcome\nH5,inconclusive\n"
     release = _write_release(tmp_path / "release", hypotheses, exploratory)
-    assert summary_line(release) == "0 of 5 hypotheses held true"
+    assert summary_line(release) == "0 of 6 hypotheses held true"
 
 
 def test_summary_command_fails_loudly_without_a_release(

@@ -164,12 +164,12 @@ describe("CommunityGraph without WebGL (2D fallback)", () => {
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
   });
 
-  it("in the Individuals mode draws one bare point per person inside each group's circle", async () => {
+  it("in the group-size dots mode draws one bare point per person inside each group's circle", async () => {
     const user = userEvent.setup();
     const { container } = renderGraph();
     expect(screen.queryByTestId("anonymous-points")).not.toBeInTheDocument();
     const before = nodePositions(container);
-    await user.click(screen.getByRole("tab", { name: "Individuals (anonymous)" }));
+    await user.click(screen.getByRole("tab", { name: "Group sizes (dots)" }));
     const layer = screen.getByTestId("anonymous-points");
     const points = [...layer.querySelectorAll("circle")];
     expect(points).toHaveLength(14 + 9 + 5);
@@ -186,7 +186,7 @@ describe("CommunityGraph without WebGL (2D fallback)", () => {
       expect(circles.some((c) => Math.hypot(x - c.x, y - c.y) < c.r)).toBe(true);
     }
     expect(screen.getAllByTestId("group-node")).toHaveLength(3);
-    expect(container).toHaveTextContent("Each point stands for one person in a group of at least 5;");
+    expect(container).toHaveTextContent("The dots only show how many people each group of at least 5 has: one dot per person counted.");
   });
 
   it("draws no circle for the outside bucket and says above the graph how much of the week's mail involves it", () => {
@@ -197,7 +197,7 @@ describe("CommunityGraph without WebGL (2D fallback)", () => {
       "70% of this week's mail (counted per sender–recipient pair) involves people outside the 2000 groups.",
     );
     expect(screen.getByTestId("outside-caption")).toHaveTextContent(
-      "Outside the 2000 groups: 25,838 people with no tie in 2000 (such as people who first appear later) or in groups under 5 people; not a community.",
+      "Outside the 2000 groups: 25,838 internal people without a 2000 group: no tie in 2000, or in groups under 5 people; not a community.",
     );
     // The week sentence names a link between real groups only.
     expect(screen.getByTestId("week-summary")).toHaveTextContent("the busiest link between groups was G01 ↔ G02 (weight 5.5); 1 pair");
@@ -219,10 +219,10 @@ describe("CommunityGraph without WebGL (2D fallback)", () => {
     expect(last?.textContent).toBe("Outside the 2000 groups25,83840");
   });
 
-  it("draws no anonymous point for anyone outside the groups in the Individuals mode", async () => {
+  it("draws no anonymous point for anyone outside the groups in the group-size dots mode", async () => {
     const user = userEvent.setup();
     renderWithOutside();
-    await user.click(screen.getByRole("tab", { name: "Individuals (anonymous)" }));
+    await user.click(screen.getByRole("tab", { name: "Group sizes (dots)" }));
     expect(screen.getByTestId("anonymous-points").querySelectorAll("circle")).toHaveLength(14 + 9 + 5);
   });
 

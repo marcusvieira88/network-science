@@ -133,6 +133,9 @@ PLACEBO_BEFORE_WINDOW: tuple[date, date] = (date(2000, 1, 1), date(2000, 4, 30))
 CRISIS_SPLIT: date = PUBLIC_EVENTS[1][0]
 # H26 is the twenty-sixth hypothesis stated; its high-confidence bound is alpha over this many.
 HYPOTHESES_STATED = 26
+# Publication year of the prior work H25 tests (docs/hypotheses-exploratory.md, E21). A citation,
+# not a result: the one number in the generated documents that no release table holds.
+PRIOR_WORK_YEAR = 2005
 
 
 @dataclass(frozen=True)

@@ -1,8 +1,9 @@
 /**
- * One list of hypotheses: the `hypotheses` table (stated before any data), the `exploratory`
- * table (stated before being computed) and H26 from the `departures` and `departure_tests` tables
- * (stated post hoc), merged and ordered by the number in each id. Which table a row comes from
- * decides how it is read; the id strings themselves are never relied on.
+ * One list of hypotheses: the `hypotheses` table (pre-registered), the `exploratory` table (stated
+ * before computed, after earlier results; its `family` column marks the post-hoc one) and H26 from
+ * the `departures` and `departure_tests` tables (post hoc), merged and ordered by the number in
+ * each id. Which table a row comes from decides how it is read; the id strings themselves are
+ * never relied on.
  */
 import {
   type ArtifactCheckRow,
@@ -29,14 +30,45 @@ export type HypothesisEntry =
   | (EntryBase & { kind: "exploratory"; row: ExploratoryRow })
   | (EntryBase & { kind: "departure"; departure: Departure });
 
-/** When each kind of hypothesis was stated, relative to the analysis. */
-export const STATED: Record<HypothesisKind, string> = {
-  preregistered: "before any data",
-  exploratory: "before being computed",
-  departure: "post hoc, after every other result and before being computed",
+/** When a hypothesis was stated, relative to the analysis. */
+export type Timing = "preregistered" | "stated" | "postHoc";
+
+/** The three labels every surface uses (TIMING_* in src/enron_case/report/render.py). */
+export const TIMING_LABELS: Record<Timing, string> = {
+  preregistered: "pre-registered",
+  stated: "stated before computed, after earlier results",
+  postHoc: "post hoc",
 };
 
-/** Within one number, the hypotheses stated before any data come first. */
+/** What each label means, for the places that spell it out. */
+export const TIMING_MEANINGS: Record<Timing, string> = {
+  preregistered: "before any real data was analysed",
+  stated: "before its own result was computed, but after earlier results were known",
+  postHoc: "after every other result was known, still before its own result was computed",
+};
+
+/** The `exploratory.family` value of a hypothesis stated after every other result. */
+const POST_HOC_FAMILY = "post hoc";
+
+export function timingOf(entry: HypothesisEntry): Timing {
+  switch (entry.kind) {
+    case "preregistered":
+      return "preregistered";
+    case "exploratory":
+      return entry.row.family === POST_HOC_FAMILY ? "postHoc" : "stated";
+    case "departure":
+      return "postHoc";
+  }
+}
+
+/** How many hypotheses carry each timing label. */
+export function countByTiming(entries: HypothesisEntry[]): Record<Timing, number> {
+  const counts: Record<Timing, number> = { preregistered: 0, stated: 0, postHoc: 0 };
+  for (const entry of entries) counts[timingOf(entry)] += 1;
+  return counts;
+}
+
+/** Within one number, the pre-registered hypotheses come first. */
 const KIND_ORDER: Record<HypothesisKind, number> = { preregistered: 0, exploratory: 1, departure: 2 };
 
 function byNumber(a: HypothesisEntry, b: HypothesisEntry): number {
@@ -62,6 +94,22 @@ export function retentionCheck(row: ExploratoryRow): string | null {
   if (row.retention_passes === null) return null;
   const verdict = row.retention_passes ? "passes" : "fails";
   return `${verdict}, ${formatEstimate(row.retention_median, row.retention_ci_low, row.retention_ci_high)}`;
+}
+
+/**
+ * True when the pre-crisis placebo passes its stated rule although the calm period moved as the
+ * crisis did: its interval excludes zero on the side the crisis median moved to, or the crisis
+ * median is on the predicted side and the placebo median is at least as large there
+ * (placebo_shows_change in src/enron_case/report/render.py). A note next to the rule, not a
+ * change of it.
+ */
+export function placeboShowsChange(row: ExploratoryRow): boolean {
+  const { median_change: median, placebo_median: placebo, placebo_ci_low: low, placebo_ci_high: high } = row;
+  if (median === null || placebo === null || low === null || high === null || median === 0) return false;
+  const sign = median > 0 ? 1 : -1;
+  if (sign * low > 0 && sign * high > 0) return true;
+  const predicted = row.direction === "up" ? 1 : -1;
+  return sign === predicted && sign * placebo >= sign * median;
 }
 
 /** The volume-equalised result, or null where none was computed. */
@@ -125,7 +173,7 @@ export function countByKind(entries: HypothesisEntry[]): Record<HypothesisKind, 
 /**
  * One line per held-true hypothesis that has a measured change, for the Overview: "Held true: H12
  * — <measure>, change <median> (<interval>), volume-equalised <median> (<interval>)". The headline
- * among the hypotheses stated before any data has its own card and no line here.
+ * among the pre-registered hypotheses has its own card and no line here.
  */
 export function heldTrueLines(entries: HypothesisEntry[]): string[] {
   return entries.flatMap((entry) => {

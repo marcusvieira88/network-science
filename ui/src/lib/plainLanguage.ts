@@ -6,7 +6,7 @@
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
 import { capitalised, formatNumber, metricLabel } from "@/lib/format";
 import { type Departure, departureVerdictSentence, structureSentence } from "@/lib/departures";
-import type { HypothesisEntry } from "@/lib/hypotheses";
+import { type HypothesisEntry, placeboShowsChange } from "@/lib/hypotheses";
 import { type GroupTie, OTHER_GROUP } from "@/lib/network";
 
 /** What a hypothesis came to, in plain terms. */
@@ -19,7 +19,7 @@ export const VERDICT_LABELS: Record<Verdict, string> = {
   unclear: "Unclear",
   untestable: "Could not be tested",
   opposite: "Changed the other way",
-  none: "No real change",
+  none: "Not established",
   withheld: "Withheld",
 };
 
@@ -72,6 +72,24 @@ export function untestableReason(caveat: string): string | null {
   return UNTESTABLE_PREFIXES.includes(prefix) ? caveat.slice(separator + 1).trim() : null;
 }
 
+/** An interval that lies wholly on one side of zero. */
+export function excludesZero(low: number | null, high: number | null): boolean {
+  return low !== null && high !== null && (low > 0 || high < 0);
+}
+
+/**
+ * A hypothesis ruled untestable whose measure still moved clearly: as a claim about behaviour it
+ * cannot be tested, yet the same estimate is evidence that the record changed under it.
+ */
+export function isRecordEvidence(row: ExploratoryRow): boolean {
+  return untestableReason(row.caveat) !== null && row.median_change !== null && excludesZero(row.ci_low, row.ci_high);
+}
+
+const RECORD_READING =
+  " Its estimate is still used: as a measurement of the record, not of behaviour (see the main finding on the Executive summary).";
+
+const PLACEBO_ALREADY = " The comparison before the crisis already shows the same move, so it did not start in the crisis window.";
+
 /**
  * True when the whole interval lies on the side opposite to the prediction: the measure moved,
  * but the other way. "Not supported" then must not read as "no change".
@@ -86,7 +104,12 @@ const OPPOSITE_OF = { up: "down", down: "up" } as const;
 function exploratoryVerdict(row: ExploratoryRow): PlainVerdict {
   const measure = row.measure;
   const reason = untestableReason(row.caveat);
-  if (reason !== null) return verdict("untestable", `${capitalised(measure)} could not be tested with this data: ${reason}.`);
+  if (reason !== null) {
+    return verdict(
+      "untestable",
+      `${capitalised(measure)} could not be tested with this data: ${reason}.${isRecordEvidence(row) ? RECORD_READING : ""}`,
+    );
+  }
   const note = row.caveat === "" ? "" : ` (${row.caveat})`;
   switch (row.outcome) {
     case "confident":
@@ -97,7 +120,8 @@ function exploratoryVerdict(row: ExploratoryRow): PlainVerdict {
       if (wentOpposite(row) && row.ci_low !== null && row.ci_high !== null) {
         return verdict(
           "opposite",
-          `${capitalised(measure)} did not go ${row.direction} as predicted: it went ${OPPOSITE_OF[row.direction]} (interval ${formatNumber(row.ci_low)} to ${formatNumber(row.ci_high)})${note}.`,
+          `${capitalised(measure)} did not go ${row.direction} as predicted: it went ${OPPOSITE_OF[row.direction]} (interval ${formatNumber(row.ci_low)} to ${formatNumber(row.ci_high)})${note}.` +
+            (placeboShowsChange(row) ? PLACEBO_ALREADY : ""),
         );
       }
       return verdict("none", `No reliable change in ${measure}${note}.`);

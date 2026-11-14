@@ -13,9 +13,9 @@ const run: RunInfo = {
   parameters: { k_min: 5, window: "week", sensitivity_variants: ["cap=20", "window=month"] },
 };
 
-function renderShell(onSelect = vi.fn(), source: "release" | "sample" = "sample") {
+function renderShell(onSelect = vi.fn(), sample = true) {
   render(
-    <AppShell active="overview" onSelect={onSelect} run={run} contractVersion="1.1" source={source}>
+    <AppShell active="overview" onSelect={onSelect} run={{ ...run, sample }} contractVersion="1.1">
       <p>content</p>
     </AppShell>,
   );
@@ -23,7 +23,7 @@ function renderShell(onSelect = vi.fn(), source: "release" | "sample" = "sample"
 }
 
 describe("AppShell", () => {
-  it("lists the eight views in order and marks the current one", () => {
+  it("lists every view in order and marks the current one", () => {
     renderShell();
     const nav = screen.getByRole("navigation", { name: "Views" });
     const buttons = within(nav).getAllByRole("button");
@@ -71,13 +71,14 @@ describe("AppShell", () => {
     expect(footer).toHaveTextContent("cap=20, window=month");
   });
 
-  it("badges sample data visibly", () => {
-    renderShell(vi.fn(), "sample");
+  it("badges a synthetic run as sample data, whichever file it was loaded from", () => {
+    renderShell(vi.fn(), true);
+    expect(screen.queryByText("Release data")).not.toBeInTheDocument();
     expect(screen.getByText("Sample data")).toBeInTheDocument();
   });
 
-  it("badges release data", () => {
-    renderShell(vi.fn(), "release");
+  it("badges a real run as release data", () => {
+    renderShell(vi.fn(), false);
     expect(screen.queryByText("Sample data")).not.toBeInTheDocument();
     expect(screen.getByText("Release data")).toBeInTheDocument();
   });

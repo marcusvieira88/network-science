@@ -26,7 +26,7 @@ describe("PlainHypotheses", () => {
 
   it("folds the hypotheses with no reliable change under one line", () => {
     render(<PlainHypotheses entries={entries} />);
-    expect(screen.getByText("2 more with no reliable change or withheld — show them")).toBeInTheDocument();
+    expect(screen.getByText("2 more not established or withheld — show them")).toBeInTheDocument();
   });
 });
 
@@ -44,6 +44,9 @@ describe("Glossary", () => {
     // H2's artifact is the method (groups fixed on the baseline going stale), not only the data.
     expect(meaning("Artifact check")).toContain("the method");
     expect(meaning("Placebo")).not.toContain("picking up noise");
-    expect(meaning("Leave-one-out")).toContain("check");
+    // Stable means the predicted direction survives every omission; it is not a claim about one person.
+    expect(meaning("Leave-one-out")).toContain("keeps the predicted direction every time");
+    expect(meaning("Leave-one-out")).not.toContain("no single person drives");
+    expect(meaning("Placebo")).toContain("no change in the predicted direction");
   });
 });

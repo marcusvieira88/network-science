@@ -1,7 +1,7 @@
 # Data Model: Enron Headers-Only Network Analysis Case
 
 Column-level schemas are in [contracts/data-contracts.md](contracts/data-contracts.md) (contract
-version 1.6, `src/enron_case/contracts/schemas.py`). This file gives the entities, their
+version 1.7, `src/enron_case/contracts/schemas.py`). This file gives the entities, their
 relationships, the zone each lives in, and the rules they must satisfy, as implemented.
 
 ## Entities by zone
@@ -27,6 +27,9 @@ erDiagram
     HYPOTHESIS ||--|| EXPLORATORY_RESULT : "H5-H25 tested as"
     EVENT }o--o{ EXPLORATORY_RESULT : "paired per custodian"
     EVENT }o--o{ RECORD_PROFILE : "custodians' mail by month"
+    HYPOTHESIS ||--|{ DEPARTURE_RESULT : "H26 counted per window as"
+    HYPOTHESIS ||--|{ DEPARTURE_TEST : "H26 tested per variant as"
+    EVENT }o--o{ DEPARTURE_RESULT : "custodians' sent and mailbox-only weeks"
     MANUAL_CHECK ||--o{ RELEASE_TABLE : "data_quality rows"
     ATTACKER_MODEL ||--|{ RISK_RESULT : produces
     RELEASE_VARIANT ||--|{ RISK_RESULT : "attacked as"
@@ -48,7 +51,8 @@ erDiagram
 | Artifact check | restricted → release | `artifact_results` → `artifact_checks.csv` | post-hoc checks of H2 and H3; custodian count suppressed below k |
 | Exploratory result (H5–H25) | restricted → release | `exploratory_results` → `exploratory.csv` | within-custodian comparisons; a comparison over fewer than k custodians is suppressed with everything derived from it |
 | Record profile | restricted → release | `profile_results` → `record_profile.csv` | descriptive, per month: custodians sending and receiving, their messages, the after-hours share of weekday sent mail; a side with fewer than k custodians is suppressed |
-| Risk result | restricted → release | `risk_results` → `risk.csv` | counts and rates only; attackers A1, A2, A3 against R0, R1, R2 |
+| Departure result, departure test (H26) | restricted → release | `departure_results` → `departures.csv`; `departure_test_results` → `departure_tests.csv` | post hoc; per window: custodians at risk, departures, record ends; per variant: direction, p band, placebo, rolling comparison. Counts below k and their complements are suppressed; variants publish no counts |
+| Risk result | restricted → release | `risk_results` → `risk.csv` | counts and rates only; attackers A1, A2, A3. R0 is the only release measured; R1 and R2 hold no person-level record, so their rate is 0 by construction, not a measurement |
 | Stage counts | counts (restricted) | `counts/*.json` | counts only, no identifier; feed `data_quality` and `header_fields` |
 | Manual merge check | counts (restricted), checks (committed) | `counts/identity_manual.json`, `checks/identity_manual.json` | counts only (checked, correct, per rule when recorded) from a person's judgement in a terminal; identifiers are shown on screen only. The committed copy is used when a real run has none, so a fresh clone publishes the same rows |
 | Release table | release | CSV + `report.md` | every person count ≥ k or suppressed |
@@ -105,9 +109,18 @@ erDiagram
   (H25). Holm's correction runs across all twenty-one.
 - `outcome` ∈ {confident, inconclusive, not supported}. Confident needs Holm-adjusted p below
   `alpha`, an interval on the hypothesised side, a passing pre-crisis placebo, a stable
-  leave-one-custodian-out and no caveat. A caveat (H5 invalid timestamps, H7 untestable, H19
-  retention-sensitive) or a failed retention check (H16, H25) caps the outcome at inconclusive.
+  leave-one-custodian-out and no caveat. A caveat (H5 invalid timestamps, H6
+  timestamp-sensitive (post hoc), H7 untestable, H19 retention-sensitive) or a failed retention
+  check (H16, H25) caps the outcome at inconclusive.
 - Equalised and retention columns are null where the check does not apply.
+
+**Departure result and test (H26)**
+- `departure_results`: one row per period (crisis, reference, the two placebo windows, the two
+  parts of the crisis window cut at `config.CRISIS_SPLIT`). `departure_test_results`: one row
+  per variant; only the primary row carries an `outcome` ∈ {high, moderate, low, not
+  established}, by the decision rule of O1 in `docs/hypotheses-exploratory.md`.
+- In the release, `at_risk`, `departures` and `record_ends` below k are suppressed, and so is
+  any count whose complement in its row is below k.
 
 **Release table**
 - Any count of persons < k (default 5) in a column of `schemas.PERSON_COUNT_COLUMNS` is
@@ -156,14 +169,22 @@ stateDiagram-v2
 
 In the real-corpus run H2 and H3 are supported by the pre-registered rule but fail their
 artifact checks, so they are capped at low confidence; H1 and H4 are not supported. There is no
-headline. Of H5–H25, none is confident; H16 and H20 are inconclusive (H16 after failing its
-retention check), the rest not supported, H25 among them. No hypothesis is held true. What the
+headline. Of H5–H25, none is confident; H16 and H20 are inconclusive (H16 is not established
+once inbox retention is accounted for; H20's placebo fails), the rest not supported, H25 among
+them; H14, H21 and H22 changed the other way. H26 is not established. No hypothesis is held
+true, and no behavioural finding about the crisis year is claimed. What the
 headers do establish is a change of the record: the record profile shows the custodians'
 after-hours share of weekday sent mail falling from about half (up to April 2001) to a few
 percent (from August 2001; the fall starts in May), between the reference and crisis windows of
 every within-custodian comparison.
 
-## Parameters (single source: `config.py`, echoed in the run manifest)
+## Parameters (`Config` fields in `config.py`, echoed in the run manifest)
+
+Tunable parameters are `Config` fields: `--set` overrides them and the manifest echoes every
+one. The definitions of the stated hypotheses are not parameters. They are fixed constants in
+the module that implements them, on purpose, because changing one would change the hypothesis:
+for example the working hours, the placebo fraction and the broadcast thresholds in
+`finding/exploratory.py`, and the header line cap in `ingest/headers.py`.
 
 | Parameter | Default | Affects |
 |-----------|---------|---------|
@@ -171,9 +192,9 @@ every within-custodian comparison.
 | `k_min` | 5 | release suppression |
 | `window` | ISO week (sensitivity: month) | snapshots |
 | `recipient_cap` | 50 | mass-mailing exclusion |
-| `plausible_dates` | 1998-01-01 … 2002-12-31 | date noise |
-| `analysis_period` | 2000-01-01 … 2002-03-31 | series |
-| `baseline_period` | 2000-01-01 … 2000-12-31 | communities for H2, effect sizes |
+| `plausible_start` / `plausible_end` | 1998-01-01 / 2002-12-31 | date noise |
+| `analysis_start` / `analysis_end` | 2000-01-01 / 2002-03-31 | series |
+| `baseline_start` / `baseline_end` | 2000-01-01 / 2000-12-31 | communities for H2, effect sizes |
 | `name_link_support` | 3 | identity rules N3, N4 |
 | `bootstrap_reps` / `permutations` | 1000 / 1000 | intervals, p-values |
 | `ts_resolution` | hour | restricted zone |
@@ -185,7 +206,16 @@ every within-custodian comparison.
 | `manual_sample_size` | 50 | manual merge check |
 | `degree_bucket_floors` / `r2_noise_scale` | 1, 2, 5, 10 / 1.0 | release buckets, R2 noise |
 | `a2_seeds` / `a2_min_support` | 3 / 2 | attacker A2 (seeds); A2 and A3 (support) |
+| `departure_silence_weeks` / `departure_live_weeks` / `departure_active_weeks` / `departure_lookback_weeks` | 16 / 4 / 4 / 16 | H26 primary definition |
+| `departure_silence_variants` / `departure_live_variants` / `departure_active_variants` | 8, 26 / 1, 8 / 2, 8 | H26 robustness variants |
+| `departure_rolling_min_at_risk` | 20 | H26 rolling placebo windows |
+| `successor_quiet_weeks` / `successor_overlap` / `successor_min_shared` | 26 / 0.5 / 3 | H26 `no successor` variant |
+
+The table lists the parameters that shape results; the manifest's `parameters` block is the
+complete list.
 
 Fixed windows that are not run parameters (they are stated in `docs/hypotheses-exploratory.md`)
 live as constants in `config.py`: `CRISIS_WINDOW`, `REFERENCE_WINDOW`, `PLACEBO_AFTER_WINDOW`,
-`PLACEBO_BEFORE_WINDOW`, and `PUBLIC_EVENTS` (annotation only).
+`PLACEBO_BEFORE_WINDOW`, `PUBLIC_EVENTS` (annotation only), `CRISIS_SPLIT` (the second public
+event, where H26 cuts the crisis window) and `HYPOTHESES_STATED` (26, the Bonferroni bound of
+H26).

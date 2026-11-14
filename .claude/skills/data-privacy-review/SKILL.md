@@ -1,6 +1,6 @@
 ---
 name: data-privacy-review
-description: Review the repository for broken data-privacy promises, above all the promise that message content (bodies, subjects, attachments) is never read, stored or logged. Use when asked for a privacy review, a data-privacy review, or to check that we are not reading employees' messages; also before merging a work package and before submission.
+description: Review the repository for broken data-privacy promises, above all the promise that message content (bodies, subjects, attachments) is never decoded, parsed, held, stored or logged. Use when asked for a privacy review, a data-privacy review, or to check that we are not reading employees' messages; also before merging a work package and before submission.
 argument-hint: "Optional scope: a path, a branch, a work package (e.g. WP-A), or 'full'"
 user-invocable: true
 disable-model-invocation: false
@@ -10,7 +10,9 @@ disable-model-invocation: false
 
 Check whether the code, the data on disk and the documentation keep the privacy promises this
 project makes. The first and most important promise is: **we never read the content of people's
-messages.** A finding against that promise blocks a merge regardless of anything else.
+messages**, which means precisely that content is never decoded, parsed, held, stored or logged
+(body bytes pass through the decompressor and are skipped; `Subject` lines are discarded as the
+header is scanned; a folder name is reduced at once to one of four classes and never kept). A finding against that promise blocks a merge regardless of anything else.
 
 This is a review. Do not change code, data or documents. Report findings; fix only if the user
 asks afterwards.
@@ -45,10 +47,10 @@ in `specs/`: `contracts/header-allowlist.md`, `contracts/data-contracts.md`, `co
 | P1 | Message bodies and attachments are never parsed, held, stored or logged | BLOCKER |
 | P2 | `Subject` and other free-text or content-like headers (folder names, file names) are never retained | BLOCKER |
 | P3 | Header fields pass only through the documented allowlist; anything else is dropped | BLOCKER |
-| P4 | Direct identifiers (addresses, display names, mailbox owners) exist only in the ingest zone | BLOCKER |
+| P4 | Direct identifiers (addresses, display names, mailbox owners) exist only in the ingest zone; the one documented exception is `risk` (`risk/aux_public.py` reads the raw archive, `risk/score.py` the ingest zone, counts out only) | BLOCKER |
 | P5 | No table linking pseudonyms to identities exists past the boundary; the ingest zone is purged | HIGH |
 | P6 | The key is outside the repository and never in code, logs, artifacts or git history | BLOCKER |
-| P7 | Logs and error messages carry counts and pseudonyms only, never header values | HIGH |
+| P7 | Logs and error messages carry counts only (and `file_id` inside the ingest zone), never header values, addresses, names or pseudonyms | HIGH |
 | P8 | Published tables respect the minimum group size and contain no pseudonym or identifier | HIGH |
 | P9 | Raw data, ingest data and keys are never committed | BLOCKER |
 | P10 | The documentation does not claim more than the code does | MEDIUM |

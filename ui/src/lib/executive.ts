@@ -6,12 +6,17 @@
  */
 import type { DataQualityRow, ExploratoryRow, HeaderFieldRow, Period, ReleaseData, RiskRow, Scope } from "@/lib/data";
 import { CONFIDENCE } from "@/lib/data";
-import { formatNumber, formatShare, metricLabel } from "@/lib/format";
-import { type HypothesisEntry, releaseHypotheses } from "@/lib/hypotheses";
-import { type Verdict, executiveSummary, plainVerdict, untestableReason } from "@/lib/plainLanguage";
+import { formatNumber, formatShare, joinList, metricLabel } from "@/lib/format";
+
+export { joinList };
+import { type HypothesisEntry, TIMING_LABELS, countByTiming, placeboShowsChange, releaseHypotheses } from "@/lib/hypotheses";
+import { namedGroups } from "@/lib/network";
+import { outsideLabel, outsidePeople } from "@/lib/outside";
+import { type Verdict, executiveSummary, isRecordEvidence, plainVerdict, untestableReason } from "@/lib/plainLanguage";
 import { minimumGroupSize } from "@/lib/privacy";
+import { NO_BEHAVIOURAL_FINDING, recordFinding } from "@/lib/record";
 import { PERSON_LEVEL, PUBLISHED, worstReidentification } from "@/lib/risk";
-import { type SeriesPoint, analysisWeeks } from "@/lib/series";
+import { type SeriesPoint, analysisWeeks, baselinePeriod } from "@/lib/series";
 import type { ViewId } from "@/lib/views";
 
 /** Cleaning step names, as written by src/enron_case/release/tables.py (STEP_*). */
@@ -28,8 +33,8 @@ const RULING_USABLE = "usable";
 const RULING_CONTENT = "content";
 const RULING_IDENTIFIER = "identifier";
 
-/** Why the published release's re-identification rate is zero (release/report.md, privacy section). */
-const ZERO_BY_DESIGN = "That zero follows from the design: the published tables hold no person-level records for an attack to match";
+/** The count of occurrences of names without a ruling; not a header field (vocab.OTHER_HEADER_FIELD). */
+const OTHER_HEADER_FIELD = "(other)";
 
 const SCOPE_PHRASES: Record<Scope, string> = { core: "between custodians", observed: "in the observed network" };
 
@@ -40,12 +45,6 @@ export interface SummaryCard {
   points: string[];
   view: ViewId;
   linkLabel: string;
-}
-
-/** "A", "A and B", "A, B and C". */
-export function joinList(items: readonly string[]): string {
-  if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
 /** Counts are whole numbers: no decimals. */
@@ -67,19 +66,9 @@ function contentFields(fields: HeaderFieldRow[]): string[] {
   return fields.filter((row) => row.ruling === RULING_CONTENT).map((row) => row.field);
 }
 
-/** An interval that lies wholly on one side of zero. */
-function excludesZero(low: number | null, high: number | null): boolean {
-  return low !== null && high !== null && (low > 0 || high < 0);
-}
-
 /** An exploratory hypothesis ruled untestable whose measure still moved clearly: the record changed under it. */
 function shiftedRecord(entry: HypothesisEntry): entry is HypothesisEntry & { kind: "exploratory"; row: ExploratoryRow } {
-  return (
-    entry.kind === "exploratory" &&
-    plainVerdict(entry).verdict === "untestable" &&
-    entry.row.median_change !== null &&
-    excludesZero(entry.row.ci_low, entry.row.ci_high)
-  );
+  return entry.kind === "exploratory" && isRecordEvidence(entry.row);
 }
 
 function heldCount(entries: HypothesisEntry[]): number {
@@ -91,26 +80,41 @@ function behaviouralHeldCount(entries: HypothesisEntry[]): number {
   return withVerdict(entries, "held").filter((entry) => entry.kind !== "departure").length;
 }
 
+/**
+ * The weekly series' span. Weeks begin on a Monday, so a first week that starts before the
+ * analysis does is partial; the messages are not all inside these weeks, so they are counted apart.
+ */
+function seriesSentence(weeks: string[], analysisStart: unknown): string | null {
+  const [first] = weeks;
+  const last = weeks[weeks.length - 1];
+  if (first === undefined || last === undefined) return null;
+  const partial = typeof analysisStart === "string" && first < analysisStart ? "; the first week is partial" : "";
+  return `The weekly network series has ${weeks.length} weeks, beginning on the Mondays ${first} to ${last}${partial}.`;
+}
+
 export function studiedCard(data: ReleaseData): SummaryCard {
   const dedupe = step(data.tables.data_quality, STEPS.dedupe);
-  const weeks = analysisWeeks(data.tables.weekly_metrics);
   const source = data.run.sample ? "the synthetic sample corpus" : "the public Enron email archive";
   const messages = dedupe ? `${count(dedupe.count_out)} distinct messages from ${source}` : `Messages from ${source}`;
-  const span = weeks.length ? `, over ${weeks.length} weeks (weeks of ${weeks[0]} to ${weeks[weeks.length - 1]})` : "";
+  const series = seriesSentence(analysisWeeks(data.tables.weekly_metrics), data.run.parameters.analysis_start);
   const content = contentFields(data.tables.header_fields);
   const contentText = content.length
     ? ` ${joinList(content)} count${content.length === 1 ? "s" : ""} as content and ${content.length === 1 ? "was" : "were"} never stored.`
     : "";
   const events = data.events;
   const eventSpan = events.length ? ` (${events[0]?.date} to ${events[events.length - 1]?.date})` : "";
+  const entries = releaseHypotheses(data);
+  const timing = countByTiming(entries);
   return {
     key: "studied",
     eyebrow: "What was studied",
     title: "Who emailed whom, and when, never what was written",
     points: [
-      `${messages}${span}.`,
-      `Only each message's envelope was analysed: sender, recipients and time.${contentText} Bodies and attachments were never parsed or stored.`,
-      `${releaseHypotheses(data).length} hypotheses about how communication changed around ${events.length} public events${eventSpan}, each written down before its result was computed.`,
+      `${messages}.${series === null ? "" : ` ${series}`}`,
+      `Only each message's envelope was analysed: sender, recipients and time.${contentText} Bodies and attachments were never decoded, parsed or stored.`,
+      `${entries.length} hypotheses about how communication, and who took part in it, changed around ${events.length} public events${eventSpan}. ` +
+        `Each was written down before its own result was computed: ${timing.preregistered} ${TIMING_LABELS.preregistered}, ` +
+        `${timing.stated} ${TIMING_LABELS.stated}, ${timing.postHoc} ${TIMING_LABELS.postHoc}.`,
     ],
     view: "quality",
     linkLabel: "How the data was cleaned",
@@ -137,7 +141,9 @@ function shiftSentence(entry: { id: string; row: ExploratoryRow }, data: Release
     `${entry.id}, ${row.measure}: within the same ${row.custodians === null ? "" : `${row.custodians} `}custodians it moved by a median of ` +
     `${formatNumber(row.median_change)} (interval ${formatNumber(row.ci_low)} to ${formatNumber(row.ci_high)}) between the reference weeks ` +
     `(${reference.start} to ${reference.end}) and the crisis weeks (${crisis.start} to ${crisis.end}).` +
-    (reason === null ? "" : ` It is not read as behaviour: ${reason}.`)
+    (reason === null
+      ? ""
+      : ` It is not read as behaviour: ${reason}. As a claim about behaviour ${entry.id} could not be tested; the same number is read here as a measurement of the record.`)
   );
 }
 
@@ -149,10 +155,26 @@ function artifactSentence(ids: string[]): string {
   );
 }
 
-/** Measures that moved against the prediction over the same two windows, so the record change may explain them. */
-function oppositeSentence(ids: string[]): string {
-  const one = ids.length === 1;
-  return `${joinList(ids)} moved the other way to the prediction over the same two windows, so the change in the record may explain ${one ? "it" : "them"} too.`;
+/**
+ * Measures that moved against the prediction over the same two windows. The change in the record
+ * may explain them, except where the pre-crisis placebo, which lies before that change, already
+ * shows the same move.
+ */
+function oppositeSentences(entries: HypothesisEntry[]): string[] {
+  const opposite = withVerdict(entries, "opposite");
+  const before = opposite.filter((entry) => entry.kind === "exploratory" && placeboShowsChange(entry.row)).map((entry) => entry.id);
+  const open = opposite.map((entry) => entry.id).filter((id) => !before.includes(id));
+  const one = open.length === 1;
+  return [
+    ...(open.length
+      ? [`${joinList(open)} moved the other way to the prediction over the same two windows, so the change in the record may explain ${one ? "it" : "them"} too.`]
+      : []),
+    ...(before.length
+      ? [
+          `${joinList(before)} moved the other way too, but the comparison before the crisis, which lies before the change in the record, already shows the same move, so that change does not explain ${before.length === 1 ? "it" : "them"}.`,
+        ]
+      : []),
+  ];
 }
 
 function exploratoryRange(entries: HypothesisEntry[]): string {
@@ -160,23 +182,35 @@ function exploratoryRange(entries: HypothesisEntry[]): string {
   return ids.length > 1 ? `${ids[0]}–${ids[ids.length - 1]}` : joinList(ids);
 }
 
+/**
+ * The finding about the record and, only when no behavioural hypothesis is held, the sentence
+ * saying so; null when no change of the record is claimed. One line for every surface.
+ */
+export function recordFindingLine(data: ReleaseData): string | null {
+  const finding = recordFinding(data);
+  if (finding === null) return null;
+  return behaviouralHeldCount(releaseHypotheses(data)) === 0 ? `${finding} ${NO_BEHAVIOURAL_FINDING}` : finding;
+}
+
 export function recordCard(data: ReleaseData): SummaryCard {
   const entries = releaseHypotheses(data);
   const shifted = entries.filter(shiftedRecord);
   const artifacts = withVerdict(entries, "artifact").map((entry) => entry.id);
   const untestable = withVerdict(entries, "untestable").filter((entry) => !shiftedRecord(entry));
-  const opposite = withVerdict(entries, "opposite").map((entry) => entry.id);
+  const finding = recordFindingLine(data);
+  const noBehaviour = behaviouralHeldCount(entries) === 0;
   const points = [
+    ...(finding === null ? [] : [finding]),
     ...shifted.map((entry) => shiftSentence(entry, data)),
     ...(artifacts.length ? [artifactSentence(artifacts)] : []),
     ...untestable.map((entry) => `${entry.id}: ${plainVerdict(entry).sentence}`),
-    ...(shifted.length && opposite.length ? [oppositeSentence(opposite)] : []),
+    ...(shifted.length ? oppositeSentences(entries) : []),
     ...(shifted.length
       ? [`Every within-custodian comparison (${exploratoryRange(entries)}) uses these same two windows, so each one compares two ways of keeping the record.`]
       : []),
   ];
   const title =
-    shifted.length && behaviouralHeldCount(entries) === 0
+    finding !== null && noBehaviour
       ? "The record changed; no change in behaviour is established"
       : points.length
         ? "Some results reflect how the data was kept"
@@ -191,7 +225,7 @@ function confidenceCounts(entries: HypothesisEntry[]): string | null {
     const n = levels.filter((value) => value === level).length;
     return n ? [`${n} ${level}`] : [];
   });
-  return `Confidence of the ${levels.length} hypotheses stated before any data: ${parts.join(", ")}.`;
+  return `Confidence of the ${levels.length} ${TIMING_LABELS.preregistered} hypotheses: ${parts.join(", ")}.`;
 }
 
 function retentionSentence(id: string, row: ExploratoryRow, median: number): string {
@@ -227,6 +261,14 @@ export function confidenceCard(data: ReleaseData): SummaryCard {
   };
 }
 
+/** A published rate of 0: the design, stated as that and never as a measured result. */
+function zeroByDesign(k: number): string {
+  return (
+    `The published release (${PUBLISHED}) holds only groups of at least ${k} people and no person-level record, so these attacks ` +
+    "have nothing to match there: its rate of 0% is by construction, not a measurement."
+  );
+}
+
 export function privacyCard(data: ReleaseData): SummaryCard {
   const { risk } = data.tables;
   const personLevel = worstReidentification(risk, PERSON_LEVEL);
@@ -234,23 +276,20 @@ export function privacyCard(data: ReleaseData): SummaryCard {
   const attackers = new Set(
     risk.filter((row) => row.release_variant === PERSON_LEVEL && row.reid_top1 !== null).map((row) => row.attacker),
   ).size;
+  const k = minimumGroupSize(data);
   const points: string[] = [];
   if (personLevel) {
     points.push(
-      `From person-level data under pseudonyms (${PERSON_LEVEL}), the strongest of ${attackers} simulated attackers re-identified ` +
-        `${formatShare(personLevel.rate)} of ${count(personLevel.targets)} people.`,
+      `From person-level data under pseudonyms (${PERSON_LEVEL}, never published), the strongest of ${attackers} simulated attackers re-identified ` +
+        `${formatShare(personLevel.rate)} of the ${count(personLevel.targets)} people it targeted.`,
     );
   }
   if (published) {
     points.push(
-      `From the published release (${PUBLISHED}), which holds only groups of at least ${minimumGroupSize(data)} people, ` +
-        `the strongest re-identified ${formatShare(published.rate)}.`,
+      published.rate === 0
+        ? zeroByDesign(k)
+        : `Against the published release (${PUBLISHED}), which holds only groups of at least ${k} people, the strongest re-identified ${formatShare(published.rate)}.`,
     );
-    if (published.rate === 0) {
-      points.push(
-        `${ZERO_BY_DESIGN}, so it is not a measurement of every remaining risk.`,
-      );
-    }
   }
   points.push("No attack on the published group tables themselves was run.");
   return { key: "privacy", eyebrow: "Privacy", title: "Pseudonymised is not anonymous", points, view: "risk", linkLabel: "See the attacks" };
@@ -259,7 +298,7 @@ export function privacyCard(data: ReleaseData): SummaryCard {
 function identitySentence(identity: DataQualityRow): string {
   const measured =
     identity.precision !== null && identity.recall !== null
-      ? `; against known answers, precision is ${formatShare(identity.precision)} and recall ${formatShare(identity.recall)}`
+      ? `; against the known answers of the synthetic corpus, precision is ${formatShare(identity.precision)} and recall ${formatShare(identity.recall)}`
       : "";
   return `${count(identity.count_in)} addresses were merged into ${count(identity.count_out)} identities by documented rules${measured}.`;
 }
@@ -270,7 +309,31 @@ function manualSentence(manual: DataQualityRow): string | null {
     manual.precision_ci_low !== null && manual.precision_ci_high !== null
       ? ` (interval ${formatShare(manual.precision_ci_low)} to ${formatShare(manual.precision_ci_high)})`
       : "";
-  return `A person checked ${count(manual.count_in)} sampled merges and judged ${formatShare(manual.precision)} of them correct${interval}.`;
+  return (
+    `A person checked ${count(manual.count_in)} sampled merges and judged ${formatShare(manual.precision)} of them correct${interval}. ` +
+    "That sample gives no recall; precision and recall against known answers exist for the synthetic corpus only."
+  );
+}
+
+/**
+ * Why the counts of people differ from view to view: each has its own base. Null unless at least
+ * two of the bases are in the release.
+ */
+export function peopleBases(data: ReleaseData): string | null {
+  const identity = step(data.tables.data_quality, STEPS.identity);
+  const attacked = worstReidentification(data.tables.risk, PERSON_LEVEL);
+  const groups = data.tables.community_groups;
+  const grouped = namedGroups(groups).reduce((sum, group) => sum + group.n_persons, 0);
+  const outside = outsidePeople(groups);
+  const label = outsideLabel(baselinePeriod(data)).toLowerCase();
+  const parts = [
+    identity ? `${count(identity.count_out)} identities are every address owner in the corpus after merging` : null,
+    attacked ? `${count(attacked.targets)} are the people in the observed network that the strongest attack targeted` : null,
+    grouped > 0
+      ? `${count(grouped)} internal people are in a published group` + (outside === null ? "" : ` and ${count(outside)} are ${label}`)
+      : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length < 2 ? null : `The counts of people have different bases: ${parts.join("; ")}.`;
 }
 
 export function qualityCard(data: ReleaseData): SummaryCard {
@@ -288,11 +351,12 @@ export function qualityCard(data: ReleaseData): SummaryCard {
     events
       ? `${count(events.count_out)} of ${count(events.count_in)} sender–recipient links entered the network; the rest belong to messages flagged out of it, such as mass mailings.`
       : null,
+    peopleBases(data),
   ].filter((point): point is string => point !== null);
   return {
     key: "quality",
     eyebrow: "Data quality",
-    title: "Cleaned by documented rules, with measured error",
+    title: "Cleaned by documented rules, checked on a sample",
     points,
     view: "quality",
     linkLabel: "See every cleaning step",
@@ -354,16 +418,19 @@ export function metricCaption(baseline: Period | null): string {
   );
 }
 
-/** The risk chart's headline, or null when either release was not attacked. */
+/** The risk chart's headline, or null when either release has no row. */
 export function riskHeadline(rows: RiskRow[]): string | null {
   const personLevel = worstReidentification(rows, PERSON_LEVEL);
   const published = worstReidentification(rows, PUBLISHED);
   if (personLevel === null || published === null) return null;
-  return (
-    `The strongest attack re-identified ${formatShare(personLevel.rate)} of people from person-level data (${PERSON_LEVEL}); ` +
-    `the strongest against the published release (${PUBLISHED}), ${formatShare(published.rate)}.` +
-    (published.rate === 0 ? ` ${ZERO_BY_DESIGN}.` : "")
-  );
+  const measured = `The strongest attack re-identified ${formatShare(personLevel.rate)} of people from person-level data (${PERSON_LEVEL}), which is never published`;
+  if (published.rate === 0) {
+    return (
+      `${measured}. The published release (${PUBLISHED}) holds no person-level record, so these attacks have nothing to match there: ` +
+      "its 0% is by construction, not a measurement."
+    );
+  }
+  return `${measured}; against the published release (${PUBLISHED}), the strongest reached ${formatShare(published.rate)}.`;
 }
 
 /** The cleaning funnel's headline, or null when the deduplication step is not in the release. */
@@ -373,11 +440,12 @@ export function funnelHeadline(steps: DataQualityRow[]): string | null {
   return `Of ${count(dedupe.count_in)} stored copies, ${count(dedupe.count_out)} distinct messages remain after removing duplicates.`;
 }
 
-/** The header ruling's headline: what is kept and what is never stored. */
+/** The header ruling's headline: what is kept and what is never stored, over the fields that have a name. */
 export function headerHeadline(fields: HeaderFieldRow[]): string {
-  const usable = fields.filter((row) => row.ruling === RULING_USABLE).map((row) => row.field);
-  const identifiers = fields.filter((row) => row.ruling === RULING_IDENTIFIER).length;
-  const content = contentFields(fields);
+  const named = fields.filter((row) => row.field !== OTHER_HEADER_FIELD);
+  const usable = named.filter((row) => row.ruling === RULING_USABLE).map((row) => row.field);
+  const identifiers = named.filter((row) => row.ruling === RULING_IDENTIFIER).length;
+  const content = contentFields(named);
   const parts = [
     usable.length ? `${joinList(usable)} ${usable.length === 1 ? "is" : "are"} kept as metadata` : "none is kept as metadata",
     ...(identifiers
@@ -385,5 +453,21 @@ export function headerHeadline(fields: HeaderFieldRow[]): string {
       : []),
     ...(content.length ? [`${joinList(content)} ${content.length === 1 ? "is" : "are"} content and never stored`] : []),
   ];
-  return `Of ${fields.length} header fields, ${parts.join("; ")}.`;
+  return `Of ${named.length} named header fields, ${parts.join("; ")}.`;
+}
+
+/** Fields ruled identifier that the parser drops instead of retaining (vocab.IDENTIFIERS_NOT_RETAINED). */
+const IDENTIFIERS_NOT_RETAINED: readonly string[] = ["X-Origin", "X-FileName"];
+
+/** What the ruling table cannot show by itself: identifiers that are not retained, and the fold that is not a field. */
+export function headerNotes(fields: HeaderFieldRow[]): string[] {
+  const dropped = fields.filter((row) => IDENTIFIERS_NOT_RETAINED.includes(row.field)).map((row) => row.field);
+  return [
+    ...(dropped.length
+      ? [`${joinList(dropped)} ${dropped.length === 1 ? "is a direct identifier that is" : "are direct identifiers that are"} not retained: the parser drops ${dropped.length === 1 ? "it" : "them"}.`]
+      : []),
+    ...(fields.some((row) => row.field === OTHER_HEADER_FIELD)
+      ? [`${OTHER_HEADER_FIELD} counts occurrences of names without a ruling; it is not a field.`]
+      : []),
+  ];
 }

@@ -35,9 +35,10 @@ cannot reach the body is easier to trust and to test than one that parses it and
 **Honest limit**: body bytes still pass through the decompressor on their way to being skipped,
 and the downloaded archive on disk contains them. "Never enters the system" means never decoded,
 parsed, held, stored or logged by our code. With real customer data the equivalent control is a
-connector that requests metadata fields only where the provider offers such a scope, so mail
-content never leaves the source; chat APIs without one (Teams, Slack) return text, which the
-connector must drop in memory.
+connector that requests metadata fields only where the provider offers such a scope, so bodies
+and attachments never leave the source; `Subject` still arrives and is discarded at the
+allowlist. Chat APIs without such a scope (Teams, Slack) return text, which the connector must
+drop in memory.
 
 **Alternatives considered**: extract then parse (content on disk in the clear; rejected);
 `email.parser.HeaderParser` (reads the body as payload; rejected).
@@ -197,9 +198,11 @@ is exactly where hindsight bias enters. Fixing the hypotheses and reporting the 
 defence available in the time.
 
 **As built**: H1–H4 as above, plus H5–H24 (two families stated before each was computed) and
-H25, a post-hoc replication test of a published denser-network result, all as one list H1–H25
-(`docs/hypotheses.md`, `docs/hypotheses-exploratory.md`). None is held true. The published
-finding is descriptive: the record changed from May 2001 on (`record_profile`).
+H25, a post-hoc replication test of a published denser-network result (Diesner & Carley,
+2005), and H26, a post-hoc structural question about custodian departures, all as one list
+H1–H26 (`docs/hypotheses.md`, `docs/hypotheses-exploratory.md`). None is held true. The
+finding is descriptive: the record changed from May 2001 on (`record_profile`); no behavioural
+finding about the crisis year is claimed.
 
 ## R11. Evidence and confidence
 
@@ -253,7 +256,8 @@ product, too much to do correctly in the time; R2 is presented as a sketch with 
 every custodian: the public corpus names every mailbox owner, so anyone holding it knows them
 all. R1 carries no pseudonyms, so per-release re-keying was dropped; R2's noise has a fixed scale
 and is not calibrated to a budget. On R0, A1 re-identified about a quarter of the targets and A2
-and A3 more than half, not nearly everyone; on R1 and R2 nobody, by construction. No group-level
+and A3 more than half, not nearly everyone; on R1 and R2 the rate is 0 by construction, not a
+measurement: no person-level record remains to match. No group-level
 attack on `community_graph` was run (`release/report.md`, limits).
 
 ## R13. Keeping agent-written code correct
@@ -308,4 +312,5 @@ deliverable, mixes code and output).
 **As built**: the UI became part of the one command (`make` builds it, runs its gate and serves
 it; Node 20+ is a prerequisite). The network view is drawn with React Sigma + Sigma.js over
 graphology, laid out once with ForceAtlas2, with an SVG `d3-force` fallback without WebGL; a
-Clusters view (chord diagram) was added. The group graph was not attacked (see R12).
+Clusters view (chord diagram), an Executive summary landing view and a Glossary were added,
+ten views in all. The group graph was not attacked (see R12).

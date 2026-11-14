@@ -27,9 +27,10 @@ weight, on one scale for all weeks. Sizes are in layout units (`itemSizesReferen
 so everything zooms together. Controls: zoom in, out and reset, fullscreen, search by group label,
 and hover highlighting of a group and its ties; a legend shows the size and width scales. Colours
 are read from the CSS variables in `src/index.css` and converted to hex (`src/lib/color.ts`).
-The "Individuals (anonymous)" mode fills each published group with `n_persons` points at seeded
-random positions (seed: the run seed): they have no label, tooltip, hover text or ties, and their
-Sigma keys are opaque sequence numbers (`point:<group index>-<index>`).
+The group-size dots mode fills each published group with `n_persons` dots at seeded random
+positions (seed: the run seed). The dots only show how many people a group has, not real
+individuals or ties: they have no label, tooltip, hover text or ties, and their Sigma keys are
+opaque sequence numbers (`point:<group index>-<index>`).
 The "Overlap" mode (WebGL only; the SVG fallback disables it and says so) draws the week's
 `OVERLAP_PAIRS` (6) heaviest ties by message count between published groups as intersecting
 contours; the other ties stay lines. The contours are one `@sigma/layer-webgl` (3.0.0, the line
@@ -46,7 +47,8 @@ of the less internally active side + shared), capped at `OVERLAP_MAX_DEPTH`; cen
 r_a + r_b − depth · 2 · min(r_a, r_b) apart. Positions start from the ForceAtlas2 layout and are
 relaxed per week by a fixed-iteration distance-constraint solve that keeps every other pair at
 least the layout's smallest gap apart (no randomness); Sigma animates groups between weeks. An
-overlap is mail between two groups, never shared members: each person is in exactly one group.
+overlap is mail between two groups, never shared members: each grouped person is in exactly one
+group.
 Hovering a group lists each overlap's message count and both sides' shares (`src/lib/overlap.ts`). The data mapping is in
 `src/lib/sigmaNetwork.ts` and `src/lib/cells.ts`; tests replace React Sigma with
 `src/test/reactSigma.tsx`, since jsdom has no WebGL.
@@ -61,20 +63,23 @@ the sample and against the real outcomes; the fixed sentences restate method and
 charts open with a headline generated from the data and a "How to read it" caption. A "?" next to a
 technical term opens its plain meaning from `src/lib/glossary.ts` (`src/components/Explain.tsx`);
 the Glossary view lists them all. Full statistics stay one click away under "Details for analysts".
-The release does not carry the month-by-month record profile, so the summary names the change in
-the record through H5 and the two comparison windows, not by month.
+`release.json` carries the month-by-month record profile (`record_profile`), so the explorer
+derives the confidence that the record changed by the same rule as the report
+(`docs/metrics.md`); the summary names the change through H5 and the two comparison windows.
 
 Readers who are not data scientists get the answer first, in plain words. The Overview opens with
 an "In short" card; the Hypotheses view opens with one sentence and a verdict per hypothesis and a
 glossary (`src/lib/glossary.ts`); the Network view opens with "How to read this" and a sentence
 summing up the selected week. Every sentence is built from release fields by fixed rules in
-`src/lib/plainLanguage.ts`: a headline or confident outcome "held up"; a supported hypothesis whose
-artifact check fails is "explained by the data"; a caveat starting `invalid:` or `untestable:` means
-"could not be tested". Nothing in these texts is written by hand about the results.
+`src/lib/plainLanguage.ts`: a headline or confident outcome is "Held up"; a supported hypothesis
+whose artifact check fails is "Explained by an artifact"; a caveat starting `invalid:` or
+`untestable:` means "Could not be tested"; a clear change against the prediction is "Changed the
+other way"; a change the data cannot tell from none is "Not established". Nothing in these texts is written by hand about the results.
 
-The hypotheses view then shows, for analysts, one list: the `hypotheses` table (stated before any data, with their
-artifact checks under each row) and the `exploratory` table (stated before being computed), merged
-and ordered by the number in each id (`src/lib/hypotheses.ts`). The headline and every confident
+The hypotheses view then shows, for analysts, one list: the `hypotheses` table ("pre-registered",
+H1–H4, with their artifact checks under each row) and the `exploratory` table ("stated before
+computed, after earlier results", H5–H24, and "post hoc", H25), merged and ordered by the number
+in each id (`src/lib/hypotheses.ts`), then H26 ("post hoc") from the departure tables. The headline and every confident
 outcome are marked "Held true"; the Overview repeats each held-true measure in one line.
 
 The clusters view is a chord diagram of message weight between the published groups

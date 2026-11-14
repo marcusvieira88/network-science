@@ -1,10 +1,15 @@
-# Exploratory hypotheses E1–E21 (= H5–H25)
+# Exploratory hypotheses E1–E21 (= H5–H25) and question O1 (= H26)
 
 > **Numbering (added later).** These hypotheses are now numbered as one list with the
-> pre-registered ones: **E*n* is H*n*+4** (E1 = H5 … E12 = H16 … E20 = H24, and the post-hoc
-> E21 = H25 at the end of this file). This file keeps the original E-numbers because it is the
-> dated record of when each was stated; the code, the release tables, the report and the UI use
-> H5–H25.
+> pre-registered ones: **E*n* is H*n*+4** (E1 = H5 … E12 = H16 … E20 = H24, the post-hoc
+> E21 = H25, and the post-hoc question **O1 = H26** at the end of this file). This file keeps
+> the original numbers because it is the dated record of when each was stated; the code, the
+> release tables, the report and the UI use H5–H26.
+>
+> **Timing labels (added 2026-11-14).** Every surface uses three labels: "pre-registered" for
+> H1–H4 (before any real data), "stated before computed, after earlier results" for H5–H24
+> (this file calls them exploratory), and "post hoc" for H25 and H26. Notes in italics below
+> mark what was added or corrected after a section was first written; the original text stays.
 
 **Status: stated and committed before any of them was computed.** This is a second, exploratory
 family, added after the pre-registered family H1–H4 (`docs/hypotheses.md`) produced no finding.
@@ -27,6 +32,9 @@ It is reported as exploratory. Its design answers the two artifacts that explain
 | Placebo before (P0) | 2000-01-01 to 2000-04-30 | same calendar weeks one year earlier |
 
 Local time is Houston (UTC−6, UTC−5 from April to October); timestamps are hour-resolution.
+*(Clarified 2026-11-14: the corpus's `Date` headers carry Pacific offsets, which is what "Known
+limits" below refers to; the pipeline converts them to UTC and measures hours in Houston local
+time.)*
 
 ## Units
 
@@ -69,7 +77,11 @@ For each hypothesis, the paired difference d = measure(W1) − measure(W0) per c
 1. Holm-adjusted p < 0.05;
 2. the interval lies wholly on the hypothesised side of zero;
 3. placebo: its interval includes zero, or its median is less than half the crisis median on the
-   same side (a pre-existing trend would otherwise explain the change);
+   same side (a pre-existing trend would otherwise explain the change). *(Reading note,
+   2026-11-14; the rule is unchanged: "passes" means no change in the predicted direction before
+   the crisis. A placebo that moves the other way passes even when it is as large as the crisis
+   change (H21), and so does one whose interval touches zero while its median exceeds the crisis
+   median (H25); read `placebo_median` next to `placebo_passes`.)*
 4. every leave-one-out median has the hypothesised sign.
 
 Otherwise the outcome is *not supported* or *inconclusive*, and is reported as such. All ten
@@ -98,7 +110,9 @@ outcomes are published, whatever they are.
 
 **Status: stated and committed before any of them was computed, after E1–E10 were computed.**
 E1–E10 produced no confident result. They showed that hour-of-day measures are unreliable in this
-corpus (the 2000 timestamps are shifted by several hours) and that Bcc carries no information
+corpus (the 2000 timestamps are shifted by several hours; *superseded, as built: the hour
+convention differs between the two years, and which year is the shifted one is not established,
+see the timestamp caveat below*) and that Bcc carries no information
 (every Bcc line repeats the Cc line). This family avoids both. It uses the same windows, units,
 minimum of 20 messages, test and decision rule as E1–E10, with one change: **Holm's correction runs
 across all twenty exploratory hypotheses, E1–E20**, so adding hypotheses makes each one harder to
@@ -192,12 +206,17 @@ and after prior work on the corpus was read, and before E21 was computed.** It i
 prediction of ours: it tests, at the scope our design can defend, the best-known published result
 on how this network changed in 2001. Diesner, Frantz & Carley (2005) compare monthly networks
 among Enron employees and report that during the crisis the network became denser and more
-connected. Our pre-registered H1–H4 do not test density, and the network-level density of the
+connected. *(Attribution corrected 2026-11-14, after checking both papers; the hypothesis and
+its rule are unchanged. The denser, more connected crisis network, density 0.018 in October 2000
+against 0.031 in October 2001, is reported by Diesner & Carley (2005), who compare those two
+single months. Diesner, Frantz & Carley (2005) analyse monthly networks and report that
+employee-level density does not follow the scandal, while previously disconnected people begin
+to communicate. E21 tests the Diesner & Carley result.)* Our pre-registered H1–H4 do not test density, and the network-level density of the
 observed or core network moves with how much mail was kept, so it cannot be read as behaviour.
 
 | ID | Measure per custodian and window | Direction in crisis | Reasoning |
 |----|----------------------------------|---------------------|-----------|
-| E21 | share of the other custodians with whom the custodian exchanged at least one message, in either direction, in the window (core ego density; any surviving copy counts) | up | Diesner, Frantz & Carley (2005): denser, more connected communication in the crisis |
+| E21 | share of the other custodians with whom the custodian exchanged at least one message, in either direction, in the window (core ego density; any surviving copy counts) | up | Diesner & Carley (2005): denser, more connected communication in the crisis *(attribution corrected, see above)* |
 
 - **Units, windows, test and rule**: exactly as E1–E20 (crisis against the same weeks a year
   earlier; pre-crisis placebo; leave-one-out; Wilcoxon signed-rank; median with a bootstrap
@@ -260,7 +279,8 @@ the question is asked about them.
 - **Communities fitted per period and tracked over time** (births, deaths, merges, splits) were
   considered and rejected. The observed network is the union of about 150 mailboxes' ego
   networks: a community "dies" when the mailboxes that saw it stop holding mail or when inbox
-  retention changes, and received mail kept grows up to about 3.5× in the crisis. Its shape
+  retention changes, and received mail kept grows up to about 3.5× in the crisis (the largest
+  crisis month against the largest reference month; about five times October on October). Its shape
   follows coverage, not the organization, and a placebo cannot separate the two.
 - **Core concentration** (share of internal mail through the top-k senders) is close to H1
   (in-degree Gini, not supported) and H13/H21 (top-three shares, not supported).
@@ -355,6 +375,7 @@ If any of 1–4 fails, the result is: **no departure wave can be established**, 
 ## Known limits, stated before computing
 
 - Custodians are about 150 mostly senior people; a departure among them is not a layoff count.
+  *(As built: about 150 mailboxes give 147 custodian entities, 122 of them internal persons.)*
 - A live silence is also produced by leave, a role without email, an assistant sending on X's
   behalf, or an unmerged address change (the successor variant only partly covers it).
 - A message addressed to X can sit in another custodian's mailbox through an invisible Bcc; it
@@ -375,7 +396,8 @@ Two publication details changed while designing the release table, before any nu
 - **No monthly hazard is published.** Monthly departure counts overlap the window counts, so a
   published window total minus published months would reveal a month below k. Instead the
   crisis departures are split at the third-quarter loss announcement (2001-10-16, the middle
-  event of `config.PUBLIC_EVENTS`): before it and from it on. Both parts are published only if
+  event of `config.PUBLIC_EVENTS`; *corrected 2026-11-14: it is the second of the five events,
+  `config.CRISIS_SPLIT`*): before it and from it on. Both parts are published only if
   both reach k. Descriptive; not part of the rule.
 - **Variants publish no counts.** Their at-risk sets and departures are nested in the primary's
   (a variant's count minus the primary's could describe fewer than k custodians), so each variant

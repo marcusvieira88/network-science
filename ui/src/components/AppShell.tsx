@@ -36,7 +36,6 @@ interface AppShellProps {
   onSelect: (view: ViewId) => void;
   run: RunInfo;
   contractVersion: string;
-  source: "release" | "sample";
   children: ReactNode;
 }
 
@@ -47,7 +46,8 @@ function parameterText(value: unknown): string {
   return Array.isArray(value) ? value.join(", ") : String(value);
 }
 
-export function AppShell({ active, onSelect, run, contractVersion, source, children }: AppShellProps) {
+/** The badge follows `run.sample`: what the data is, not which file it was loaded from. */
+export function AppShell({ active, onSelect, run, contractVersion, children }: AppShellProps) {
   const activeLabel = VIEWS.find((view) => view.id === active)?.label ?? "";
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -92,7 +92,7 @@ export function AppShell({ active, onSelect, run, contractVersion, source, child
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-4 border-b px-6 py-4 print:px-0 print:py-1">
           <h1 className="text-lg font-semibold tracking-tight">{activeLabel}</h1>
-          {source === "sample" ? (
+          {run.sample ? (
             <Badge variant="outline" className="border-amber-500/40 text-amber-300 print:text-black">
               Sample data
             </Badge>

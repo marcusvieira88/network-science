@@ -11,7 +11,7 @@ describe("RiskPanel", () => {
   it("groups re-identification by release variant and attacker", () => {
     expect(reidByVariant(rows)).toEqual([
       { variant: "R0", A1: 0.9, A2: 0.62, A3: 0.7 },
-      { variant: "R1", A1: 0, A2: 0.02, A3: 0 },
+      { variant: "R1", A1: 0, A2: 0, A3: 0 },
       { variant: "R2", A1: 0, A2: 0, A3: 0 },
     ]);
   });
@@ -21,9 +21,27 @@ describe("RiskPanel", () => {
     const [table] = screen.getAllByRole("table");
     if (!table) throw new Error("table missing");
     expect(table.querySelectorAll("tbody tr")).toHaveLength(9);
-    expect(table).toHaveTextContent("R0 · pseudonymised edge list (before)");
+    expect(table).toHaveTextContent("R0 · pseudonymised edge list (person-level, never published)");
     expect(table).toHaveTextContent("90%");
     expect(table).toHaveTextContent("0.97");
+  });
+
+  it("marks a zero on a release without person-level records as by construction, and only there", () => {
+    render(<RiskPanel rows={rows} />);
+    const [table] = screen.getAllByRole("table");
+    if (!table) throw new Error("table missing");
+    const marked = [...table.querySelectorAll("tbody tr")].filter((tr) => tr.textContent?.includes("0% (by construction)"));
+    // The sample's six R1 and R2 rows are all zero; none of the three R0 rows is.
+    expect(marked).toHaveLength(6);
+    expect(marked.every((tr) => !tr.textContent?.startsWith("R0"))).toBe(true);
+    expect(screen.getByText(/it is the only release these attacks measure/)).toBeInTheDocument();
+  });
+
+  it("says why utility is empty when there is no headline to recompute", () => {
+    const { rerender } = render(<RiskPanel rows={rows} />);
+    expect(screen.queryByText(/no headline finding to recompute/)).not.toBeInTheDocument();
+    rerender(<RiskPanel rows={rows.map((row) => ({ ...row, utility_effect_ratio: null, finding_survives: null }))} />);
+    expect(screen.getByText(/no headline finding to recompute/)).toBeInTheDocument();
   });
 
   it("shows whether the finding survives as yes, no or n/a", () => {

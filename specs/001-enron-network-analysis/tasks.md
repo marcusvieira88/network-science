@@ -13,6 +13,15 @@ description: "Task list for the Enron headers-only network analysis case"
 constitution. Within each work package, tests are written first against the synthetic fixtures
 and must fail before the implementation exists.
 
+**As built (note of 2026-11-14)**: the task texts below are the original plan and are not
+rewritten. Where a task names something that changed, the code and
+[contracts/cli.md](contracts/cli.md) are right. In particular: the Makefile also has `check`,
+`fixtures` and `ui-deps`, and `make` creates a key instead of stopping with exit 3 (T003); CI
+runs both gates on Ubuntu, macOS and Windows through `enron-case gate` and `enron-case ui-gate`
+(T004); the explorer has ten views, not seven (T093, `ui/src/lib/views.ts`); there is no
+`tests/integration/` folder: the end-to-end sample tests live in `tests/unit` and
+`tests/privacy` (T043, T075); and there are five user stories, US1–US5.
+
 **Organization**: Tasks are grouped by user story. Every task names the work package (WP) that
 owns it. A WP owns its paths exclusively, so tasks of different WPs never touch the same file.
 
@@ -20,7 +29,7 @@ owns it. A WP owns its paths exclusively, so tasks of different WPs never touch 
 
 - **[P]**: can run in parallel with other [P] tasks of the same phase (different files, no
   dependency on an unfinished task)
-- **[Story]**: US1–US4 from [spec.md](spec.md)
+- **[Story]**: US1–US5 from [spec.md](spec.md)
 - **(WP-x)**: the work package, and therefore the agent, that owns the task
 - All source paths are under `src/enron_case/` unless they start with `tests/`, `docs/`,
   `release/` or the repository root
@@ -322,17 +331,22 @@ boundary, plus measured data-quality numbers
 ## Phase 8: Polish & Cross-Cutting Concerns
 
 - [ ] T100 (WP0) Run all validation scenarios V1–V10 of `specs/001-enron-network-analysis/quickstart.md` and record results in `docs/ai-workflow-log.md`
-  - Status: not done; no V1–V10 results are logged.
+  - Status: not done as one pass; no V1–V10 results are logged. What is recorded: V1, V2, V4
+    and V6 are tests of `make gate`; V3 (`enron-case verify`) compares two runs of the sample;
+    on the real corpus two full runs with one key gave identical fingerprints for all 25 outputs
+    that existed at T084 (commit `ec749a3`), and that comparison was not recorded again after
+    the later changes. V4 as first written could not be run (`--sample` forces the test key) and
+    is now the unit test `test_different_key_gives_disjoint_pids`.
 - [ ] T101 (WP0) Final independent review by the Reviewer agent: run the `/code-review` skill on the whole repository and check it against the constitution, privacy principles first; fix or record each finding in `docs/ai-workflow-log.md`
   - Status: not done as a whole-repository pass. Two independent reviews covered all packages (T045, T061/T076), and later changes were reviewed per change (see below).
-- [ ] T102 (WP0) Run the `/data-privacy-review` skill on the whole repository with real data on disk (verdict must not be BLOCKED; the content promise must be confirmed, not inferred), then the `/security-review` skill (focus: key handling in `src/enron_case/pseudo/keys.py`, zone guard in `src/enron_case/zones.py`, archive download and tar handling in `src/enron_case/ingest/`, anything committed that should not be); fix or record each finding in `docs/ai-workflow-log.md`
-  - Status: `/security-review` done 2026-11-14 on the whole repository at `ce3efa3` (branch `review/pre-delivery-security`; the skill only covers a diff, so its method was applied by hand). Verdict: no critical or high findings. Fixed, each with a test: real runs now check the pinned SHA-256 whenever the archive is read (`StageContext.archive`), not only in fetch, so `--from parse` or `stage risk` cannot read a substituted file (medium); both header readers stop at `config.MAX_HEADER_BYTES` per member (low); a key file open to group or others is refused with exit 3 (low); CI has `permissions: contents: read`, actions pinned to commit SHAs and no persisted token (low); `check-build.mjs` checks every CSP directive's exact sources (`ui/scripts/csp.mjs`) instead of substrings (low); an unresumable partial download (HTTP 416) is discarded (low); `run-all.sh` accepts a numeric `UI_PORT` only (low); `.gitignore` covers `.env*` and `*.pem`; `docs/deployment-aws.md` network, Secrets Manager and sign-in claims made consistent. Recorded, not fixed: redirects are followed without an https-only check and the download has no size cap (the SHA-256 pin protects integrity; the corpus is public); `npm audit` reports 7 moderate dev-only issues (minimatch ReDoS through `typescript-eslint`, lint time only, not reachable); `pip-audit` and `npm audit --omit=dev` report none. Git history: no tokens, private keys, `.env` files or `data/` files. Still open: the final `/data-privacy-review` with real data on disk, and copying these findings into `docs/ai-workflow-log.md` (the Lead's file).
+- [x] T102 (WP0) Run the `/data-privacy-review` skill on the whole repository with real data on disk (verdict must not be BLOCKED; the content promise must be confirmed, not inferred), then the `/security-review` skill (focus: key handling in `src/enron_case/pseudo/keys.py`, zone guard in `src/enron_case/zones.py`, archive download and tar handling in `src/enron_case/ingest/`, anything committed that should not be); fix or record each finding in `docs/ai-workflow-log.md`
+  - Status: `/security-review` done 2026-11-14 on the whole repository at `ce3efa3` (branch `review/pre-delivery-security`; the skill only covers a diff, so its method was applied by hand). Verdict: no critical or high findings. Fixed, each with a test: real runs now check the pinned SHA-256 whenever the archive is read (`StageContext.archive`), not only in fetch, so `--from parse` or `stage risk` cannot read a substituted file (medium); both header readers stop at `config.MAX_HEADER_BYTES` per member (low); a key file open to group or others is refused with exit 3 (low); CI has `permissions: contents: read`, actions pinned to commit SHAs and no persisted token (low); `check-build.mjs` checks every CSP directive's exact sources (`ui/scripts/csp.mjs`) instead of substrings (low); an unresumable partial download (HTTP 416) is discarded (low); `run-all.sh` accepts a numeric `UI_PORT` only (low); `.gitignore` covers `.env*` and `*.pem`; `docs/deployment-aws.md` network, Secrets Manager and sign-in claims made consistent. Recorded, not fixed: redirects are followed without an https-only check and the download has no size cap (the SHA-256 pin protects integrity; the corpus is public); `npm audit` reports 7 moderate dev-only issues (minimatch ReDoS through `typescript-eslint`, lint time only, not reachable); `pip-audit` and `npm audit --omit=dev` report none. Git history: no tokens, private keys, `.env` files or `data/` files. *(That closing sentence, "Still open: the final `/data-privacy-review` with real data on disk, and copying these findings into `docs/ai-workflow-log.md`", is superseded as of 2026-11-14.)* The whole-repository `/data-privacy-review` also ran before delivery, on branch `review/pre-delivery-privacy` (merged in `e40d7f3`), verdict PASS WITH FINDINGS as reported by the lead; its six fixes and the real-corpus rerun that followed (`03417b8`: release tables and report unchanged) are that branch's seven commits. Both reviews now have a row in `docs/ai-workflow-log.md`, so both halves of this task are recorded as done. (`run-all.sh` above was later replaced by `enron-case all`, `src/enron_case/onecommand.py`.)
 - [ ] T103 [P] (WP0) Check honesty requirements: report, decision record and slides each name at least three limits; every number in them is injected; the decision record fits one page
   - Status: partly covered by tests (`tests/unit/report/test_render.py`: numbers in the report, decision record and slides trace to release cells; the decision record fits one page); the limits count is not checked.
 - [ ] T104 [P] (WP0) Check the git history and working tree for anything from `data/`, any key, any real address or name; confirm `.gitignore` coverage
   - Status: not done.
 - [ ] T105 (WP0) Clean-clone rehearsal on a second machine or fresh container: `make gate`, `make sample`, `make key`, `make all`
-  - Status: partly done. `make` ran end to end on a fresh clone (about 24 minutes, 20 of them the download; it creates the key and runs `make gate` and `make ui-gate` itself). Not on a second machine or container, and `make sample` was not part of it.
+  - Status: partly done. `make` ran end to end on a fresh clone (about 25 minutes, about 20 of them the download; it creates the key and runs `make gate` and `make ui-gate` itself). Not on a second machine or container, and `make sample` was not part of it.
 - [ ] T106 (WP0) Run `/speckit-converge` to compare the code with spec, plan and tasks; resolve or record any gap
   - Status: not done; the documentation was brought in line with the code by hand (this section and the as-built section of `plan.md`).
 - [ ] T107 (WP0) Rehearse the 15-minute presentation against `docs/slides.md` with a timer; cut slides until it fits
@@ -402,7 +416,7 @@ The Reviewer agent reviews each branch; the Lead merges and runs the integration
 ### MVP first (US1 only)
 
 Phases 1–3. Stop and validate: canary clean, quality numbers measured, pseudonyms stable. This
-alone covers tasks 1–2 of the brief and three of the four things the reviewers say count.
+alone covers tasks 1–2 of the brief and three of its four review criteria.
 
 ### Incremental delivery
 
@@ -422,8 +436,15 @@ k-threshold, pre-stated hypotheses, the limits sections.
 
 ## Work done beyond the original tasks
 
-Recorded in order in `docs/ai-workflow-log.md`; commit messages name each change. None of this
-was in the task list above.
+The main delegations are recorded in order in `docs/ai-workflow-log.md` (not every one has a
+row; the git history is complete); commit messages name each change. None of this was in the
+task list above.
+
+**Deviation from the constitution (recorded 2026-11-14).** Principle VI says that code without
+a task traceable to the spec must not be merged. The work in this section was merged without a
+prior task: each item followed a real-data result or a review, and was recorded here after the
+fact instead of being added to the task list first. The same deviation is in the deviation
+table of [plan.md](plan.md#complexity-tracking).
 
 - **Header reader hardening** (review 1, with T045): the reader also stops at whitespace-only
   lines, non-header lines and a line cap, and such members are rejected; only contract-known
@@ -453,22 +474,30 @@ was in the task list above.
 - **Explorer UI beyond WP-J**: the Network view went through a 3D version and was then rebuilt
   on React Sigma + Sigma.js (graphology, one deterministic ForceAtlas2 layout, zoom, fullscreen,
   search, hover, an anonymous Individuals mode, SVG fallback without WebGL); Clusters view (chord
-  diagram); one Hypotheses list H1–H25 with a held-true marker and the artifact and retention
-  checks; release format version 2 adds the crisis and reference windows.
+  diagram); one Hypotheses list H1–H25 (H1–H26 since H26 was added) with a held-true marker and
+  the artifact and retention checks; release format version 2 adds the crisis and reference
+  windows. Later still: an Executive summary landing view and a Glossary view, ten views in all;
+  the "anonymous Individuals" mode is the group-size dots mode, whose dots only show how many
+  people a group has, not real individuals or ties.
 - **Manual identity check** (T046 as built): `enron-case review-merges`; a person judged a seeded
   sample of real merges; counts only, committed as `checks/identity_manual.json` (the `checks`
   zone) so a fresh clone publishes the same `data_quality` rows.
 - **Data-science review fixes** (contract 1.5): the full cleaning funnel in `data_quality`, an
   exact interval for the manual check, the corpus SHA-256 in the manifest, a calibration test of
   the permutation test under autocorrelation.
-- **One command**: bare `make` (`scripts/run-all.sh`) checks prerequisites, installs, creates a
-  key if none is configured, downloads, runs the pipeline and both gates, builds and serves the
-  explorer; `make check` does all but serve; `enron-case summary` prints the held-true count.
+- **One command**: bare `make` (`enron-case all`, in `src/enron_case/onecommand.py`; first
+  built as `scripts/run-all.sh`, which was then replaced so that Windows runs the same steps)
+  checks prerequisites, installs, creates a key if none is configured, downloads, runs the
+  pipeline and both gates, builds and serves the explorer; `make check` does all but serve;
+  `enron-case summary` prints the held-true count.
 - **Final review against prior work** (contract 1.6): the record profile (`record_profile`), which
   shows the `Date` convention changing from May 2001 on and became the published
   finding; H25, a post-hoc replication test of a published denser-network result, stated before
   it was computed (not supported); two null-model defects fixed; attacker A3 (every custodian
   known); a related-work comparison in `docs/technical-overview.md`.
+- **H26, custodian departures** (contract 1.7, `finding/departures.py`): a structural question
+  stated post hoc (O1 in `docs/hypotheses-exploratory.md`) before it was computed; not
+  established. One list H1–H26 in release, report and UI.
 - **Documentation as built**: architecture, contracts, data model, this section and the
   as-built section of `plan.md` updated to describe the code.
 

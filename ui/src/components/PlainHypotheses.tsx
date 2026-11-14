@@ -1,6 +1,6 @@
 import { DepartureDetails } from "@/components/DepartureDetails";
 import { Badge } from "@/components/ui/badge";
-import type { HypothesisEntry } from "@/lib/hypotheses";
+import { type HypothesisEntry, TIMING_LABELS, timingOf } from "@/lib/hypotheses";
 import { type PlainVerdict, type Verdict, plainVerdict } from "@/lib/plainLanguage";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +41,7 @@ function ReadingItem({ entry, plain }: Reading) {
       <div className="mb-1 flex items-center gap-2">
         <span className="font-medium">{entry.id}</span>
         <Badge variant={VERDICT_VARIANT[plain.verdict]}>{plain.label}</Badge>
-        {entry.kind === "departure" && <Badge variant="outline">post hoc</Badge>}
+        {timingOf(entry) === "postHoc" && <Badge variant="outline">{TIMING_LABELS.postHoc}</Badge>}
       </div>
       <p className="text-sm text-muted-foreground">{plain.sentence}</p>
       {entry.kind === "departure" && (
@@ -71,7 +71,7 @@ export function PlainHypotheses({ entries }: { entries: HypothesisEntry[] }) {
       {folded.length > 0 && (
         <details className="text-sm">
           <summary className="cursor-pointer text-muted-foreground">
-            {folded.length} more with no reliable change or withheld — show them
+            {folded.length} more not established or withheld — show them
           </summary>
           <ul className="mt-3 grid gap-3 md:grid-cols-2">
             {folded.map((reading) => (

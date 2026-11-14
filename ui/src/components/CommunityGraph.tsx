@@ -38,7 +38,7 @@ const TOP_TIES = 8;
 
 const MODE_LABELS: Record<NetworkMode, string> = {
   groups: "Groups",
-  individuals: "Individuals (anonymous)",
+  dots: "Group sizes (dots)",
   overlap: "Overlap",
 };
 
@@ -52,7 +52,7 @@ interface CommunityGraphProps {
   weeks: string[];
   events: PublicEvent[];
   minGroupSize: number;
-  /** The run seed: scatters the illustrative points of the Individuals mode. */
+  /** The run seed: scatters the illustrative points of the group-size dots mode. */
   seed: number;
   /** The baseline the groups were fixed on; names the outside bucket ("Outside the 2000 groups"). */
   baseline: Period | null;
@@ -109,7 +109,7 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
   const ties = useMemo(() => publishedTies(edges, week, labels), [edges, week, labels]);
   const toOutside = useMemo(() => outsideTies(edges, week), [edges, week]);
   const order = useMemo(() => placed.map((g) => g.group), [placed]);
-  const individuals = mode === "individuals";
+  const dots = mode === "dots";
   const points2D = useMemo(() => anonymousPoints(named, seed, groupRadius), [named, seed]);
   // The Overlap mode needs WebGL: if the WebGL view fails while it is chosen, show the Groups mode
   // rather than leave a disabled tab selected.
@@ -118,7 +118,7 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
     setMode((current) => (current === "overlap" ? "groups" : current));
   };
   const flat = (
-    <Network2D placed={placed} graph={graph} ties={ties} week={week} maxTie={maxTie} points={individuals ? points2D : null} />
+    <Network2D placed={placed} graph={graph} ties={ties} week={week} maxTie={maxTie} points={dots ? points2D : null} />
   );
 
   return (
@@ -163,15 +163,16 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
               ))}
             </TabsList>
           </Tabs>
-          {individuals && (
+          {dots && (
             <p className="text-sm text-muted-foreground">
-              Each point stands for one person in a group of at least {minGroupSize}; points are anonymous and their
-              positions and links are illustrative, not individual data. Ties are measured between groups only.
+              The dots only show how many people each group of at least {minGroupSize} has: one dot per person
+              counted. They are not real individuals or ties; their positions are random and carry no data. Ties are
+              measured between groups only.
             </p>
           )}
           {useWebGL && mode === "overlap" && (
             <p className="text-sm text-muted-foreground">
-              Overlap = mail between two groups, not shared members — each person is in exactly one group. The
+              Overlap = mail between two groups, not shared members — each grouped person is in exactly one group. The
               week&apos;s heaviest ties by message count are drawn as overlapping circles; the others stay lines.
             </p>
           )}

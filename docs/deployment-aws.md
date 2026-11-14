@@ -76,7 +76,7 @@ flowchart LR
 
 The diagram shows Design B (three tasks, an ingest bucket); Design A runs one task and has no
 ingest bucket (see [below](#two-designs-for-the-ingest-zone)). Three AWS accounts per tenant boundary (plus the shared ones under
-[Multi-tenant](#multi-tenant-isolation)):
+[Multi-tenant](#multi-tenant-isolation)): the customer's own, and two of ours per tenant, a workload account and a serving account:
 
 - **Customer account** holds the HMAC key. We are granted `kms:GenerateMac` on it, nothing
   else, and the customer can revoke that grant at any time.
@@ -119,7 +119,8 @@ addresses and names outlive the run, which `purge_ingest` exists to prevent.
   runs in one Fargate task. The ingest zone lives on the task's ephemeral storage, encrypted
   with a customer-managed key, and is destroyed with the task. `purge_ingest` still runs.
   Identifiers never reach S3, so the ingest bucket does not exist. The real-corpus run takes
-  about 2.5 minutes (`stages` in `release/run_manifest.json`, largest stage 47 s). The archive
+  about 2.5 minutes (the one command prints each step's time; each run writes the seconds per
+  stage to `data/logs/stage_timings.json`, which is not committed). The archive
   is about 440 MB, so a single task fits easily.
 - **Design B, one task per trust boundary (for larger corpora).** Step Functions runs three
   tasks, each with its own role. The ingest zone becomes a prefix in the ingest bucket. The CLI
@@ -216,7 +217,8 @@ about five `GenerateMac` calls: the fingerprint in `cli.load_key_fingerprint`, t
 in the `pseudo` stage, and the person subkey in `risk/score.py`. Today `keyed_digest` derives the
 subkey again for every value; with KMS it is derived once per run. The
 subkeys exist only in the task's memory for the length of the run. Pseudonyms are then computed
-locally (`keyed_digest`), so 1.35 million events cost a handful of KMS calls, not 1.35 million.
+locally (`keyed_digest`), so 1.33 million events (1,328,123 in the committed release) cost a
+handful of KMS calls, not 1.33 million.
 
 - **Custody.** The key lives in the customer's account, one per tenant. Its key policy allows
   `kms:GenerateMac` only to the `identifier` and `restricted` task roles, with the condition

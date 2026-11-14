@@ -73,7 +73,7 @@ export interface SigmaNetworkProps {
   /** The heaviest tie of any week: one width scale for every week. */
   maxTie: number;
   mode: NetworkMode;
-  /** The run seed: scatters the illustrative points of the Individuals mode. */
+  /** The run seed: scatters the illustrative points of the group-size dots mode. */
   seed: number;
 }
 
@@ -240,7 +240,7 @@ export default function SigmaNetwork({ groups, edges, week, maxTie, mode, seed }
   const settings = useMemo(() => sigmaSettings(palette), [palette]);
   const positions = useMemo(() => layoutPositions(groups, edges), [groups, edges]);
   const points = useMemo(() => anonymousPoints(groups, seed, groupNodeRadius), [groups, seed]);
-  const individuals = mode === "individuals";
+  const dots = mode === "dots";
   const overlapMode = mode === "overlap";
   const radii = useMemo(() => new Map(groups.map((g) => [g.group, groupNodeRadius(g.n_persons)])), [groups]);
   const weekly = useMemo(
@@ -255,10 +255,10 @@ export default function SigmaNetwork({ groups, edges, week, maxTie, mode, seed }
       ties,
       maxTie,
       palette,
-      points: individuals ? points : null,
+      points: dots ? points : null,
       overlaps: overlapMode ? weekly.overlaps : undefined,
     });
-  }, [groups, positions, radii, edges, week, maxTie, palette, individuals, points, overlapMode, weekly]);
+  }, [groups, positions, radii, edges, week, maxTie, palette, dots, points, overlapMode, weekly]);
   const labels = useMemo(() => [...positions.keys()], [positions]);
   const people = useMemo(() => new Map(groups.map((g) => [g.group, g.n_persons])), [groups]);
   const [hovered, setHovered] = useState<string | null>(null);

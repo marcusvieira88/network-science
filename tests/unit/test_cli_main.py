@@ -12,6 +12,7 @@ import pytest
 
 from enron_case import cli
 from enron_case.config import (
+    HYPOTHESES_STATED,
     KEY_ENV,
     KEY_FILE_ENV,
     SAMPLE_INTERNAL_DOMAIN,
@@ -19,7 +20,7 @@ from enron_case.config import (
     Config,
 )
 from enron_case.context import LogFn, StageContext, stderr_log
-from enron_case.contracts.schemas import EXPLORATORY_CONFIDENT
+from enron_case.contracts.schemas import DEPARTURE_PRIMARY, EXPLORATORY_CONFIDENT
 from enron_case.errors import KeyProblem
 from enron_case.manifest import RunManifest
 from enron_case.zones import Paths
@@ -255,18 +256,47 @@ def test_review_merges_reports_counts_only(
     assert ctx.paths == Paths.for_run(tmp_path, False)
 
 
-def test_summary_prints_the_count_held_true(
-    pipeline: FakePipeline, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """One headline of two preregistered hypotheses, one confident of two exploratory ones."""
+def _summary_release(tmp_path: Path, departure_outcome: str) -> None:
+    """One headline of two preregistered hypotheses, one confident of two exploratory ones, and
+    H26 with the given outcome on its primary variant (the other variants carry none)."""
     release = tmp_path / "release-sample"
     release.mkdir()
     (release / "hypotheses.csv").write_text("hypothesis,is_headline\nH1,true\nH2,false\n")
     (release / "exploratory.csv").write_text(
         f"hypothesis,outcome\nH5,{EXPLORATORY_CONFIDENT}\nH6,not supported\n"
     )
+    (release / "departure_tests.csv").write_text(
+        f"variant,outcome\n{DEPARTURE_PRIMARY},{departure_outcome}\nsilence 8,\n"
+    )
+
+
+def test_summary_counts_h26_among_the_hypotheses(
+    pipeline: FakePipeline, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """H26 not established: five hypotheses, two held true."""
+    _summary_release(tmp_path, "not established")
     assert cli.main(["summary", "--sample"]) == 0
-    assert capsys.readouterr().out == "2 of 4 hypotheses held true\n"
+    assert capsys.readouterr().out == "2 of 5 hypotheses held true\n"
+
+
+@pytest.mark.parametrize(("outcome", "held"), [("high", 3), ("moderate", 3), ("low", 2)])
+def test_summary_holds_h26_true_only_as_a_finding(
+    outcome: str,
+    held: int,
+    pipeline: FakePipeline,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """High or moderate confidence is a finding, as in the explorer; low is a lead."""
+    _summary_release(tmp_path, outcome)
+    assert cli.main(["summary", "--sample"]) == 0
+    assert capsys.readouterr().out == f"{held} of 5 hypotheses held true\n"
+
+
+def test_summary_on_the_committed_release_counts_all_stated_hypotheses() -> None:
+    """The committed release holds every stated hypothesis, H26 included, and none is held."""
+    release = Path(__file__).resolve().parents[2] / "release"
+    assert cli.summary_line(release) == f"0 of {HYPOTHESES_STATED} hypotheses held true"
 
 
 def test_summary_without_a_release_fails(

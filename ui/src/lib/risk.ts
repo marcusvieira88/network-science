@@ -1,7 +1,7 @@
 import { RELEASE_VARIANTS, type RiskRow } from "@/lib/data";
 
 export const VARIANT_LABELS: Record<RiskRow["release_variant"], string> = {
-  R0: "R0 · pseudonymised edge list (before)",
+  R0: "R0 · pseudonymised edge list (person-level, never published)",
   R1: "R1 · aggregates, k ≥ 5 (published)",
   R2: "R2 · R1 plus noise (sketch)",
 };
@@ -18,7 +18,15 @@ export const PUBLISHED: RiskRow["release_variant"] = "R1";
 
 type ReidByVariant = { variant: string } & Partial<Record<RiskRow["attacker"], number>>;
 
-/** One bar group per release variant, one bar per attacker: re-identification before and after. */
+/**
+ * True for a rate of 0 on a release that holds no person-level record: the attack had nothing to
+ * match, so the zero restates the design and is not a measurement.
+ */
+export function zeroByConstruction(row: RiskRow): boolean {
+  return row.release_variant !== PERSON_LEVEL && row.reid_top1 === 0;
+}
+
+/** One bar group per release variant, one bar per attacker. */
 export function reidByVariant(rows: RiskRow[]): ReidByVariant[] {
   return RELEASE_VARIANTS.map((variant) => {
     const point: ReidByVariant = { variant };

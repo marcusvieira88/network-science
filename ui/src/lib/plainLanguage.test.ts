@@ -12,7 +12,46 @@ function verdictOf(...args: Parameters<typeof allHypotheses>) {
   return plainVerdict(entry);
 }
 
-describe("plainVerdict, hypotheses stated before any data", () => {
+describe("verdict labels", () => {
+  it("are the eight labels the documents list", () => {
+    expect(Object.values(VERDICT_LABELS)).toEqual([
+      "Held up",
+      "Explained by an artifact",
+      "Not robust",
+      "Unclear",
+      "Could not be tested",
+      "Changed the other way",
+      "Not established",
+      "Withheld",
+    ]);
+  });
+});
+
+describe("readings that cross-reference another result", () => {
+  it("says an untestable hypothesis whose measure moved clearly is still used, as a measurement of the record", () => {
+    const moved = exploratory(5, { caveat: "invalid: the hour convention changes", median_change: -0.44, ci_low: -0.51, ci_high: -0.37 });
+    expect(verdictOf([], [moved], []).sentence).toBe(
+      "Measure 5 could not be tested with this data: the hour convention changes. Its estimate is still used: as a measurement of the record, not of behaviour (see the main finding on the Executive summary).",
+    );
+    const flat = exploratory(7, { caveat: "untestable: every Bcc line repeats the Cc line", median_change: 0, ci_low: 0, ci_high: 0 });
+    expect(verdictOf([], [flat], []).sentence).toBe("Measure 7 could not be tested with this data: every Bcc line repeats the Cc line.");
+  });
+
+  it("says when a result that moved the other way already did so before the crisis", () => {
+    // H21 as released: predicted up, fell by 0.148; the placebo interval lies wholly below zero.
+    const h21 = exploratory(21, { median_change: -0.148, ci_low: -0.191, ci_high: -0.106, placebo_median: -0.139, placebo_ci_low: -0.257, placebo_ci_high: -0.0672 });
+    const verdict = verdictOf([], [h21], []);
+    expect(verdict.verdict).toBe("opposite");
+    expect(verdict.sentence).toBe(
+      "Measure 21 did not go up as predicted: it went down (interval -0.19 to -0.11). The comparison before the crisis already shows the same move, so it did not start in the crisis window.",
+    );
+    // H14 as released: the placebo rose, with an interval that includes zero.
+    const h14 = exploratory(14, { median_change: -0.168, ci_low: -0.272, ci_high: -0.102, placebo_median: 0.0816, placebo_ci_low: -0.0279, placebo_ci_high: 0.105 });
+    expect(verdictOf([], [h14], []).sentence).toBe("Measure 14 did not go up as predicted: it went down (interval -0.27 to -0.1).");
+  });
+});
+
+describe("plainVerdict, pre-registered hypotheses", () => {
   it("says a headline held up", () => {
     const verdict = verdictOf([preregistered("H1", { is_headline: true, supported: "yes", confidence: "high" })], [], []);
     expect(verdict.verdict).toBe("held");
@@ -46,7 +85,7 @@ describe("plainVerdict, hypotheses stated before any data", () => {
   });
 });
 
-describe("plainVerdict, hypotheses stated before being computed", () => {
+describe("plainVerdict, within-custodian hypotheses", () => {
   it("says a confident outcome held up, in the predicted direction", () => {
     const verdict = verdictOf([], [exploratory(16, { outcome: "confident", direction: "down", measure: "weekend share" })], []);
     expect(verdict).toEqual({

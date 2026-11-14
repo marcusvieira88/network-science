@@ -120,8 +120,8 @@ export function ClusterView({ groups, edges, periods, minGroupSize, driftCheck, 
       <CardHeader>
         <CardTitle>How the groups interconnect</CardTitle>
         <CardDescription>
-          Each segment is a group of at least {minGroupSize} people, never an individual. Group membership is not
-          published, and ties with fewer than {minGroupSize} distinct senders are suppressed before release.
+          Each segment is a group of at least {minGroupSize} people, never an individual, except the hatched
+          outside arc: the people in no group, counted together. Group membership is not published, and ties with fewer than {minGroupSize} distinct senders are suppressed before release.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

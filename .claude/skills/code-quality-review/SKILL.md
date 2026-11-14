@@ -53,7 +53,7 @@ For each changed file, check and report violations with `file:line`:
 | Rule | What to look for |
 |------|------------------|
 | One place per rule, constant, schema, parameter | a literal or helper re-declared that exists in `config.py`, `contracts/vocab.py`, `contracts/schemas.py` or another module (search before accepting a new helper) |
-| Parameters in `config.py` | a tunable number or threshold as a module constant instead of a `Config` field |
+| Parameters in `config.py` | a tunable number or threshold as a module constant instead of a `Config` field. Not a violation: the definition of a stated hypothesis kept as a named constant in its module (for example the working hours in `finding/exploratory.py`), because changing it would change the hypothesis |
 | No magic numbers or strings | an unexplained literal in logic |
 | Simple, single-purpose functions | a function doing several jobs, or abstraction with one caller |
 | Fail loudly | a swallowed exception, a silent default, an error without the documented exit code |

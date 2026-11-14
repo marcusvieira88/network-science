@@ -19,6 +19,7 @@ export const PERSON_COUNT_COLUMNS = {
   degree_distribution: ["persons"],
   community_groups: ["n_persons"],
   exploratory: ["custodians", "placebo_custodians"],
+  record_profile: ["custodians_sending", "custodians_receiving"],
   departures: ["at_risk", "departures", "record_ends"],
 } as const;
 
