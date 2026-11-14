@@ -28,6 +28,8 @@ SRC = Path(__file__).resolve().parents[2] / "src" / "enron_case"
         ("pseudo", Zone.INGEST, "w"),
         ("clean", Zone.RELEASE, "w"),
         ("unknown", Zone.COUNTS, "r"),
+        ("release", Zone.LOGS, "w"),
+        ("report", Zone.LOGS, "r"),
     ],
 )
 def test_disallowed_access_raises(package: str, zone: Zone, mode: str) -> None:

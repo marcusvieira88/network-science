@@ -69,7 +69,9 @@ corpus. `checks` (`checks/` at the repository root, committed) holds the counts 
 person made: `enron-case review-merges` writes `identity_manual.json` there as well as to
 `counts`, and the release stage falls back to the committed copy when a run has none, so a fresh
 clone publishes the same manual-check rows. `ui` and `docs` are write targets of the last two
-stages and can be built only from `release`.
+stages and can be built only from `release`. `logs` (`data/logs/`, git-ignored) holds run logs,
+never data: only the orchestrator writes there, the seconds each stage took
+(`stage_timings.json`), which stay out of the committed manifest because they change on every run.
 
 Four mechanisms make the picture enforceable:
 

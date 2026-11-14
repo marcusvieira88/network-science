@@ -9,6 +9,7 @@ Zone 3 release    aggregates meeting the minimum group size (committed)
        ui         explorer UI data file, built from release only
        checks     committed counts of checks a person made (manual merge review)
        docs       documents with injected numbers, built from release only
+       logs       run logs: stage timings, never data (git-ignored)
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ class Zone(StrEnum):
     UI = "ui"
     DOCS = "docs"
     CHECKS = "checks"
+    LOGS = "logs"
 
 
 R, RW = "r", "rw"
@@ -50,8 +52,8 @@ ALLOWED: dict[str, dict[Zone, str]] = {
     "release": {Zone.RESTRICTED: R, Zone.COUNTS: R, Zone.RELEASE: RW, Zone.CHECKS: R},
     "report": {Zone.RELEASE: RW, Zone.DOCS: RW},
     "uiexport": {Zone.RELEASE: R, Zone.UI: RW},
-    # The orchestrator purges the ingest zone and writes the run manifest.
-    "cli": {Zone.INGEST: RW, Zone.RELEASE: RW, Zone.RAW: RW, Zone.TRUTH: RW},
+    # The orchestrator purges the ingest zone, writes the run manifest and the stage timings.
+    "cli": {Zone.INGEST: RW, Zone.RELEASE: RW, Zone.RAW: RW, Zone.TRUTH: RW, Zone.LOGS: RW},
 }
 
 RISK_RAW_MODULES = ("enron_case.risk.aux_public",)

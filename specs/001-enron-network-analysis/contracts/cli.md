@@ -99,7 +99,10 @@ comparison between runs* computed as HMAC(key, "fingerprint-v1") truncated to 8 
 
 ## Output and logging
 
-- Progress goes to stderr as one line per stage with counts and duration.
+- Progress goes to stderr as one line per stage with counts and duration. The seconds per stage
+  of the latest run are also written to `data/logs/stage_timings.json` (`data/sample/logs/` for
+  `--sample`), git-ignored; `release/run_manifest.json` holds no durations, so identical runs
+  write identical bytes.
 - Logs never contain header values. Modules outside the ingest zone have no access to them;
   modules inside it log counts and `file_id` only.
 - On success the last line on stdout is the path to `release/report.md`.
