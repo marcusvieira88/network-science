@@ -97,12 +97,24 @@ class StageContext:
         return counts
 
     def read_optional_counts(self, name: str) -> dict[str, Any] | None:
-        """A counts side output that only some runs produce (the manual merge review), or None."""
+        """A counts side output that only some runs produce (the manual merge review), or None.
+        On real runs a committed copy in the checks zone is used when this run has none, so a
+        fresh clone publishes the same release."""
         path = zones.path_for(self.paths, self.package, Zone.COUNTS, f"{name}.json", "r")
+        if not path.exists() and not self.sample:
+            path = zones.path_for(self.paths, self.package, Zone.CHECKS, f"{name}.json", "r")
         if not path.exists():
             return None
         data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         return data
+
+    def write_check(self, name: str, counts: dict[str, Any]) -> None:
+        """Commit-safe copy of a check a person made (counts only) in the checks zone."""
+        text = json.dumps(counts, indent=2, sort_keys=True, default=str)
+        if "@" in text:
+            raise PrivacyViolation(f"check '{name}' contains an address")
+        path = zones.path_for(self.paths, self.package, Zone.CHECKS, f"{name}.json", "w")
+        path.write_text(text + "\n", encoding="utf-8")
 
     # ---- other files ------------------------------------------------------------------------
     def path(self, zone: Zone, name: str, mode: str) -> Path:

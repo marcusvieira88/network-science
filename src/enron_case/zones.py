@@ -7,6 +7,7 @@ Zone 2 restricted pseudonyms only (git-ignored)
        truth      synthetic ground truth; exists only for the sample corpus
 Zone 3 release    aggregates meeting the minimum group size (committed)
        ui         explorer UI data file, built from release only
+       checks     committed counts of checks a person made (manual merge review)
        docs       documents with injected numbers, built from release only
 """
 
@@ -29,6 +30,7 @@ class Zone(StrEnum):
     RELEASE = "release"
     UI = "ui"
     DOCS = "docs"
+    CHECKS = "checks"
 
 
 R, RW = "r", "rw"
@@ -37,7 +39,7 @@ R, RW = "r", "rw"
 ALLOWED: dict[str, dict[Zone, str]] = {
     "ingest": {Zone.RAW: RW, Zone.INGEST: RW, Zone.COUNTS: RW},
     "clean": {Zone.INGEST: RW, Zone.COUNTS: RW, Zone.TRUTH: R},
-    "identity": {Zone.INGEST: RW, Zone.COUNTS: RW, Zone.TRUTH: R},
+    "identity": {Zone.INGEST: RW, Zone.COUNTS: RW, Zone.TRUTH: R, Zone.CHECKS: RW},
     "pseudo": {Zone.INGEST: R, Zone.RESTRICTED: RW, Zone.COUNTS: RW},
     "network": {Zone.RESTRICTED: RW, Zone.COUNTS: RW},
     "finding": {Zone.RESTRICTED: RW, Zone.COUNTS: RW},
@@ -45,7 +47,7 @@ ALLOWED: dict[str, dict[Zone, str]] = {
     # of the public corpus) and only risk/score.py may read INGEST and TRUTH (scoring guesses
     # against the truth, emitting counts only). Enforced by tests/privacy/test_zones.py.
     "risk": {Zone.RESTRICTED: RW, Zone.COUNTS: RW, Zone.RAW: R, Zone.INGEST: R, Zone.TRUTH: R},
-    "release": {Zone.RESTRICTED: R, Zone.COUNTS: R, Zone.RELEASE: RW},
+    "release": {Zone.RESTRICTED: R, Zone.COUNTS: R, Zone.RELEASE: RW, Zone.CHECKS: R},
     "report": {Zone.RELEASE: RW, Zone.DOCS: RW},
     "uiexport": {Zone.RELEASE: R, Zone.UI: RW},
     # The orchestrator purges the ingest zone and writes the run manifest.
@@ -90,6 +92,10 @@ class Paths:
             return self.docs_root
         if zone is Zone.COUNTS:
             return self.data_root / "restricted" / "counts"
+        if zone is Zone.CHECKS:
+            # Committed results of checks a person made (counts only), next to the release, so
+            # a fresh clone reproduces them; never used by sample runs.
+            return self.release_root.parent / "checks"
         return self.data_root / zone.value
 
 

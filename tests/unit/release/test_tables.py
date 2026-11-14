@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import polars as pl
 import pytest
 
+from enron_case.config import Config
+from enron_case.context import StageContext
 from enron_case.contracts import vocab
-from enron_case.errors import ContractViolation
+from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.release import tables
+from enron_case.zones import Paths, Zone
 
 
 def test_typed_count_accessors_fail_loudly() -> None:
@@ -220,3 +224,27 @@ def test_within_custodian_check_below_k_hides_its_statistics() -> None:
         None
     ] * 5
     assert within["note"] == "no change"
+
+
+def test_committed_manual_check_is_used_when_the_run_has_none(tmp_path: Path) -> None:
+    """A fresh clone has no counts zone from the person's review: the committed copy in the
+    checks zone is published instead. Sample runs never use it."""
+    paths = Paths(tmp_path / "data", tmp_path / "release", tmp_path / "ui", tmp_path / "docs")
+    checks = paths.dir(Zone.CHECKS)
+    checks.mkdir(parents=True)
+    (checks / "identity_manual.json").write_text('{"manual_checked": 50, "manual_correct": 49}')
+    real = StageContext("release", Config(), paths, False, lambda _m: None)
+    assert real.read_optional_counts("identity_manual") == {
+        "manual_checked": 50,
+        "manual_correct": 49,
+    }
+    sample = StageContext("release", Config(), paths, True, lambda _m: None)
+    assert sample.read_optional_counts("identity_manual") is None
+
+
+def test_review_writes_the_committed_copy(tmp_path: Path) -> None:
+    paths = Paths(tmp_path / "data", tmp_path / "release", tmp_path / "ui", tmp_path / "docs")
+    ctx = StageContext("identity", Config(), paths, False, lambda _m: None)
+    ctx.write_check("identity_manual", {"manual_checked": 2, "manual_correct": 2})
+    with pytest.raises(PrivacyViolation):
+        ctx.write_check("identity_manual", {"note": "someone@example.com"})

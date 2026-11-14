@@ -304,5 +304,10 @@ every value of the person-count metric `active_persons`. `kanon.check` aborts th
 | `release/run_manifest.json` | code version, sample flag, seed, every `Config` parameter, key fingerprint, `corpus_sha256` (the archive checksum verified by `fetch`; the synthetic archive's on sample runs), fingerprint per table and counts file, stages run with their durations; no wall-clock time |
 | `ui/public/data/release.json` | written by stage `ui-data` from the release tables above and the manifest's run block, and nothing else; same content, one file, for the explorer UI (format in `uiexport/export.py`) |
 
+`checks/identity_manual.json` (committed) holds the result of the person's manual merge review
+(`enron-case review-merges`): counts only (`manual_checked`, `manual_correct`, per-rule counts
+when recorded). The release reads it on real runs when the run's counts zone has none, so a fresh
+clone publishes the same `data_quality` rows; sample runs never use it.
+
 No release file contains a `pid`, `org_pid`, address, name, or any count describing fewer than
 k persons.

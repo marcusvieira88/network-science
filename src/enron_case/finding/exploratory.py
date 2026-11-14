@@ -490,7 +490,9 @@ def volume_equalised(
                 "pid", (pl.col("value") - pl.col("value_b")).alias("d")
             )
         )
-    per_custodian = pl.concat(draws).group_by("pid").agg(pl.col("d").mean()).sort("pid")
+    # Mean of sorted values: rows of a group arrive in thread order, and float addition is not
+    # associative, so an unsorted mean differs between runs in the last digit.
+    per_custodian = pl.concat(draws).group_by("pid").agg(pl.col("d").sort().mean()).sort("pid")
     d = per_custodian.get_column("d").to_numpy().astype(float)
     if len(d) < config.k_min:
         # Too few custodians survive equalisation to publish; reported as not computed.

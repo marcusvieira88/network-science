@@ -36,12 +36,11 @@ def review(ctx: StageContext, ask: Ask = input, show: Show = print) -> tuple[int
         rules.append(row["rule"])
         verdicts.append(None if answer == SKIP else answer == YES)
     checked, correct = manual_counts([v for v in verdicts if v is not None])
-    ctx.write_counts(
-        COUNTS_NAME,
-        {
-            "manual_checked": checked,
-            "manual_correct": correct,
-            "manual_by_rule": manual_counts_by_rule(rules, verdicts),
-        },
-    )
+    counts = {
+        "manual_checked": checked,
+        "manual_correct": correct,
+        "manual_by_rule": manual_counts_by_rule(rules, verdicts),
+    }
+    ctx.write_counts(COUNTS_NAME, counts)
+    ctx.write_check(COUNTS_NAME, counts)
     return checked, correct
