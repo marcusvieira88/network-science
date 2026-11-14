@@ -356,17 +356,26 @@ def test_limits_name_the_optimistic_interval_and_the_n2_risk(
 def test_n2_limit_reports_the_manual_check_from_data_quality(synth: SynthOutput) -> None:
     manual = pl.DataFrame(
         {
-            "order": [4],
-            "step": ["manual merge check"],
-            "count_in": [50],
-            "count_out": [50],
-            "removed": [0],
-            "rule": ["seeded sample, judged by a person"],
-            "precision": [1.0],
-            "recall": [None],
+            "order": [4, 5],
+            "step": ["manual merge check", "manual merge check: rule N2"],
+            "count_in": [50, 12],
+            "count_out": [49, 11],
+            "removed": [1, 1],
+            "rule": ["seeded sample, judged by a person"] * 2,
+            "precision": [0.98, 11 / 12],
+            "recall": [None, None],
+            "precision_ci_low": [0.894, 0.615],
+            "precision_ci_high": [0.9995, 0.998],
         },
         schema=synth.table("data_quality").schema,
     )
     quality = pl.concat([synth.table("data_quality"), manual])
     text = " ".join(render.limits(quality))
-    assert "a manual check of 50 sampled real merges found 0 wrong merges" in text
+    assert "a manual check of 50 sampled real merges found 1 wrong merges" in text
+    assert "precision 0.98, exact binomial interval 0.894 to 1" in text
+    assert "rule N2 accounts for 12 of the sampled merges and 1 of the wrong ones" in text
+
+
+def test_funnel_table_shows_the_precision_interval(synth: SynthOutput, tmp_path: Path) -> None:
+    quality = render_report(synth, tmp_path).split("## The finding", 1)[0]
+    assert "| Precision low | Precision high |" in quality

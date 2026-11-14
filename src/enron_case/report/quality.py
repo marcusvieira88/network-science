@@ -7,8 +7,28 @@ import polars as pl
 from enron_case.errors import ContractViolation
 from enron_case.report.markdown import format_value, table
 
-FUNNEL_HEADERS = ("Step", "In", "Out", "Removed", "Rule", "Precision", "Recall")
-FUNNEL_COLUMNS = ("step", "count_in", "count_out", "removed", "rule", "precision", "recall")
+FUNNEL_HEADERS = (
+    "Step",
+    "In",
+    "Out",
+    "Removed",
+    "Rule",
+    "Precision",
+    "Recall",
+    "Precision low",
+    "Precision high",
+)
+FUNNEL_COLUMNS = (
+    "step",
+    "count_in",
+    "count_out",
+    "removed",
+    "rule",
+    "precision",
+    "recall",
+    "precision_ci_low",
+    "precision_ci_high",
+)
 HEADER_HEADERS = ("Header field", "Occurrences", "Ruling")
 HEADER_COLUMNS = ("field", "occurrences", "ruling")
 
@@ -53,7 +73,9 @@ def quality_section(data_quality: pl.DataFrame, header_fields: pl.DataFrame) -> 
             "## What we found in the data",
             "### Cleaning funnel",
             "Counts before and after each cleaning step. Precision and recall are measured "
-            "against ground truth where it exists; a dash means not measured. The main steps "
+            "against ground truth where it exists; a dash means not measured. Where precision "
+            "is estimated from a sample (the manual merge check), its exact binomial "
+            "(Clopper-Pearson) interval is shown next to it. The main steps "
             "come first, then their detail: rejected files by reason, the exact and subset "
             "parts of deduplication, each message flag, and events in and out of the network. "
             "Every count is of files, messages or events, not persons, so no minimum group "

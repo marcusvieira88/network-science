@@ -665,6 +665,8 @@ class FixtureBuilder:
                     "rule": None,
                     "precision": None,
                     "recall": None,
+                    "precision_ci_low": None,
+                    "precision_ci_high": None,
                 },
                 {
                     "order": 2,
@@ -675,6 +677,8 @@ class FixtureBuilder:
                     "rule": "exact+subset",
                     "precision": 1.0,
                     "recall": 1.0,
+                    "precision_ci_low": None,
+                    "precision_ci_high": None,
                 },
                 {
                     "order": 3,
@@ -685,6 +689,8 @@ class FixtureBuilder:
                     "rule": "N1-N4",
                     "precision": 1.0,
                     "recall": 1.0,
+                    "precision_ci_low": None,
+                    "precision_ci_high": None,
                 },
                 *self._funnel_detail_rows(c, first_order=4),
             ]
@@ -796,6 +802,8 @@ class FixtureBuilder:
                 "rule": rule,
                 "precision": None,
                 "recall": None,
+                "precision_ci_low": None,
+                "precision_ci_high": None,
             }
             for i, (step, count_in, count_out, rule) in enumerate(steps)
         ]

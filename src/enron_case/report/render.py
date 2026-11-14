@@ -18,7 +18,7 @@ from enron_case.context import StageContext
 from enron_case.contracts import schemas, vocab
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import ContractViolation, PrivacyViolation
-from enron_case.release.tables import STEP_MANUAL
+from enron_case.release.tables import STEP_MANUAL, STEP_MANUAL_RULE
 from enron_case.report import quality
 from enron_case.report.markdown import bullets, format_value, table
 
@@ -26,6 +26,7 @@ PLACEHOLDER = re.compile(r"\{\{([a-z0-9_]+)\}\}")
 IDENTIFIER = re.compile("|".join(f"(?:{p})" for p in vocab.LEAK_PATTERNS))
 NO_CHECK = "no check"  # a hypothesis without an artifact check (docs/hypotheses.md)
 MITIGATION_TARGET = 0.5  # SC-007: a mitigated release should at least halve the rate
+STEP_MANUAL_N2 = STEP_MANUAL_RULE.format(rule="N2")
 
 HYPOTHESIS_CLAIMS = {
     "H1": "communication concentrated on fewer people as the crisis approached",
@@ -541,11 +542,19 @@ def n2_limit(data_quality: pl.DataFrame) -> str:
     if not manual:
         return f"{risk}; no manual check of merges was run."
     row = manual[0]
-    wrong = row["count_in"] - row["count_out"]
-    return (
+    text = (
         f"{risk}; a manual check of {format_value(row['count_in'])} sampled real merges found "
-        f"{format_value(wrong)} wrong merges."
+        f"{format_value(row['removed'])} wrong merges (precision {format_value(row['precision'])}, "
+        f"exact binomial interval {format_value(row['precision_ci_low'])} to "
+        f"{format_value(row['precision_ci_high'])})"
     )
+    n2 = data_quality.filter(pl.col("step") == STEP_MANUAL_N2).rows(named=True)
+    if n2:
+        text += (
+            f"; rule N2 accounts for {format_value(n2[0]['count_in'])} of the sampled merges "
+            f"and {format_value(n2[0]['removed'])} of the wrong ones"
+        )
+    return text + "."
 
 
 def limits(data_quality: pl.DataFrame) -> list[str]:

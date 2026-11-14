@@ -9,7 +9,7 @@ tested without the others.
 bump and a note in `docs/ai-workflow-log.md`. Adding a nullable column is minor; anything else
 stops the affected packages until fixtures are regenerated.
 
-**Version**: 1.2 (1.1 added `communities`, `data_quality.order`, counts side outputs; 1.2 adds `artifact_results` / `artifact_checks`).
+**Version**: 1.5 (1.1 added `communities`, `data_quality.order`, counts side outputs; 1.2 adds `artifact_results` / `artifact_checks`; 1.3 and 1.4 add `exploratory_results` / `exploratory` and its retention check; 1.5 adds `data_quality.precision_ci_low` / `precision_ci_high`, the funnel detail rows and `exploratory.equalised_p_holm`).
 
 **Common rules**: tables are written sorted by the stated sort key; lists are sorted; timestamps
 are UTC; strings are lower-case where they are addresses or domains; no column may be added to a
@@ -201,7 +201,7 @@ Written only by S8 (WP-H) through `release/kanon.py`; rendered by S9 (WP-I).
 
 | File | Content |
 |------|---------|
-| `release/data_quality.csv` | order, step, count_in, count_out, removed, rule, precision, recall |
+| `release/data_quality.csv` | order, step, count_in, count_out, removed, rule, precision, recall, precision_ci_low, precision_ci_high (1.5: exact binomial interval where precision is estimated from a sample, the manual merge check). Rows: files parsed, deduplicate, resolve identities, the manual merge check and its per-rule composition when run, then rejected files by reason, the exact/subset dedupe split, the five message flags and events in the network. Counts of files, messages, events and judged merges, not persons: no k-suppression |
 | `release/header_fields.csv` | field name, occurrences, ruling |
 | `release/weekly_metrics.csv` | scope, week, metric, value, n_active (suppressed if < k), variant. Only `variant = default` is published: a sensitivity variant next to it would let default minus variant `n_active` reveal groups below k. The variants stay restricted and feed `robust_variants_*` |
 | `release/hypotheses.csv` | `hypothesis_results` without per-mailbox detail |

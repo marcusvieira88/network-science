@@ -144,6 +144,8 @@ def test_values_round_trip_with_nulls_and_iso_dates(synth: SynthOutput, tmp_path
         "rule": None,
         "precision": None,
         "recall": None,
+        "precision_ci_low": None,
+        "precision_ci_high": None,
     }
 
 

@@ -25,6 +25,7 @@ def published_tables(ctx: StageContext) -> dict[str, pl.DataFrame]:
             ctx.read_counts("clean_counts"),
             ctx.read_counts("identity_counts"),
             ctx.read_counts("pseudo_counts"),
+            ctx.config.ci_level,
             ctx.read_counts("identity_manual"),
         ),
         "header_fields": tables.header_fields(ingest),

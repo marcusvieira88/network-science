@@ -15,7 +15,7 @@ from enron_case.contracts import vocab as v
 from enron_case.errors import ContractViolation
 from enron_case.zones import Zone
 
-CONTRACT_VERSION = "1.4"
+CONTRACT_VERSION = "1.5"
 
 STR = pl.String()
 INT = pl.Int64()
@@ -298,6 +298,11 @@ TABLES: dict[str, Table] = {
             Col("rule", STR, nullable=True),
             Col("precision", FLOAT, nullable=True),
             Col("recall", FLOAT, nullable=True),
+            # Exact (Clopper-Pearson) interval of `precision` where it is estimated from a
+            # sample (the manual merge check); null where precision is measured on all of the
+            # ground truth or not at all.
+            Col("precision_ci_low", FLOAT, nullable=True),
+            Col("precision_ci_high", FLOAT, nullable=True),
             fmt="csv",
         ),
         _t(
