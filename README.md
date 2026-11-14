@@ -133,7 +133,7 @@ H2/H3, then H16, to be artifacts; a final review against prior work found the re
 added H25 and attacker A3.
 
 A person decided the content line, judged a sample of real identity merges in a terminal (so real
-identifiers never entered an AI conversation), rejected the artifact results, and chose what to cut.
+identifiers never entered an AI conversation) and rejected the artifact results.
 
 ## Compared with prior work
 
@@ -151,7 +151,7 @@ published manual cleanups; within custodians we do not find the published 2001 n
 
 ## Next steps
 
-**Deploy on AWS** so each privacy guarantee in the code gets a second line in the platform:
+**Deploy on AWS**, giving each privacy guarantee a second line in the platform:
 
 ```mermaid
 flowchart LR
@@ -168,16 +168,17 @@ flowchart LR
     SFN & CF -.->|counts only| OBS
 ```
 
-- Zones become buckets; IAM roles mirror `zones.ALLOWED`. Ingest stays on task storage, never
-  versioned, and is deleted.
+- Zones become buckets; IAM roles mirror `zones.ALLOWED`; ingest stays on task storage.
 - The key stays in the customer's KMS (`GenerateMac`, never exported); rotating it changes every
   pseudonym.
 - Images built and signed only after `make gate`, deployed by OIDC with no stored keys.
-- Account per tenant, residency by region; telemetry carries counts only, with alarms on a
-  failed stage or an unpurged ingest zone.
+- Today the explorer fetches one static `release.json`; a query API (DuckDB over Parquet,
+  PostgreSQL for roles, budget and audit) comes only with user-defined queries.
+- Account per tenant, residency by region; counts-only telemetry, alarms on a failed stage or
+  unpurged ingest.
 
-Also: the record profile as a view in the explorer; a query API with a privacy budget; differential
-privacy for releases; a group-level attack.
+Also: a record-profile view in the explorer; differential privacy for releases; a group-level
+attack.
 Details: [deployment on AWS](docs/deployment-aws.md).
 
 ## More detail
