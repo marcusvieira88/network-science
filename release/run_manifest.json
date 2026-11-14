@@ -1,0 +1,65 @@
+{
+  "written_utc": "2026-11-14T10:40:28Z",
+  "code_version": "5f2a4a0",
+  "sample": false,
+  "seed": 20011202,
+  "parameters": {
+    "seed": 20011202,
+    "k_min": 5,
+    "window": "week",
+    "recipient_cap": 50,
+    "plausible_start": "1998-01-01",
+    "plausible_end": "2002-12-31",
+    "analysis_start": "2000-01-01",
+    "analysis_end": "2002-03-31",
+    "baseline_start": "2000-01-01",
+    "baseline_end": "2000-12-31",
+    "name_link_support": 3,
+    "bootstrap_reps": 1000,
+    "permutations": 1000,
+    "ts_resolution": "hour",
+    "internal_domain": "enron.com",
+    "sensitivity_variants": [
+      "cap=20",
+      "window=month"
+    ]
+  },
+  "key_fingerprint": "78015958",
+  "corpus_sha256": null,
+  "tables": {
+    "address_map": "4fde63e27341b8fa6ae7d031c4eafbbbbae2e153b5f2115c1dc3649db112a47a",
+    "entities": "2449330952189214238771c35491adde81af51217531a6387e1af4043b0c546c",
+    "entities_p": "fcd24befdf21d6be433cbe87cbb94252aa0ed98ce7b4b21c2b25ce1d541fb4ac",
+    "events": "1c3caf2807dfd7449f2b309b60f6debe24ca990818b9cbfa0452ef1161b23cc8",
+    "header_records": "9b12c47c68bffbb3c232ae73c651d1766f03d238ea0901385b17c8d834e367df",
+    "messages": "b7cfa85c8c2af6f44e26f1a63598924ca48a536673109d9403e237f69c636ac1"
+  },
+  "counts": {
+    "clean_counts": "a5121234458f1aa38a4ef76e1e94ef25d0ce941a4413b6eea761b4359c16c605",
+    "identity_counts": "a1c747a5b2364a778a567bb1f8e82299e0e8ea38a163acbb44924d807a55882a",
+    "ingest_counts": "94b78d869aebc503d06c193d0727a0ee63d24e19831fa48d1a7bfc71b92239b8",
+    "pseudo_counts": "322587115d585bc6864f3928e4a2ae4542d8546257550f43780a396cb06bb712"
+  },
+  "stages": [
+    {
+      "stage": "fetch",
+      "seconds": 0.22
+    },
+    {
+      "stage": "parse",
+      "seconds": 32.08
+    },
+    {
+      "stage": "clean",
+      "seconds": 43.46
+    },
+    {
+      "stage": "identity",
+      "seconds": 6.44
+    },
+    {
+      "stage": "pseudo",
+      "seconds": 22.14
+    }
+  ]
+}

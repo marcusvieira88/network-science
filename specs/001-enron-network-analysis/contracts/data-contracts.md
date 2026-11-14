@@ -136,7 +136,7 @@ precision/recall when ground truth is available.
 | `weight` | float | sum of event weights |
 | `n_messages` | int | |
 
-### `metric_series` — written by S5 (WP-E). Sort: `scope, metric, week`
+### `metric_series` — written by S5 (WP-E). Sort: `scope, metric, variant, week`
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -206,7 +206,7 @@ Written only by S8 (WP-H) through `release/kanon.py`; rendered by S9 (WP-I).
 | `release/weekly_metrics.csv` | scope, week, metric, value, n_active (suppressed if < k) |
 | `release/hypotheses.csv` | `hypothesis_results` without per-mailbox detail |
 | `release/risk.csv` | `risk_results` |
-| `release/degree_distribution.csv` | period, degree bucket, persons (≥ k or suppressed) |
+| `release/degree_distribution.csv` | period (half-year), degree bucket (`1`, `2-4`, `5-9`, `10+`; degree = number of distinct contacts in either direction), persons (≥ k or suppressed; a lone suppressed cell per period forces a second suppression) |
 | `release/community_graph.csv` | week, src_group, dst_group, weight, n_messages; plus `community_groups.csv`: group, n_persons. Groups are baseline communities with ≥ k persons, labelled `G01…` in an order unrelated to pseudonyms; smaller communities are merged into `other`; ties with fewer than k distinct senders are suppressed |
 | `ui/public/data/release.json` | written by S10 (WP-J) from the files above and nothing else; same content, one file, for the explorer UI |
 | `release/report.md` | the report: quality, finding, risk, limits |
