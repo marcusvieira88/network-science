@@ -93,6 +93,41 @@ The share of the custodians' weekday sent mail stamped outside working hours is 
 | 2002-02-01 | 65 | 1264 | 0.0287 | 84 | 6189 |
 | 2002-03-01 | 25 | 844 | 0.0131 | 39 | 1606 |
 
+## Did custodians leave during the crisis? (H26, post hoc)
+
+Stated in docs/hypotheses-exploratory.md (O1) after every other result and before it was computed. A custodian at risk at a window's start (sending and receiving in at least 4 of the 16 weeks before, and not already silent) **departs** when they send nothing for 16 weeks while, in at least 4 of those weeks, their mailbox receives mail that only it can hold (from a non-custodian, to no other custodian). If that mail stops too, the silence is a **record end**: the mailbox was no longer collected, which is not a departure. Weeks are read from the presence of mail, not from hours or volumes. The crisis window is compared with the same weeks a year earlier (one-sided Fisher exact test), with a pre-crisis placebo, with every earlier window of the same length, leaving each custodian out, and under the robustness variants. Counts below k are suppressed; a p-value is shown only when every count it comes from reaches k, otherwise its band.
+
+Custodians who stopped sending for 16 weeks or more while their own mailbox kept receiving mail: fewer than 5 of 66 at risk in the crisis window, against fewer than 5 of 26 at risk in the same weeks a year earlier (one-sided Fisher p 0.05 or above). Record ends (the mailbox stops holding mail too): fewer than 5 in the crisis window, fewer than 5 in the reference window. The crisis share is not above every one of the 55 earlier windows of the same length with at least 20 custodians at risk; the pre-crisis placebo has p 0.05 or above; leaving each custodian out in turn does not keep the test and that comparison. Of the 9 robustness variants in the rule, 2 keep the crisis share above the reference share and 0 keep p below 0.05; 1 publish no comparison, because one of their windows has too few custodians at risk. No departure wave can be established: fewer than 5 custodians departed in the crisis window; the crisis share is not significantly above the same weeks a year earlier (p 0.05 or above); an earlier window of the same length had at least as high a share. Split at 2001-10-16 (third-quarter loss announced), at least one part holds fewer than 5 departures, so neither is published.
+
+| Period | From | To | At risk | Departures | Record ends | Share departed |
+|---|---|---|---|---|---|---|
+| crisis | 2001-08-14 | 2001-12-02 | 66 | — | — | — |
+| reference | 2000-08-14 | 2000-12-02 | 26 | — | — | — |
+| placebo after | 2001-01-01 | 2001-04-30 | 51 | — | — | — |
+| placebo before | 2000-01-01 | 2000-04-30 | 9 | — | — | — |
+| crisis before the split | 2001-08-14 | 2001-10-15 | 66 | — | — | — |
+| crisis from the split | 2001-10-16 | 2001-12-02 | 66 | — | — | — |
+
+| Variant | In the rule | Crisis share above reference | p (crisis against reference) | Placebo p | Above every earlier window |
+|---|---|---|---|---|---|
+| primary | yes | no | p 0.05 or above | p 0.05 or above | no |
+| silence 8 | yes | no | p 0.05 or above | p 0.05 or above | no |
+| silence 26 | yes | no | p 0.05 or above | p 0.05 or above | no |
+| live 1 | yes | yes | p 0.05 or above | p 0.05 or above | no |
+| live 8 | yes | no | p 0.05 or above | p 0.05 or above | no |
+| active 2 | yes | no | p 0.05 or above | p 0.05 or above | no |
+| active 8 | yes | — | — | — | — |
+| custodian-visible | yes | yes | p 0.05 or above | p 0.05 or above | yes |
+| same cohort | yes | no | p 0.05 or above | p 0.05 or above | no |
+| no successor | yes | no | p 0.05 or above | p 0.05 or above | no |
+| any silence | no | yes | p 0.05 or above | p 0.05 or above | no |
+
+- Custodians are the people whose mailboxes were collected, mostly senior staff; a departure among them is not a count of layoffs, and the mailboxes were chosen for an investigation.
+- A silence while mail keeps arriving is also what leave, a role without email, an assistant sending on someone's behalf or an address that identity resolution did not merge look like; the successor variant covers only the last, and only partly.
+- Inbox retention grows in the crisis, which makes a live mailbox easier to see; the live 8 variant asks for twice the evidence.
+- A message to a custodian can sit in another custodian's mailbox through a Bcc that the copy does not show; it would count as mail only the first mailbox holds. Not corrected.
+- Departures after the bankruptcy filing (the layoffs that followed it) fall after the crisis window and are not tested; their silences reach into the next year, when the record thins.
+
 ## The finding
 
 No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report.

@@ -1,5 +1,5 @@
 {
-  "code_version": "95d00a8",
+  "code_version": "a3bd492",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -37,6 +37,26 @@
     "exploratory_min_messages": 20,
     "exploratory_bootstrap_reps": 2000,
     "exploratory_equalise_reps": 40,
+    "departure_silence_weeks": 16,
+    "departure_live_weeks": 4,
+    "departure_active_weeks": 4,
+    "departure_lookback_weeks": 16,
+    "departure_silence_variants": [
+      8,
+      26
+    ],
+    "departure_live_variants": [
+      1,
+      8
+    ],
+    "departure_active_variants": [
+      2,
+      8
+    ],
+    "departure_rolling_min_at_risk": 20,
+    "successor_quiet_weeks": 26,
+    "successor_overlap": 0.5,
+    "successor_min_shared": 3,
     "degree_bucket_floors": [
       1,
       2,
@@ -59,6 +79,10 @@
     "community_groups": "9eacfc92d01fb77d18c71e226a3f399c9269b5827621487fbcf71c0b24b2fefa",
     "data_quality": "656573bfe0e1ace49e2dc8c191f42834bc3e00a467c7bbb1620a5782269444b0",
     "degree_distribution": "428004c79d9da95950529686820dd98adf5094dbfd2f6d75ebdd8c374bb50244",
+    "departure_results": "4c88fccae2e791c17b2090dfb28112c11852a714e8452fa3c14acc4d14e8aeb1",
+    "departure_test_results": "bb9aa7d073ecef6017f859a016f93e5d9b4799e7d64838bc9b5ac6ec0dccca24",
+    "departure_tests": "4a6a1eb97e156039566a43194a71863234474592aa9fcd3387ed37c6c507bb62",
+    "departures": "25a814d2a490686bfddf8245739489ea07cfa12c5ed610c5f4932670120da302",
     "entities": "397cac15e1bc104b4ae5b770c130007ff9757175e22b764f828978dede8a45d2",
     "entities_p": "807c6b92ddaebacd9f2df97adc2067267380da3ebb0fadbe5a1238b76709e357",
     "events": "b77a33ef0dc912cf14817e6f64f69acd0cc38bcde6b30f9e8342b5e7d20966bf",
@@ -86,53 +110,53 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.18,
-      "code_version": "95d00a8"
+      "seconds": 0.15,
+      "code_version": "a3bd492"
     },
     {
       "stage": "parse",
-      "seconds": 36.31,
-      "code_version": "95d00a8"
+      "seconds": 28.52,
+      "code_version": "a3bd492"
     },
     {
       "stage": "clean",
-      "seconds": 26.45,
-      "code_version": "95d00a8"
+      "seconds": 25.33,
+      "code_version": "a3bd492"
     },
     {
       "stage": "identity",
-      "seconds": 4.82,
-      "code_version": "95d00a8"
+      "seconds": 4.36,
+      "code_version": "a3bd492"
     },
     {
       "stage": "pseudo",
-      "seconds": 15.21,
-      "code_version": "95d00a8"
+      "seconds": 18.7,
+      "code_version": "a3bd492"
     },
     {
       "stage": "network",
-      "seconds": 0.71,
-      "code_version": "95d00a8"
+      "seconds": 0.69,
+      "code_version": "a3bd492"
     },
     {
       "stage": "finding",
-      "seconds": 22.72,
-      "code_version": "95d00a8"
+      "seconds": 23.36,
+      "code_version": "a3bd492"
     },
     {
       "stage": "risk",
-      "seconds": 45.34,
-      "code_version": "95d00a8"
+      "seconds": 44.88,
+      "code_version": "a3bd492"
     },
     {
       "stage": "release",
-      "seconds": 0.11,
-      "code_version": "95d00a8"
+      "seconds": 0.09,
+      "code_version": "a3bd492"
     },
     {
       "stage": "report",
-      "seconds": 0.03,
-      "code_version": "95d00a8"
+      "seconds": 0.02,
+      "code_version": "a3bd492"
     }
   ]
 }

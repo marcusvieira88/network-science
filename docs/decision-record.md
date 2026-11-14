@@ -29,8 +29,8 @@ injected from release tables; none is typed.
 
 - **Strict content line, including `Subject`.** Content fields (Subject, X-Folder) are never
   stored. We lose threads and reply times and dedupe on sender, second and recipients alone:
-  266827 copies removed. Precision and recall are measured only against the
-  synthetic corpus's ground truth.
+  266827 copies removed. Precision and recall are measured on synthetic
+  ground truth only.
 - **Rule-based identity resolution.** Deterministic, explainable rules weighted to precision,
   because a false merge invents a central person while a false split only dilutes one:
   85388 addresses to 84759 entities.
@@ -50,6 +50,8 @@ change in behaviour is established. The share of weekday sent mail stamped outsi
 
 **Behaviour.** No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report. H25, the post-hoc replication test of the denser network that Diesner, Frantz and Carley describe, compares each custodian's share of the other custodians they exchanged mail with: a median change of 0.00826 (interval 0 to 0.0331, Holm-adjusted p = 0.239, 31 custodians); outcome: not supported. Details: the report.
 
+**Structure (H26, post hoc).** No wave of custodian departures in the crisis can be established.
+
 ## What changes with real customer data
 
 - **Metadata-only connectors**: mail scopes that return headers only, so mail content never
@@ -63,9 +65,9 @@ change in behaviour is established. The share of weekday sent mail stamped outsi
 
 ## Not done, and why
 
-- **No behavioural finding claimed.** The apparent crisis-year signals failed checks against
-  known artifacts (stale groups, mailbox mix, inbox retention); those checks, the record
-  profile and the replication test were added after results were seen and are labelled post hoc.
+- **No behavioural or structural finding.** The apparent crisis-year signals failed
+  checks against known artifacts (stale groups, mailbox mix, inbox retention); those checks,
+  the record profile and the replication and departure tests came after results (post hoc).
 - **Dropped for time**: the dedupe-rule sensitivity variant.
 - **A sketch, not a guarantee**: the noise release (R2) has no formal privacy budget.
 - **Identity precision on real data** rests on a manual sample judged by a person, not on ground
