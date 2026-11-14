@@ -14,6 +14,7 @@ from scipy.stats import beta
 
 from enron_case.contracts import schemas, vocab
 from enron_case.errors import ContractViolation
+from enron_case.finding.artifacts import WITHIN_CUSTODIAN
 
 STEP_PARSE = "files parsed"
 STEP_DEDUPE = "deduplicate"
@@ -314,12 +315,12 @@ def header_fields(ingest: dict[str, Any]) -> pl.DataFrame:
 
 
 def artifact_checks(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
-    """The artifact checks; a count of custodians below k is suppressed."""
+    """The artifact checks. A within-custodian check over fewer than k custodians is suppressed
+    with every value computed from them, as in `exploratory`; other checks count weeks."""
+    small = (pl.col("check") == WITHIN_CUSTODIAN) & (pl.col("n_units") < k_min)
+    derived = ("statistic", "ci_low", "ci_high", "n_units", "passes")
     return results.with_columns(
-        pl.when((pl.col("check") == "within_custodian") & (pl.col("n_units") < k_min))
-        .then(None)
-        .otherwise(pl.col("n_units"))
-        .alias("n_units")
+        pl.when(small).then(None).otherwise(pl.col(c)).alias(c) for c in derived
     )
 
 

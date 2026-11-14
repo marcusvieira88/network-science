@@ -21,13 +21,14 @@ from enron_case import zones
 from enron_case.config import (
     KEY_ENV,
     KEY_FILE_ENV,
+    MANIFEST_FILE,
     SAMPLE_ARCHIVE,
     SAMPLE_INTERNAL_DOMAIN,
     SAMPLE_KEY_HEX,
     Config,
 )
 from enron_case.context import LogFn, StageContext, stderr_log
-from enron_case.errors import KeyProblem, PipelineError, UsageError
+from enron_case.errors import PipelineError, UsageError
 from enron_case.manifest import RunManifest, code_version, file_sha256
 from enron_case.zones import Paths, Zone
 
@@ -62,6 +63,7 @@ STAGES: tuple[Stage, ...] = (
     Stage("report", "report", "run"),
     Stage("ui-data", "uiexport", "run"),
 )
+PARSE_STAGE = "parse"  # the stage that reads the archive; the manifest records its hash
 DEFAULT_LAST = "report"  # ui-data runs only when asked for
 KEEP_INGEST_WARNING = "warning: the ingest zone (addresses, names) stays on disk after this run"
 STAGE_NAMES = tuple(s.name for s in STAGES)
@@ -90,14 +92,12 @@ def select(first: str | None, last: str | None) -> list[Stage]:
     return list(STAGES[start : end + 1])
 
 
-def load_key_fingerprint() -> str:
-    """Resolve the key through pseudo.keys; raise KeyProblem if unavailable."""
-    try:
-        keys = importlib.import_module("enron_case.pseudo.keys")
-    except ModuleNotFoundError as exc:
-        raise KeyProblem("key handling (pseudo.keys) is not implemented yet") from exc
-    fingerprint: str = keys.key_fingerprint(keys.load_key())
-    return fingerprint
+def load_key_fingerprint(sample: bool) -> str:
+    """Fingerprint of the run key; raise KeyProblem if it is unavailable or unfit for the run."""
+    # Imported here: pseudo.keys imports REPO_ROOT from this module.
+    from enron_case.pseudo.keys import key_fingerprint, load_run_key  # noqa: PLC0415
+
+    return key_fingerprint(load_run_key(sample))
 
 
 def ensure_sample_corpus(paths: Paths) -> None:
@@ -151,7 +151,7 @@ def run_pipeline(
                     break
                 raise PipelineError(f"stage '{stage.name}' is not implemented")
             if stage.package == "pseudo":
-                manifest.key_fingerprint = load_key_fingerprint()
+                manifest.key_fingerprint = load_key_fingerprint(sample)
             ctx = StageContext(stage.package, config, paths, sample, log)
             started = time.perf_counter()
             fn(ctx)
@@ -165,8 +165,8 @@ def run_pipeline(
     finally:
         if not keep_ingest:
             zones.purge_ingest(paths)
-    full_run = bool(stages) and stages[0].name in {"fetch", "parse"}
-    target = zones.path_for(paths, "cli", Zone.RELEASE, "run_manifest.json", "w")
+    full_run = bool(stages) and stages[0].name in {"fetch", PARSE_STAGE}
+    target = zones.path_for(paths, "cli", Zone.RELEASE, MANIFEST_FILE, "w")
     manifest.write(target, merge=not full_run)
     return RunResult(manifest, ran, skipped)
 
@@ -232,12 +232,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         os.environ.pop(KEY_FILE_ENV, None)
     try:
         if args.command == "check-key":
-            load_key_fingerprint()
+            load_key_fingerprint(sample=False)
             return 0
         if args.command == "review-merges":
-            review = importlib.import_module("enron_case.identity.review")
+            from enron_case.identity.review import review  # noqa: PLC0415 - this command only
+
             ctx = StageContext("identity", Config(), Paths.for_run(REPO_ROOT, False), False)
-            checked, correct = review.review(ctx)
+            checked, correct = review(ctx)
             stderr_log(f"review-merges: {correct} of {checked} merges judged correct")
             return 0
         config = Config()

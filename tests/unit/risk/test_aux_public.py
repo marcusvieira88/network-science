@@ -55,3 +55,37 @@ def test_archive_parse_collapses_copies(synth: SynthOutput) -> None:
     # No identity resolution: alias addresses stay separate nodes.
     assert nodes <= set(truth["address_to_truth"])
     assert len(nodes) > len({truth["address_to_truth"][a] for a in nodes})
+
+
+def test_whitespace_only_line_ends_the_header_block() -> None:
+    # A blank line holding only spaces ends the headers, as in the ingest reader; a forwarded
+    # header in the body below it must never be read.
+    member = (
+        b"Date: Mon, 14 May 2001 16:39:00 -0700\r\n"
+        b"From: a@example.org\r\n"
+        b"   \r\n"
+        b"To: mallory@example.org\r\n"
+    )
+    stream = io.BytesIO(member)
+    fields = aux_public.read_headers(stream)
+    assert "to" not in fields
+    assert stream.read() == b"To: mallory@example.org\r\n"
+
+
+def test_a_line_that_is_not_a_header_stops_the_reader() -> None:
+    # No blank line at all: the first non-header line is body text; stop there.
+    member = (
+        b"Date: Mon, 14 May 2001 16:39:00 -0700\r\n"
+        b"From: a@example.org\r\n"
+        b"CANARYBODY no colon here\r\n"
+        b"To: mallory@example.org\r\n"
+    )
+    stream = io.BytesIO(member)
+    fields = aux_public.read_headers(stream)
+    assert set(fields) == {"date", "from"}
+    assert stream.read() == b"To: mallory@example.org\r\n"
+
+
+def test_out_of_range_date_is_unusable_not_a_crash() -> None:
+    # Parses, but lies past datetime.max once converted to UTC.
+    assert aux_public.parse_week("Fri, 31 Dec 9999 23:00:00 -0200") is None

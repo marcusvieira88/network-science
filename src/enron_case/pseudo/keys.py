@@ -11,7 +11,13 @@ import os
 from pathlib import Path
 
 from enron_case.cli import REPO_ROOT
-from enron_case.config import DEFAULT_KEY_PATH, KEY_ENV, KEY_FILE_ENV, MIN_KEY_BYTES
+from enron_case.config import (
+    DEFAULT_KEY_PATH,
+    KEY_ENV,
+    KEY_FILE_ENV,
+    MIN_KEY_BYTES,
+    SAMPLE_KEY_HEX,
+)
 from enron_case.errors import KeyProblem
 
 PERSON_LABEL = "person-v1"
@@ -32,6 +38,15 @@ def load_key(repo_root: Path = REPO_ROOT) -> bytes:
     if named_file is not None:
         return _read_key_file(Path(named_file), KEY_FILE_ENV, repo_root)
     return _read_key_file(Path.home() / DEFAULT_KEY_PATH, "default key file", repo_root)
+
+
+def load_run_key(sample: bool, repo_root: Path = REPO_ROOT) -> bytes:
+    """The key for a run. A real-data run refuses the sample key: it is published in this
+    repository, so anyone could recompute the pseudonyms it makes from candidate addresses."""
+    key = load_key(repo_root)
+    if not sample and key == bytes.fromhex(SAMPLE_KEY_HEX):
+        raise KeyProblem("the published sample key cannot pseudonymize real data; run: make key")
+    return key
 
 
 def key_fingerprint(key: bytes) -> str:

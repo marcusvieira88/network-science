@@ -195,3 +195,28 @@ def test_manual_rule_composition_must_add_up() -> None:
     }
     with pytest.raises(ContractViolation):
         tables.data_quality(ingest, clean, identity, pseudo, CI, manual)
+
+
+def test_within_custodian_check_below_k_hides_its_statistics() -> None:
+    # A within-custodian change over 3 custodians describes fewer than k=5 persons: the count
+    # and everything computed from those custodians go; the note is fixed text and stays.
+    results = pl.DataFrame(
+        {
+            "hypothesis": ["H2", "H3"],
+            "check": ["baseline_placebo", "within_custodian"],
+            "statistic": [1.5, -0.2],
+            "ci_low": [1.0, -0.4],
+            "ci_high": [2.0, 0.1],
+            "n_units": [3, 3],
+            "passes": [False, True],
+            "note": ["drift", "no change"],
+        }
+    )
+    out = tables.artifact_checks(results, 5)
+    placebo, within = out.row(0, named=True), out.row(1, named=True)
+    # The placebo counts weeks, not persons: untouched.
+    assert (placebo["statistic"], placebo["n_units"], placebo["passes"]) == (1.5, 3, False)
+    assert [within[c] for c in ("statistic", "ci_low", "ci_high", "n_units", "passes")] == [
+        None
+    ] * 5
+    assert within["note"] == "no change"

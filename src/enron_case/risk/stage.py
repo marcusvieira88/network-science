@@ -7,7 +7,6 @@ which returns counts and rates.
 
 from __future__ import annotations
 
-import importlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -18,6 +17,8 @@ import polars as pl
 from enron_case.config import Config
 from enron_case.context import StageContext
 from enron_case.contracts import vocab as v
+from enron_case.finding import stats
+from enron_case.release import variants
 from enron_case.risk import aux_public, score, uniqueness, utility
 from enron_case.risk.attack import Release, attack_a1, attack_a2, node_edges, person_edges
 from enron_case.risk.features import NODE, node_features
@@ -47,26 +48,15 @@ def real_dependencies(communities: pl.DataFrame, config: Config) -> Dependencies
     to the shapes this stage calls. R0 is the observed-scope snapshots; R1/R2 are built from
     those edges plus the baseline communities, exactly as the release stage builds what it
     publishes."""
-    variants: Any = importlib.import_module("enron_case.release.variants")
-    stats: Any = importlib.import_module("enron_case.finding.stats")
 
     def build_r1(edges: pl.DataFrame, metric_series: pl.DataFrame) -> dict[str, pl.DataFrame]:
-        tables: dict[str, pl.DataFrame] = variants.build_r1(
-            edges, metric_series, communities, config
-        )
-        return tables
+        return variants.build_r1(edges, metric_series, communities, config)
 
     def build_r2(edges: pl.DataFrame, metric_series: pl.DataFrame) -> dict[str, pl.DataFrame]:
-        tables: dict[str, pl.DataFrame] = variants.build_r2(
-            edges, metric_series, communities, config
-        )
-        return tables
+        return variants.build_r2(edges, metric_series, communities, config)
 
     def effect_size(before: np.ndarray, after: np.ndarray) -> float:
-        value: float = stats.effect_size(
-            before, after, min_baseline_weeks=config.min_baseline_weeks
-        )
-        return value
+        return stats.effect_size(before, after, min_baseline_weeks=config.min_baseline_weeks)
 
     return Dependencies(
         build_r0=variants.build_r0,

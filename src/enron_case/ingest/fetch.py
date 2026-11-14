@@ -51,6 +51,10 @@ def fetch_archive(target: Path, url: str, sha256: str, download: Downloader) -> 
             raise CorpusError("corpus archive on disk does not match the pinned SHA-256")
         return
     partial = partial_path(target)
+    if partial.exists() and file_sha256(partial) == sha256:
+        # Interrupted after the last byte: resuming would ask for a range past the end (416).
+        partial.replace(target)
+        return
     offset = partial.stat().st_size if partial.exists() else 0
     try:
         download(url, partial, offset)

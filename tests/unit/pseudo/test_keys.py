@@ -170,8 +170,28 @@ def test_orchestrator_records_only_the_fingerprint(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv(config.KEY_ENV, TEST_KEY_HEX)
-    recorded = load_key_fingerprint()
+    recorded = load_key_fingerprint(sample=True)
     assert recorded == TEST_KEY_FINGERPRINT
     out = capsys.readouterr()
     assert TEST_KEY_HEX not in out.out + out.err
     assert TEST_KEY_HEX not in json.dumps({"key_fingerprint": recorded})
+
+
+def test_real_run_refuses_the_published_sample_key(
+    no_key: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(config.KEY_ENV, TEST_KEY_HEX)
+    assert keys.load_run_key(sample=True, repo_root=repo) == bytes.fromhex(TEST_KEY_HEX)
+    with pytest.raises(KeyProblem) as raised:
+        keys.load_run_key(sample=False, repo_root=repo)
+    assert raised.value.exit_code == 3
+    assert TEST_KEY_HEX not in str(raised.value)
+    with pytest.raises(KeyProblem):
+        load_key_fingerprint(sample=False)
+
+
+def test_real_run_accepts_a_private_key(
+    no_key: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(config.KEY_ENV, OTHER_KEY_HEX)
+    assert keys.load_run_key(sample=False, repo_root=repo) == bytes.fromhex(OTHER_KEY_HEX)

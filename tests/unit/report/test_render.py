@@ -416,3 +416,33 @@ def test_report_states_the_weaker_placebo(synth: SynthOutput, tmp_path: Path) ->
     limits = text.split("## Limits", 1)[1]
     assert "placebos run on fewer custodians than the crisis comparison" in limits
     assert "does not exclude a pre-existing trend" in limits
+
+
+def _retention_row(hypothesis: str, placebo_passes: bool, loo_stable: bool) -> dict[str, object]:
+    return {
+        "hypothesis": hypothesis,
+        "measure": "m",
+        "outcome": "inconclusive",
+        "median_change": 1.0,
+        "ci_low": 0.5,
+        "ci_high": 1.5,
+        "caveat": "fails the retention check",
+        "placebo_passes": placebo_passes,
+        "loo_stable": loo_stable,
+        "retention_passes": False,
+        "retention_median": 0.1,
+        "retention_ci_low": -0.1,
+        "retention_ci_high": 0.3,
+    }
+
+
+def test_only_a_row_that_met_its_rule_is_called_so() -> None:
+    # H16 passed its placebo and leave-one-out checks and failed only the retention check;
+    # H17 also failed its placebo, so it never met its stated rule.
+    table = pl.DataFrame([_retention_row("H16", True, True), _retention_row("H17", False, True)])
+    text = render.exploratory_statement(table)
+    assert "H16 (m) met its stated rule" in text
+    assert "H17" not in text
+    # An interval spanning zero shows the change is not established, not that retention
+    # explains it.
+    assert "largely explained" not in text

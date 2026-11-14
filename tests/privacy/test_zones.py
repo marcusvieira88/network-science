@@ -46,6 +46,19 @@ def test_purge_ingest_removes_zone(tmp_path: Path) -> None:
     target.write_text("x")
     zones.purge_ingest(paths)
     assert not paths.dir(Zone.INGEST).exists()
+    zones.purge_ingest(paths)  # nothing left to purge is not an error
+
+
+def test_purge_ingest_that_fails_is_loud(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    paths = tmp_paths(tmp_path)
+    zones.path_for(paths, "clean", Zone.INGEST, "x.parquet", "w").write_text("x")
+
+    def refuse(_path: Path) -> None:
+        raise PermissionError
+
+    monkeypatch.setattr("shutil.rmtree", refuse)
+    with pytest.raises(PrivacyViolation):
+        zones.purge_ingest(paths)
 
 
 def test_only_release_writes_release_tables(synth: SynthOutput, tmp_path: Path) -> None:

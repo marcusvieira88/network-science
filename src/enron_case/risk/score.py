@@ -8,16 +8,16 @@ this module except the seed identities attacker A2 is defined to know.
 
 from __future__ import annotations
 
-import importlib
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 
 from enron_case.config import CI_PERCENTILES
 from enron_case.context import StageContext
 from enron_case.errors import PipelineError
+from enron_case.pseudo.keys import load_key
+from enron_case.pseudo.pseudonymize import person_pid
 
 # Interval bounds of the percentile bootstrap.
 
@@ -25,15 +25,12 @@ PidOf = Callable[[str], str]
 
 
 def keyed_pid_of() -> PidOf:
-    """The pipeline's person pseudonym function (WP-D `person_pid`) bound to the run key. The
+    """The pipeline's person pseudonym function (`person_pid`) bound to the run key. The
     key stays inside the returned closure."""
-    keys: Any = importlib.import_module("enron_case.pseudo.keys")
-    pseudonymize: Any = importlib.import_module("enron_case.pseudo.pseudonymize")
-    key: bytes = keys.load_key()
+    key = load_key()
 
     def pid_of(entity_id: str) -> str:
-        pid: str = pseudonymize.person_pid(key, entity_id)
-        return pid
+        return person_pid(key, entity_id)
 
     return pid_of
 

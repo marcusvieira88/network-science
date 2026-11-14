@@ -53,12 +53,13 @@ def parse_date(value: str | None) -> datetime | None:
         return None
     try:
         parsed = parsedate_to_datetime(value)
+        if parsed.tzinfo is None:
+            # RFC 5322 "-0000": the instant is UTC, the sender's zone unknown.
+            return parsed.replace(tzinfo=UTC)
+        # Inside the try: a date at the edge of the range overflows on conversion.
+        return parsed.astimezone(UTC)
     except (TypeError, ValueError, IndexError, OverflowError):
         return None
-    if parsed.tzinfo is None:
-        # RFC 5322 "-0000": the instant is UTC, the sender's zone unknown.
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
 
 
 def split_addresses(value: str | None) -> list[str]:

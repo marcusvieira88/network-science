@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from enron_case.config import MANIFEST_FILE
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.errors import ContractViolation
@@ -17,7 +18,6 @@ from enron_case.uiexport.export import (
 )
 from enron_case.zones import Zone
 
-MANIFEST_FILE = "run_manifest.json"
 UI_FILE = "release.json"
 
 

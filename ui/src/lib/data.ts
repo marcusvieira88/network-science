@@ -324,10 +324,18 @@ export type LoadResult =
 
 type FetchLike = (url: string) => Promise<Response>;
 
+const HTTP_NOT_FOUND = 404;
+
 /** A file the static server does not have: a 404, or a dev-server HTML fallback page. */
 function isMissing(response: Response): boolean {
   const type = response.headers.get("content-type") ?? "";
-  return !response.ok || type.includes("text/html");
+  return response.status === HTTP_NOT_FOUND || (response.ok && type.includes("text/html"));
+}
+
+/** Any other failure (401, 403, 500, ...) is an error: the file may exist, so never fall back. */
+function requireServed(response: Response, label: string): Response {
+  if (!response.ok) throw new DataError(`${label} could not be loaded (HTTP ${response.status})`);
+  return response;
 }
 
 async function readJson(response: Response, label: string): Promise<ReleaseData> {
@@ -348,13 +356,13 @@ export async function loadRelease(fetchFn: FetchLike = fetch, base: string = imp
   try {
     const release = await fetchFn(`${base}${RELEASE_URL}`);
     if (!isMissing(release)) {
-      return { status: "ok", data: await readJson(release, "release.json"), source: "release" };
+      return { status: "ok", data: await readJson(requireServed(release, "release.json"), "release.json"), source: "release" };
     }
     const sample = await fetchFn(`${base}${SAMPLE_URL}`);
     if (isMissing(sample)) {
       return { status: "error", message: "No release data found. Run `make ui` or `make ui-sample` first." };
     }
-    return { status: "ok", data: await readJson(sample, "release.sample.json"), source: "sample" };
+    return { status: "ok", data: await readJson(requireServed(sample, "release.sample.json"), "release.sample.json"), source: "sample" };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { status: "error", message };
