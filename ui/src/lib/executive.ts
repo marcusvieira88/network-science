@@ -109,7 +109,7 @@ export function studiedCard(data: ReleaseData): SummaryCard {
     title: "Who emailed whom, and when, never what was written",
     points: [
       `${messages}${span}.`,
-      `Only each message's envelope was used: sender, recipients and time.${contentText} bodies and attachments were never read.`,
+      `Only each message's envelope was analysed: sender, recipients and time.${contentText} bodies and attachments were never parsed or stored.`,
       `${entriesOf(data).length} hypotheses about how communication changed around ${events.length} public events${eventSpan}, each written down before its result was computed.`,
     ],
     view: "quality",
@@ -145,7 +145,7 @@ function artifactSentence(ids: string[]): string {
   const one = ids.length === 1;
   return (
     `${joinList(ids)} passed ${one ? "its" : "their"} planned statistical tests, but ${one ? "a check shows" : "checks show"} that how ` +
-    `the data was collected explains ${one ? "it" : "them"}, not a change in how people communicated.`
+    `the data was collected and analysed explains ${one ? "it" : "them"}, not a detectable change in how people communicated.`
   );
 }
 
@@ -169,7 +169,7 @@ export function recordCard(data: ReleaseData): SummaryCard {
   ];
   const title =
     shifted.length && heldCount(entries) === 0
-      ? "What changed was the record, not behaviour"
+      ? "The record changed; no change in behaviour is established"
       : points.length
         ? "Some results reflect how the data was kept"
         : "No result traced back to how the data was kept";
@@ -205,13 +205,13 @@ export function confidenceCard(data: ReleaseData): SummaryCard {
   return {
     key: "confidence",
     eyebrow: "How sure we are",
-    title: "Every result had to pass every check",
+    title: "The bar a result had to clear",
     points: [
-      "Each result had to survive a correction for testing many hypotheses at once, repeats that leave out one mailbox at a time, and checks against known quirks of the data.",
+      "To hold up, a result had to survive a correction for testing many hypotheses at once, repeats that leave out one mailbox at a time, and checks against known quirks of the data.",
       ...(counts === null ? [] : [counts]),
       ...retentionFailed,
       ...(entries.some(shiftedRecord)
-        ? ["The calm-period placebo tests lie before the change in the record, so they cannot detect it."]
+        ? ["The pre-crisis placebo tests lie before the change in the record, so they cannot detect it."]
         : []),
     ],
     view: "limits",
@@ -309,7 +309,7 @@ export function whatItMeans(data: ReleaseData): string[] {
           `Check how the data was kept before reading behaviour into it: here ${traced.length} of ${entries.length} results trace back to how the data was collected or analysed (${traced.join(", ")}).`,
         ]
       : []),
-    `Fix the questions and checks before looking at results, and publish every outcome: all ${entries.length} hypotheses are published here, ` +
+    `Fix the questions and checks before looking at results, label any check added later, and publish every outcome: all ${entries.length} hypotheses are published here, ` +
       (held === 0 ? "though none held up." : `including the ${notHeld} that did not hold up.`),
     ...(personLevel
       ? [

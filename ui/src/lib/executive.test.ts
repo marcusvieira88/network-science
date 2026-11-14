@@ -79,7 +79,7 @@ describe("summary cards on the sample", () => {
       title: "Who emailed whom, and when, never what was written",
       points: [
         "2,721 distinct messages from the synthetic sample corpus, over 118 weeks (weeks of 1999-12-27 to 2002-03-25).",
-        "Only each message's envelope was used: sender, recipients and time. Subject and X-Folder count as content and were never stored; bodies and attachments were never read.",
+        "Only each message's envelope was analysed: sender, recipients and time. Subject and X-Folder count as content and were never stored; bodies and attachments were never parsed or stored.",
         "25 hypotheses about how communication changed around 5 public events (2001-08-14 to 2001-12-02), each written down before its result was computed.",
       ],
       view: "quality",
@@ -110,10 +110,11 @@ describe("summary cards on the sample", () => {
 
   it("says how sure we are", () => {
     expect(confidenceCard(data).points).toEqual([
-      "Each result had to survive a correction for testing many hypotheses at once, repeats that leave out one mailbox at a time, and checks against known quirks of the data.",
+      "To hold up, a result had to survive a correction for testing many hypotheses at once, repeats that leave out one mailbox at a time, and checks against known quirks of the data.",
       "Confidence of the 4 hypotheses stated before any data: 1 high, 1 moderate, 2 low.",
       "H16, measure H16, rose by a median of 0.25 (interval 0.12 to 0.38), but the change is not established once how much inbox mail was kept is accounted for.",
     ]);
+    expect(confidenceCard(data).title).toBe("The bar a result had to clear");
     expect(confidenceCard(data).view).toBe("limits");
   });
 
@@ -146,7 +147,7 @@ describe("summary cards on the sample", () => {
   it("says what it means for an organisation", () => {
     expect(whatItMeans(data)).toEqual([
       "Check how the data was kept before reading behaviour into it: here 2 of 25 results trace back to how the data was collected or analysed (H5, H7).",
-      "Fix the questions and checks before looking at results, and publish every outcome: all 25 hypotheses are published here, including the 24 that did not hold up.",
+      "Fix the questions and checks before looking at results, label any check added later, and publish every outcome: all 25 hypotheses are published here, including the 24 that did not hold up.",
       "Treat pseudonymised person-level data as identifiable: a simulated attacker re-identified 90% of people from it here. Share only groups of at least 5 people.",
       "This kind of question can be studied without reading content: only sender, recipients and time were used, and Subject and X-Folder were never stored.",
       "Before applying this to your own staff's email: collect header fields only at the source, keep the pseudonymisation key in your own key store, replace the noise sketch with a formal privacy budget, and agree the questions and thresholds with employee representatives, such as a works council, first.",
@@ -170,10 +171,10 @@ describe("summary cards on the real outcomes", () => {
 
   it("leads with the change in the record", () => {
     const card = recordCard(data);
-    expect(card.title).toBe("What changed was the record, not behaviour");
+    expect(card.title).toBe("The record changed; no change in behaviour is established");
     expect(card.points).toEqual([
       "H5, after-hours share of sent messages (weekdays): within the same 32 custodians it moved by a median of -0.44 (interval -0.51 to -0.37) between the reference weeks (2000-08-14 to 2000-12-02) and the crisis weeks (2001-08-14 to 2001-12-02). It is not read as behaviour: timestamps in the reference year of the corpus are shifted by several hours.",
-      "H2 and H3 passed their planned statistical tests, but checks show that how the data was collected explains them, not a change in how people communicated.",
+      "H2 and H3 passed their planned statistical tests, but checks show that how the data was collected and analysed explains them, not a detectable change in how people communicated.",
       "H7: Measure H7 could not be tested with this data: every Bcc line in the corpus repeats the Cc line.",
       "Every within-custodian comparison (H5–H25) uses these same two windows, so each one compares two ways of keeping the record.",
     ]);
@@ -181,10 +182,10 @@ describe("summary cards on the real outcomes", () => {
 
   it("states the placebo limit when the record changed", () => {
     expect(confidenceCard(data).points).toEqual([
-      "Each result had to survive a correction for testing many hypotheses at once, repeats that leave out one mailbox at a time, and checks against known quirks of the data.",
+      "To hold up, a result had to survive a correction for testing many hypotheses at once, repeats that leave out one mailbox at a time, and checks against known quirks of the data.",
       "Confidence of the 4 hypotheses stated before any data: 4 low.",
       "H16, share of sent-to contacts who also wrote to the custodian, rose by a median of 0.27 (interval 0.14 to 0.39), but the change is not established once how much inbox mail was kept is accounted for.",
-      "The calm-period placebo tests lie before the change in the record, so they cannot detect it.",
+      "The pre-crisis placebo tests lie before the change in the record, so they cannot detect it.",
     ]);
   });
 
@@ -216,7 +217,7 @@ describe("summary cards on the real outcomes", () => {
       "Check how the data was kept before reading behaviour into it: here 4 of 25 results trace back to how the data was collected or analysed (H2, H3, H5, H7).",
     );
     expect(publish).toBe(
-      "Fix the questions and checks before looking at results, and publish every outcome: all 25 hypotheses are published here, though none held up.",
+      "Fix the questions and checks before looking at results, label any check added later, and publish every outcome: all 25 hypotheses are published here, though none held up.",
     );
     expect(privacy).toBe(
       "Treat pseudonymised person-level data as identifiable: a simulated attacker re-identified 59.1% of people from it here. Share only groups of at least 5 people.",

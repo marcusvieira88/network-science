@@ -10,7 +10,7 @@ export const LIMITS = [
   {
     title: "Headers only",
     plain: "It says nothing about what was discussed.",
-    text: "Only who wrote to whom and when is analysed. No subject, body or attachment is read, so the analysis says nothing about what was discussed.",
+    text: "Only who wrote to whom and when is analysed. No subject, body or attachment is read, so the analysis says nothing about what was discussed. Without content, deduplication also merges distinct messages from one sender to the same recipients in the same second.",
   },
   {
     title: "Groups, not people",
@@ -33,9 +33,14 @@ export const LIMITS = [
     text: "The re-identification figures come from three concrete attacks. A stronger or better-informed attacker could do better; the noisy release R2 is a sketch, not a formal privacy guarantee.",
   },
   {
+    title: "Small p-values are weak evidence here",
+    plain: "A small p-value alone does not make a change real.",
+    text: "The weekly tests of H1–H4 treat weeks as interchangeable, but weekly network measures follow on from one another; a calibration test shows such tests reject far more often than their nominal level. Their intervals are also optimistic, because the change week is chosen from the same data.",
+  },
+  {
     title: "The group tables were not attacked",
     plain: "The risk of the published group tables is limited by design, not measured.",
-    text: "No attack on the published group-to-group tables was run. An attacker who knows some group members could try to infer ties or membership from them; that risk is bounded only by the minimum group size per published tie.",
+    text: "No attack on the published group-to-group tables was run. An attacker who knows some group members could try to infer ties or membership from them; that risk is bounded only by the rule that every published tie has at least k distinct senders.",
   },
 ] as const;
 
