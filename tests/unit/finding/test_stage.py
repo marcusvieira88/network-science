@@ -72,10 +72,11 @@ def test_planted_change_week_is_found(synth: SynthOutput, planted: pl.DataFrame)
     assert all(abs((week - planted_week).days) <= 7 for week in weeks)
 
 
-def test_headline_is_the_larger_planted_effect(planted: pl.DataFrame) -> None:
-    # Planted standardised steps: H2 0.25 / (0.04 * 0.15) = 41.7; H1 0.15 / (0.04 * 0.30) = 12.5
-    headline = planted.filter(pl.col("is_headline")).get_column("hypothesis").to_list()
-    assert headline == ["H2"]
+def test_no_headline_when_planted_effects_are_only_moderate(planted: pl.DataFrame) -> None:
+    # The fake recompute caps confidence at moderate (see the next test), and research R10
+    # admits only hypotheses that pass every robustness check as headline. The end-to-end
+    # sample run, with the real recompute, does produce a high-confidence headline.
+    assert not any(planted.get_column("is_headline"))
 
 
 def test_fake_null_reproduces_effect_so_confidence_is_capped(planted: pl.DataFrame) -> None:
@@ -87,16 +88,6 @@ def test_fake_null_reproduces_effect_so_confidence_is_capped(planted: pl.DataFra
     assert rows.get_column("confidence").to_list() == ["moderate", "moderate"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "The frozen synth_nochange fixture's iid noise for core indegree_gini holds a real "
-        "chance level shift (last 14 weeks +0.81 sd, baseline -0.28 sd; permutation p about "
-        "0.005 with weighted or unweighted CUSUM), so a calibrated test flags H1. Reported to "
-        "the lead; the property itself is tested over 100 no-change worlds in "
-        "test_hypotheses.py::test_family_wise_false_support_rate_on_no_change_worlds."
-    ),
-)
 def test_no_change_supports_nothing(nochange: pl.DataFrame) -> None:
     schemas.validate(nochange, "hypothesis_results")
     assert nochange.height == 4

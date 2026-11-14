@@ -52,12 +52,15 @@ def confidence(supported: str, checks: Checks) -> str:
     return MODERATE if failed == 1 else LOW
 
 
-def _headline(evidence: Sequence[Evidence], supported: Sequence[str]) -> int | None:
-    """Index of the supported hypothesis with the largest effect in its direction."""
+def _headline(
+    evidence: Sequence[Evidence], supported: Sequence[str], confidences: Sequence[str]
+) -> int | None:
+    """Index of the hypothesis with the largest effect in its direction among those that are
+    supported and pass every robustness check (confidence high), per research R10."""
     candidates = [
         (-e.hypothesis.direction * e.effect, index)
-        for index, (e, s) in enumerate(zip(evidence, supported, strict=True))
-        if s == YES
+        for index, (e, s, c) in enumerate(zip(evidence, supported, confidences, strict=True))
+        if s == YES and c == HIGH
     ]
     return min(candidates)[1] if candidates else None
 
@@ -76,7 +79,10 @@ def results_table(evidence: Sequence[Evidence]) -> pl.DataFrame:
         support(e.hypothesis.direction, p, e.ci_low, e.ci_high)
         for e, p in zip(evidence, p_holm, strict=True)
     ]
-    headline = _headline(evidence, supported)
+    confidences = [
+        confidence(s, robustness_checks(e)) for e, s in zip(evidence, supported, strict=True)
+    ]
+    headline = _headline(evidence, supported, confidences)
     rows = []
     for index, (e, p, s) in enumerate(zip(evidence, p_holm, supported, strict=True)):
         loo_min, loo_max = _loo_range(e.loo_effects)
@@ -97,7 +103,7 @@ def results_table(evidence: Sequence[Evidence]) -> pl.DataFrame:
                 "robust_variants_passed": e.variants_passed,
                 "robust_variants_total": e.variants_total,
                 "supported": s,
-                "confidence": confidence(s, robustness_checks(e)),
+                "confidence": confidences[index],
                 "is_headline": index == headline,
             }
         )

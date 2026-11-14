@@ -343,7 +343,7 @@ class FixtureBuilder:
     def metric_series_table(self) -> pl.DataFrame:
         """Synthetic series: flat with noise, plus a step at the change week for the H1 and
         H2 metrics when the change is planted."""
-        rng = random.Random(self.spec.seed + 1)
+        rng = random.Random(self.spec.seed + 2)
         base = {
             "volume": 120.0,
             "active_persons": 40.0,

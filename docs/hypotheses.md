@@ -83,9 +83,13 @@ Confidence rule (research R11, until `docs/metrics.md` states it; the two must a
 - **low**: `supported = yes` with two or more checks failing, or `supported` is no or
   inconclusive.
 
-**Headline**: of the hypotheses with `supported = yes`, the one with the largest effect in its
-hypothesised direction (`d · effect`); ties go to the lower ID. At most one headline; none when
-nothing is supported. Its confidence is reported next to it.
+**Headline** (research R10): of the hypotheses with `supported = yes` that pass every
+robustness check (confidence high), the one with the largest effect in its hypothesised direction
+(`d · effect`); ties go to the lower ID. At most one headline; none when no supported hypothesis
+passes every check, in which case the supported ones are still reported with their confidence.
+
+*Amendment, made before the first real-data run of the finding stage:* the headline rule above
+replaces "largest supported effect" so that it matches the pre-registered rule in research R10.
 
 ## What would falsify each
 

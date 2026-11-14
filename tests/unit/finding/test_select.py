@@ -144,6 +144,22 @@ def test_headline_only_among_supported() -> None:
     assert table.get_column("is_headline").to_list() == [False, True, False, False]
 
 
+def test_headline_requires_every_robustness_check() -> None:
+    """Research R10: a supported hypothesis that fails a robustness check cannot be headline."""
+    evidence = _all()
+    evidence[0] = replace(evidence[0], effect=9.0, null_z=0.0)  # largest, supported, null fails
+    table = select.results_table(evidence)
+    assert table.get_column("supported").to_list()[0] == "yes"
+    assert table.get_column("confidence").to_list()[0] == "moderate"
+    assert table.get_column("is_headline").to_list() == [False, True, False, False]
+
+
+def test_no_high_confidence_means_no_headline() -> None:
+    table = select.results_table(_all(null_z=0.0))
+    assert set(table.get_column("supported")) == {"yes"}
+    assert not any(table.get_column("is_headline"))
+
+
 def test_none_supported_has_no_headline() -> None:
     table = select.results_table(_all(p_perm=0.5))
     assert table.get_column("supported").to_list() == ["inconclusive"] * 4
