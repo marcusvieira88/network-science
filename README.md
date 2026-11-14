@@ -486,8 +486,9 @@ flowchart LR
   outcomes are published. Checks added after seeing a result (the artifact checks, mail-volume
   equalisation, the H16 retention check) are labelled as such.
 - **Identity checked by a person.** A seeded sample of real identity merges was judged in a
-  terminal by a person (`enron-case review-merges`); only the two counts are kept and published
-  in `data_quality.csv`, so real identifiers never entered an AI conversation.
+  terminal by a person (`enron-case review-merges`); only counts are kept (checked and judged
+  correct, in total and per identity rule) and published in `data_quality.csv` with an exact
+  binomial interval, so real identifiers never entered an AI conversation.
 - **Typed and reviewed.** `mypy --strict` checks `src/` and `tests/`, with no `Any` in a
   signature. Every change is reviewed with three skills: `/code-review` (correctness),
   `/data-privacy-review` (the content and identifier promises) and the project's own
