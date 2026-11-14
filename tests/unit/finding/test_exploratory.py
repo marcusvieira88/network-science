@@ -15,6 +15,7 @@ from enron_case.config import (
     REFERENCE_WINDOW,
     Config,
 )
+from enron_case.contracts import schemas
 from enron_case.finding import exploratory as ex
 
 A, B, C, D = "p_aaaaaaaaaaaaaaaa", "p_bbbbbbbbbbbbbbbb", "p_cccccccccccccccc", "p_dddddddddddddddd"
@@ -236,7 +237,34 @@ def test_family_finds_a_planted_change_and_nothing_else() -> None:
 
 
 def test_caveated_hypotheses_are_never_confident() -> None:
-    assert set(ex.CAVEATS) == {"H5", "H7", "H19"}
+    assert set(ex.CAVEATS) == {"H5", "H6", "H7", "H19"}
+
+
+def test_a_shift_of_hours_alone_moves_the_weekend_share() -> None:
+    """Why H6 carries the timestamp caveat: the same Friday-evening message, stamped five hours
+    later under another convention, falls on Saturday in Houston time."""
+    friday_evening = datetime(2001, 9, 8, 2, tzinfo=UTC)  # Fri 7 Sep 2001, 21:00 in Houston
+    row = _event("m1", 8, A, C) | {"ts_hour": friday_evening}
+    shifted = row | {"ts_hour": friday_evening + timedelta(hours=5)}
+    weekend = ex.MEASURES["H6"]
+    assert _value(weekend(_tables([row]), WINDOW), A) == 0.0
+    assert _value(weekend(_tables([shifted]), WINDOW), A) == 1.0
+
+
+def test_timestamp_caveats_are_labelled_and_do_not_say_which_year_is_shifted() -> None:
+    assert ex.CAVEATS["H6"].startswith("timestamp-sensitive")
+    assert "post hoc" in ex.CAVEATS["H6"]
+    assert ex.CAVEATS["H5"].startswith("invalid:")
+    assert "reference year" not in ex.CAVEATS["H5"]
+
+
+def test_retention_caveats_do_not_claim_independence_from_retention() -> None:
+    """A message between two custodians survives in either mailbox, so these measures depend
+    less on one inbox, not on none: the sender's own retention still moves them."""
+    for caveat in schemas.RETENTION_FAILED.values():
+        assert "whatever" not in caveat
+        assert "no inbox" not in caveat
+        assert "cannot move" not in caveat
 
 
 def test_subsample_caps_each_custodian_and_ignores_row_order() -> None:

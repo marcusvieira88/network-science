@@ -233,9 +233,9 @@ within-custodian difference of a ratio between fixed windows (`config.CRISIS_WIN
 | `placebo_custodians`, `placebo_median`, `placebo_ci_low`, `placebo_ci_high` | int, float nullable | the pre-crisis comparison |
 | `placebo_passes`, `loo_stable` | bool | placebo shows no comparable change; leave-one-custodian-out keeps the sign |
 | `outcome` | enum | confident, inconclusive, not supported |
-| `caveat` | str | `""`, or why the hypothesis cannot be confident (`schemas.EXPLORATORY_CAVEATS`: H5 invalid, H7 untestable, H19 retention-sensitive; or `schemas.RETENTION_FAILED`) |
+| `caveat` | str | `""`, or why the hypothesis cannot be confident (`schemas.EXPLORATORY_CAVEATS`: H5 invalid, H6 timestamp-sensitive (post hoc), H7 untestable, H19 retention-sensitive; or `schemas.RETENTION_FAILED`) |
 | `equalised_median`, `equalised_ci_low`, `equalised_ci_high`, `equalised_p` | float nullable | volume-equalised check (each custodian's mail subsampled to the same count in both windows); null unless computed: only for outcomes other than not supported, without a caveat, and not for look-back measures (H19) |
-| `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` | float, bool nullable | retention check: the hypothesis on a measure inbox retention cannot move; null where none applies and when the outcome is not supported. H16 has one (reciprocity counted between custodians only, whose messages to each other are kept in the sender's own mailbox) and H25 has one (only the custodians written to). A failed retention check caps the outcome at inconclusive with that hypothesis's caveat from `RETENTION_FAILED` |
+| `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` | float, bool nullable | retention check: the hypothesis on a measure inbox retention moves less (not one it cannot move); null where none applies and when the outcome is not supported. H16 has one (reciprocity counted between custodians only, whose messages to each other can survive in either mailbox) and H25 has one (only the custodians written to). A failed retention check caps the outcome at inconclusive with that hypothesis's caveat from `RETENTION_FAILED` |
 
 `confident` needs Holm-adjusted p below `alpha`, an interval on the hypothesised side, a passing
 placebo, a stable leave-one-out and no caveat.

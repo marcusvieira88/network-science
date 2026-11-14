@@ -116,15 +116,23 @@ EXPLORATORY_CONFIDENT, EXPLORATORY_INCONCLUSIVE, EXPLORATORY_NOT_SUPPORTED = EXP
 # H5–H14, H15–H24, and H25 (stated after every other result and after reading prior work).
 EXPLORATORY_FAMILIES = ("first", "second", "post hoc")
 # Caveat recorded when a hypothesis fails its retention check (finding/exploratory.py).
+# A message between two custodians can survive in either mailbox, so these measures depend less
+# on what one inbox kept; the sender's own retention still moves them.
 RETENTION_FAILED = {
     "H16": "fails the retention check: among custodian-to-custodian contacts, whose messages "
-    "are visible whatever an inbox kept, the change is not established",
-    "H25": "fails the retention check: counting only the custodians written to, which no inbox "
-    "can move, the change is not established",
+    "can survive in either mailbox and so depend less on what one inbox kept, the change is "
+    "not established",
+    "H25": "fails the retention check: counting only the custodians written to, which depends "
+    "less on what the custodian's inbox kept, the change is not established",
 }
 # Why a hypothesis cannot be confident whatever its numbers (docs/hypotheses-exploratory.md).
 EXPLORATORY_CAVEATS = {
-    "H5": "invalid: timestamps in the reference year of the corpus are shifted by several hours",
+    "H5": "invalid: the hour convention of the timestamps changes by several hours between the "
+    "reference and crisis windows",
+    # Added in the pre-delivery review, after every result: a shift of hours moves messages
+    # across midnight, so a weekday-or-weekend measure crosses the same change as H5.
+    "H6": "timestamp-sensitive (post hoc): the hour convention changes between the windows, "
+    "which moves messages across midnight and so between weekday and weekend",
     "H7": "untestable: every Bcc line in the corpus repeats the Cc line",
     "H19": "retention-sensitive: the 26-week look-back depends on how much older mail was kept",
 }
