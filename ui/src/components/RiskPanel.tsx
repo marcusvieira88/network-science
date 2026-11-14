@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ATTACKERS, type RiskRow } from "@/lib/data";
-import { formatNumber, formatShare } from "@/lib/format";
+import { formatFloat, formatShare } from "@/lib/format";
 import { ATTACKER_LABELS, VARIANT_LABELS, reidByVariant } from "@/lib/risk";
 
 const config: ChartConfig = {
@@ -88,14 +88,14 @@ export function RiskPanel({ rows }: { rows: RiskRow[] }) {
                   <TableCell className="text-right font-mono tabular-nums">{row.n_targets}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">{formatShare(row.unique_share)}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
-                    {formatNumber(row.median_anonymity_set)}
+                    {formatFloat(row.median_anonymity_set)}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">{formatShare(row.reid_top1)}</TableCell>
                   <TableCell className="font-mono tabular-nums">
                     [{formatShare(row.reid_ci_low)}, {formatShare(row.reid_ci_high)}]
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
-                    {formatNumber(row.utility_effect_ratio)}
+                    {formatFloat(row.utility_effect_ratio)}
                   </TableCell>
                   <TableCell>{row.finding_survives === null ? "n/a" : row.finding_survives ? "yes" : "no"}</TableCell>
                 </TableRow>

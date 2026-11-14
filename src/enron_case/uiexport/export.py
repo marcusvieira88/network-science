@@ -14,8 +14,8 @@ The tables are `RELEASE_TABLES`, among them `artifact_checks` (hypothesis, check
 ci_low, ci_high, n_units, passes, note; `passes` is null when the check could not run).
 
 Rows keep the contract's column order and sort order; dates are ISO strings; suppressed cells
-are null. The run block is the run manifest without wall-clock time, timings or fingerprints,
-so the same release gives byte-identical JSON.
+and non-finite numbers (NaN, ±inf: not computable) are null. The run block is the run manifest
+without wall-clock time, timings or fingerprints, so the same release gives byte-identical JSON.
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, float) and not math.isfinite(value):
-        raise ContractViolation("non-finite number in a release table")
+        return None  # NaN or ±inf: not computable; JSON has no such number
     return value
 
 

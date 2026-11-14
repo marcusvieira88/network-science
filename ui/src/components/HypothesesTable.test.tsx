@@ -22,4 +22,11 @@ describe("HypothesesTable", () => {
     expect(h3.getByText("none")).toBeInTheDocument();
     expect(within(h1Row).getByText("headline")).toBeInTheDocument();
   });
+
+  it("shows a dash for an effect that could not be computed", () => {
+    const [first] = sampleData().tables.hypotheses;
+    if (!first) throw new Error("sample has no hypotheses");
+    render(<HypothesesTable hypotheses={[{ ...first, effect: null, ci_low: null, ci_high: null }]} />);
+    expect(screen.getAllByText("—")).toHaveLength(2);
+  });
 });

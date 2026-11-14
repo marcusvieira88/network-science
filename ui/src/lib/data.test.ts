@@ -33,6 +33,15 @@ describe("parseRelease", () => {
     expect(tenPlus.every((row) => row.persons === null)).toBe(true);
   });
 
+  it("accepts null for a float the release could not compute (NaN or ±inf upstream)", () => {
+    const doc = rawSample();
+    Object.assign(firstRow(doc, "hypotheses"), { effect: null, ci_low: null, ci_high: null, null_z: null });
+    firstRow(doc, "artifact_checks").passes = null;
+    const data = parseRelease(doc);
+    expect(data.tables.hypotheses[0]?.effect).toBeNull();
+    expect(data.tables.artifact_checks[0]?.passes).toBeNull();
+  });
+
   it("rejects a missing table", () => {
     const doc = rawSample();
     delete tablesOf(doc).risk;

@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ArtifactCheckRow } from "@/lib/data";
-import { formatInterval, formatNumber } from "@/lib/format";
+import { formatFloat, formatInterval, formatNumber } from "@/lib/format";
 
 function result(passes: boolean | null): { label: string; variant: "default" | "outline" | "secondary" } {
   if (passes === null) return { label: "not run", variant: "secondary" };
@@ -29,7 +29,7 @@ export function ArtifactChecksTable({ checks }: { checks: ArtifactCheckRow[] }) 
             <TableRow key={row.hypothesis}>
               <TableCell className="font-medium">{row.hypothesis}</TableCell>
               <TableCell>{row.check.replaceAll("_", " ")}</TableCell>
-              <TableCell className="text-right font-mono tabular-nums">{row.statistic === null ? "n/a" : formatNumber(row.statistic)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{formatFloat(row.statistic)}</TableCell>
               <TableCell className="font-mono tabular-nums">{formatInterval(row.ci_low, row.ci_high)}</TableCell>
               <TableCell className="text-right font-mono tabular-nums">{formatNumber(row.n_units)}</TableCell>
               <TableCell>

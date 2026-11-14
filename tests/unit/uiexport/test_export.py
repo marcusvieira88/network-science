@@ -224,12 +224,25 @@ def test_missing_manifest_is_a_contract_violation(synth: SynthOutput, tmp_path: 
         run(ctx)
 
 
-def test_non_finite_number_is_a_contract_violation(synth: SynthOutput, tmp_path: Path) -> None:
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_number_is_exported_as_null(
+    synth: SynthOutput, tmp_path: Path, value: float
+) -> None:
     ctx = release_ctx(synth, tmp_path)
-    df = synth.table("risk").with_columns(pl.lit(float("inf")).alias("reid_top1"))
-    replace_table(ctx, "risk", df)
-    with pytest.raises(ContractViolation):
-        run(ctx)
+    df = synth.table("hypotheses").with_columns(pl.lit(value).alias("null_z"))
+    replace_table(ctx, "hypotheses", df)
+    run(ctx)
+    rows = output(ctx)["tables"]["hypotheses"]
+    assert [row["null_z"] for row in rows] == [None] * df.height
+    assert "NaN" not in ui_file(ctx).read_text(encoding="utf-8")
+
+
+def test_jsonable_maps_non_finite_to_none() -> None:
+    assert export.table_rows(pl.DataFrame({"x": [1.5, float("nan"), float("-inf")]})) == [
+        {"x": 1.5},
+        {"x": None},
+        {"x": None},
+    ]
 
 
 def test_committed_ui_sample_matches_release_fixtures(synth: SynthOutput, tmp_path: Path) -> None:
