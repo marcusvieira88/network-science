@@ -367,3 +367,17 @@ If any of 1–4 fails, the result is: **no departure wave can be established**, 
   suppressed, and with them any hazard derived from them; a p-value is published only when
   every count it is computed from reaches k, otherwise only its band (below 0.05/26, below 0.05,
   0.05 or above).
+
+## Amendment before computing (2026-11-14, still nothing computed)
+
+Two publication details changed while designing the release table, before any number existed:
+
+- **No monthly hazard is published.** Monthly departure counts overlap the window counts, so a
+  published window total minus published months would reveal a month below k. Instead the
+  crisis departures are split at the third-quarter loss announcement (2001-10-16, the middle
+  event of `config.PUBLIC_EVENTS`): before it and from it on. Both parts are published only if
+  both reach k. Descriptive; not part of the rule.
+- **Variants publish no counts.** Their at-risk sets and departures are nested in the primary's
+  (a variant's count minus the primary's could describe fewer than k custodians), so each variant
+  publishes only whether h(W1) > h(W0), its p band, its placebo's p band and whether it clears
+  the rolling windows. The primary publishes its counts under the k rule stated above.
