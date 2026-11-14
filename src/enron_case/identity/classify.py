@@ -61,15 +61,12 @@ ROLE_LOCAL_PARTS = frozenset(
 LIST_PATTERN = re.compile(r"^(?:all|dl)[._-].+|.+[._-](?:desk|list|group)$")
 TOKEN_SPLIT = re.compile(r"[._-]")
 
-# Behaviour thresholds. "More than once" is the brief's definition of a role sender.
-# Not in config.py because the foundation is frozen for this work package; see the WP-C report.
-
 
 @dataclass(frozen=True)
 class Behaviour:
-    sent: int
+    """What an entity did as a sender; `role_min_mass_sends` (config.py) applies to it."""
+
     mass_sends: int
-    distinct_senders: int
 
 
 def pattern_type(local: str) -> str | None:
@@ -87,25 +84,13 @@ def pattern_type(local: str) -> str | None:
 def entity_behaviour(
     messages: pl.DataFrame, entity_of: Mapping[str, str], recipient_cap: int
 ) -> dict[str, Behaviour]:
-    """Per entity: messages sent, messages sent above the cap, distinct sender entities."""
-    sent: dict[str, int] = defaultdict(int)
+    """Per entity: messages it sent to more recipient addresses than the cap."""
     mass: dict[str, int] = defaultdict(int)
-    senders: dict[str, set[str]] = defaultdict(set)
     for sender, recipients in messages.select("sender_addr", "recipients").iter_rows():
         sender_entity = entity_of.get(sender) if sender is not None else None
-        if sender_entity is not None:
-            sent[sender_entity] += 1
-            if len(recipients) > recipient_cap:
-                mass[sender_entity] += 1
-        for recipient in recipients:
-            target = entity_of.get(recipient["addr"])
-            if target is not None and sender_entity is not None:
-                senders[target].add(sender_entity)
-    entities = set(entity_of.values())
-    return {
-        e: Behaviour(sent=sent[e], mass_sends=mass[e], distinct_senders=len(senders[e]))
-        for e in entities
-    }
+        if sender_entity is not None and len(recipients) > recipient_cap:
+            mass[sender_entity] += 1
+    return {e: Behaviour(mass_sends=mass[e]) for e in set(entity_of.values())}
 
 
 def entity_type(addresses: Sequence[str], behaviour: Behaviour, role_min_mass_sends: int) -> str:

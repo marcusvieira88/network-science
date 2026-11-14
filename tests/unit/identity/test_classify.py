@@ -71,12 +71,15 @@ def test_patterns_take_precedence_over_behaviour() -> None:
     )
 
 
-def test_behaviour_counts_distinct_sender_entities() -> None:
-    msgs = messages([("a@org.com", ["l@org.com"]), ("a2@org.com", ["l@org.com"])])
+def test_behaviour_counts_mass_sends_per_entity() -> None:
+    # Two aliases of one entity each send one message above the cap, and one below it:
+    # the entity has 2 mass sends; a recipient-only entity has none.
+    many = [f"r{i}@org.com" for i in range(CAP + 1)]
+    msgs = messages([("a@org.com", many), ("a2@org.com", many), ("a@org.com", ["l@org.com"])])
     entity_of = {"a@org.com": "a@org.com", "a2@org.com": "a@org.com", "l@org.com": "l@org.com"}
     beh = classify.entity_behaviour(msgs, entity_of, CAP)
-    assert beh["l@org.com"].distinct_senders == 1
-    assert beh["a@org.com"].sent == 2
+    assert beh["a@org.com"].mass_sends == 2
+    assert beh["l@org.com"].mass_sends == 0
 
 
 def test_types_on_synthetic_corpus(synth: SynthOutput, tmp_path: Path) -> None:
