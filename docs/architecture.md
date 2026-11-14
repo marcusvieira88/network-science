@@ -260,7 +260,9 @@ Rules for the UI:
    group label and hover highlighting; without WebGL, or if the WebGL view fails, it shows an SVG
    network laid out with `d3-force`. The Individuals mode draws, inside each group, as many points as the group has
    persons, at seeded random positions: decoration with no label, tooltip, hover text, tie or
-   data (Sigma keys are opaque sequence numbers). There is
+   data (Sigma keys are opaque sequence numbers). The Overlap mode (WebGL only) draws the week's six
+   heaviest group pairs by message count as intersecting translucent discs; an overlap is mail
+   between groups, never shared members. There is
    no person-level node, tooltip or table anywhere (`ui/src/privacy.test.ts`).
 3. No outside requests: fonts and assets are bundled; no analytics, no CDN.
    `ui/scripts/check-build.mjs` (run by `make ui-gate`) scans the build for external URLs.

@@ -196,6 +196,27 @@ describe("networkGraph", () => {
   });
 });
 
+describe("networkGraph in the Overlap mode", () => {
+  const ties = publishedTies(edges, "2000-01-03", positions.keys());
+  const overlap = { a: "G01", b: "G02", messages: 20, weight: 8, shareA: 20 / 30, shareB: 1, depth: 0.8 };
+  const graph = networkGraph({ groups, positions, ties: [], maxTie: 8, palette, points: null, overlaps: [overlap] });
+
+  it("draws translucent discs and a hidden edge instead of a line for each overlapping pair", () => {
+    expect(graph.getNodeAttribute("group:G01", "color")).toBe("#00000180");
+    expect(graph.edges().map((key) => graph.getEdgeAttributes(key))).toEqual([
+      { size: 0, color: "#00000a8c", weight: 8, hidden: true },
+    ]);
+    expect(ties).toHaveLength(1);
+  });
+
+  it("keeps the overlapping partner as a focused group's neighbour, and its edge hidden", () => {
+    const focus = focusOn(graph, "group:G01");
+    expect(focus?.neighbours).toEqual(new Set(["group:G02"]));
+    const [key = ""] = graph.edges();
+    expect(edgeAppearance(graph.getEdgeAttributes(key), graph.extremities(key), focus)).toMatchObject({ hidden: true });
+  });
+});
+
 describe("focus", () => {
   const graph = graphFor("2000-01-03", new Map([["G03", [[0, 0]]]]));
 

@@ -19,18 +19,21 @@ import {
 } from "@react-sigma/core";
 import { UndirectedGraph } from "graphology";
 import { Maximize, Maximize2, Minimize2, Search, X, ZoomIn, ZoomOut } from "lucide-react";
-import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Settings } from "sigma/settings";
+import { animateNodes } from "sigma/utils";
 
 import { type NetworkMode, anonymousPoints } from "@/lib/cells";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
 import { formatNumber } from "@/lib/format";
-import { NETWORK_HEIGHT, publishedTies } from "@/lib/network";
+import { type GroupTie, NETWORK_HEIGHT, publishedTies } from "@/lib/network";
+import { OVERLAP_PAIRS, type Overlap, type WeekOverlaps, overlapsOf, relaxPositions, weekOverlaps } from "@/lib/overlap";
 import {
   type NetworkEdge,
   type NetworkGraph,
   type NetworkNode,
   type NetworkPalette,
+  type Position,
   edgeAppearance,
   findGroup,
   focusOn,
@@ -52,6 +55,10 @@ const ZOOM_DURATION_MS = 300;
 const LEGEND_MAX_RADIUS = 10;
 const LEGEND_MAX_WIDTH = 5;
 const LEGEND_LINE_LENGTH = 24;
+/** Duration of the Overlap mode's move from one week's layout to the next. */
+const WEEK_MOTION_MS = 400;
+const PERCENT = 100;
+const NO_OVERLAPS: WeekOverlaps = { overlaps: [], lines: [] };
 /** Sizes are in layout units and grow with the zoom, so a group's points stay inside its disc. */
 const zoomWithPositions = (ratio: number): number => ratio;
 
@@ -87,9 +94,37 @@ function sigmaSettings(palette: NetworkPalette): Partial<Settings<NetworkNode, N
   };
 }
 
-function GraphLoader({ graph }: { graph: NetworkGraph }) {
+type NodePositions = ReadonlyMap<string, Position>;
+
+function nodePositions(graph: NetworkGraph): NodePositions {
+  return new Map(graph.mapNodes((key, node): [string, Position] => [key, { x: node.x, y: node.y }]));
+}
+
+/**
+ * Loads the week's graph. With `animate` (the Overlap mode), groups start where they were last
+ * drawn and Sigma moves them to the new week's positions.
+ */
+function GraphLoader({ graph, animate }: { graph: NetworkGraph; animate: boolean }) {
   const loadGraph = useLoadGraph<NetworkNode, NetworkEdge>();
-  useEffect(() => loadGraph(graph), [loadGraph, graph]);
+  const sigma = useSigma<NetworkNode, NetworkEdge>();
+  const shown = useRef<NodePositions>(new Map());
+  useEffect(() => {
+    const previous = shown.current;
+    shown.current = nodePositions(graph);
+    loadGraph(graph);
+    if (!animate) return;
+    // Sigma's graph is its own copy of `graph`: moving its nodes leaves the week's graph intact.
+    const drawn = sigma.getGraph();
+    const targets: Record<string, Record<string, number>> = {};
+    for (const [key, from] of previous) {
+      const target = shown.current.get(key);
+      if (!target || !drawn.hasNode(key)) continue;
+      targets[key] = { x: target.x, y: target.y };
+      drawn.mergeNodeAttributes(key, from);
+    }
+    if (Object.keys(targets).length === 0) return;
+    return animateNodes(drawn, targets, { duration: WEEK_MOTION_MS });
+  }, [loadGraph, sigma, graph, animate]);
   return null;
 }
 
@@ -172,20 +207,49 @@ function GroupSearch({ labels, onSelect }: { labels: string[]; onSelect: (key: s
   );
 }
 
-/** The focused group's published facts: label, size and how many groups it has a tie with. */
-function FocusSummary({ graph, focusKey, people }: { graph: NetworkGraph; focusKey: string | null; people: ReadonlyMap<string, number> }) {
+function percent(share: number): string {
+  return `${Math.round(share * PERCENT)}%`;
+}
+
+interface SummaryProps {
+  graph: NetworkGraph;
+  focusKey: string | null;
+  people: ReadonlyMap<string, number>;
+  /** The week's overlaps in the Overlap mode; null in the other modes. */
+  overlaps: readonly Overlap[] | null;
+}
+
+/**
+ * The focused group's published facts: label, size and how many groups it has a tie with; in the
+ * Overlap mode also each overlap's message count and both sides' shares.
+ */
+function FocusSummary({ graph, focusKey, people, overlaps }: SummaryProps) {
   const focus = focusOn(graph, focusKey);
   if (!focus) return null;
   const label = graph.getNodeAttribute(focus.key, "label") ?? "";
   return (
-    <p role="status" className="absolute right-12 top-2 z-[101] rounded-md border bg-card px-2 py-1 text-xs">
-      Group {label} · {people.get(label)} people · tied to {focus.neighbours.size}{" "}
-      {focus.neighbours.size === 1 ? "group" : "groups"} this week
-    </p>
+    <div role="status" className="absolute right-12 top-2 z-[101] rounded-md border bg-card px-2 py-1 text-xs">
+      <p>
+        Group {label} · {people.get(label)} people · tied to {focus.neighbours.size}{" "}
+        {focus.neighbours.size === 1 ? "group" : "groups"} this week
+      </p>
+      {overlapsOf(overlaps ?? [], label).map((o) => (
+        <p key={o.partner}>
+          {o.group} ↔ {o.partner} · {formatNumber(o.messages)} messages · {percent(o.share)} of {o.group}&apos;s mail ·{" "}
+          {percent(o.partnerShare)} of {o.partner}&apos;s mail
+        </p>
+      ))}
+    </div>
   );
 }
 
-function Legend({ groups, maxTie, individuals }: { groups: CommunityGroupRow[]; maxTie: number; individuals: boolean }) {
+interface LegendProps {
+  groups: CommunityGroupRow[];
+  maxTie: number;
+  mode: NetworkMode;
+}
+
+function Legend({ groups, maxTie, mode }: LegendProps) {
   const sizes = legendSizes(groups, LEGEND_MAX_RADIUS);
   const weights = legendWeights(maxTie, LEGEND_MAX_WIDTH);
   return (
@@ -222,7 +286,13 @@ function Legend({ groups, maxTie, individuals }: { groups: CommunityGroupRow[]; 
           </span>
         ))}
       </div>
-      {individuals && <div>Each small dot: one anonymous person (illustrative position)</div>}
+      {mode === "individuals" && <div>Each small dot: one anonymous person (illustrative position)</div>}
+      {mode === "overlap" && (
+        <>
+          <div>Overlap = mail between two groups, not shared members — each person is in exactly one group.</div>
+          <div>The week&apos;s {OVERLAP_PAIRS} heaviest pairs overlap; depth: shared ÷ (own within-group + shared) messages.</div>
+        </>
+      )}
     </div>
   );
 }
@@ -233,18 +303,24 @@ export default function SigmaNetwork({ groups, edges, week, maxTie, mode, seed }
   const positions = useMemo(() => layoutPositions(groups, edges), [groups, edges]);
   const points = useMemo(() => anonymousPoints(groups, seed, groupNodeRadius), [groups, seed]);
   const individuals = mode === "individuals";
-  const graph = useMemo(
-    () =>
-      networkGraph({
-        groups,
-        positions,
-        ties: publishedTies(edges, week, positions.keys()),
-        maxTie,
-        palette,
-        points: individuals ? points : null,
-      }),
-    [groups, positions, edges, week, maxTie, palette, individuals, points],
+  const overlapMode = mode === "overlap";
+  const radii = useMemo(() => new Map(groups.map((g) => [g.group, groupNodeRadius(g.n_persons)])), [groups]);
+  const weekly = useMemo(
+    () => (overlapMode && week !== null ? weekOverlaps(edges, week, positions.keys()) : NO_OVERLAPS),
+    [overlapMode, edges, week, positions],
   );
+  const graph = useMemo(() => {
+    const ties: GroupTie[] = overlapMode ? weekly.lines : publishedTies(edges, week, positions.keys());
+    return networkGraph({
+      groups,
+      positions: overlapMode ? relaxPositions(positions, radii, weekly.overlaps) : positions,
+      ties,
+      maxTie,
+      palette,
+      points: individuals ? points : null,
+      overlaps: overlapMode ? weekly.overlaps : undefined,
+    });
+  }, [groups, positions, radii, edges, week, maxTie, palette, individuals, points, overlapMode, weekly]);
   const labels = useMemo(() => [...positions.keys()], [positions]);
   const people = useMemo(() => new Map(groups.map((g) => [g.group, g.n_persons])), [groups]);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -259,10 +335,10 @@ export default function SigmaNetwork({ groups, edges, week, maxTie, mode, seed }
         className="overflow-hidden rounded-lg border"
         style={{ height: NETWORK_HEIGHT }}
       >
-        <GraphLoader graph={graph} />
+        <GraphLoader graph={graph} animate={overlapMode} />
         <FocusHighlight graph={graph} focusKey={focusKey} onHover={setHovered} dimmed={palette.dimmed} />
         <GroupSearch labels={labels} onSelect={setSearched} />
-        <FocusSummary graph={graph} focusKey={focusKey} people={people} />
+        <FocusSummary graph={graph} focusKey={focusKey} people={people} overlaps={overlapMode ? weekly.overlaps : null} />
         <ControlsContainer position="top-right">
           <ZoomControl animationDuration={ZOOM_DURATION_MS} labels={{ zoomIn: "Zoom in", zoomOut: "Zoom out", reset: "Show the whole network" }}>
             <ZoomIn className="h-4 w-4" aria-hidden />
@@ -274,7 +350,7 @@ export default function SigmaNetwork({ groups, edges, week, maxTie, mode, seed }
             <Minimize2 className="h-4 w-4" aria-hidden />
           </FullScreenControl>
         </ControlsContainer>
-        <Legend groups={groups} maxTie={maxTie} individuals={individuals} />
+        <Legend groups={groups} maxTie={maxTie} mode={mode} />
       </SigmaContainer>
     </div>
   );
