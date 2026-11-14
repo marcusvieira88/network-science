@@ -20,6 +20,7 @@ import {
   maxWeeklyTie,
   weekGraph,
 } from "@/lib/network";
+import { weekInPlainWords } from "@/lib/plainLanguage";
 import { supportsWebGL } from "@/lib/webgl";
 
 const SigmaNetwork = lazy(() => import("@/components/SigmaNetwork"));
@@ -194,6 +195,18 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <details className="rounded-lg border bg-background/40 px-4 py-3 text-sm" open>
+          <summary className="cursor-pointer font-medium">How to read this</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+            <li>Each circle is a group of people who mostly email each other; bigger circles are bigger groups.</li>
+            <li>A line between two circles means the groups exchanged mail that week; a thicker line means more mail.</li>
+            <li>Move the slider (or press play) to watch the pattern change week by week; marks on it are known events.</li>
+            <li>Hover a circle, or search for its label, to see only that group&apos;s links.</li>
+          </ul>
+        </details>
+        <p data-testid="week-summary" className="text-sm font-medium">
+          {weekInPlainWords(week, graph.ties)}
+        </p>
         <div className="space-y-2">
           <Tabs value={mode} onValueChange={(value) => isNetworkMode(value) && setMode(value)}>
             <TabsList aria-label="Draw">

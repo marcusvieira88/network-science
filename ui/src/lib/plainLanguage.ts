@@ -1,0 +1,150 @@
+/**
+ * Plain-language readings of the published results, for readers who are not data scientists.
+ * Every sentence is built from release fields by the fixed rules below (the same rules the
+ * Hypotheses table and the finding card use); nothing here adds a claim the data does not make.
+ */
+import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
+import { formatNumber, metricLabel } from "@/lib/format";
+import type { HypothesisEntry } from "@/lib/hypotheses";
+import type { GroupTie } from "@/lib/network";
+
+/** What a hypothesis came to, in plain terms. */
+export type Verdict = "held" | "artifact" | "weak" | "unclear" | "untestable" | "none" | "withheld";
+
+export const VERDICT_LABELS: Record<Verdict, string> = {
+  held: "Held up",
+  artifact: "Explained by the data",
+  weak: "Not robust",
+  unclear: "Unclear",
+  untestable: "Could not be tested",
+  none: "No real change",
+  withheld: "Withheld",
+};
+
+/** Order of the summary bullets: what held up first, then the reasons something did not. */
+const SUMMARY_ORDER: readonly Verdict[] = ["artifact", "weak", "unclear", "untestable", "none", "withheld"];
+
+/** Caveat prefixes (before the colon) the analysis uses for a test that could not be run validly. */
+const UNTESTABLE_PREFIXES: readonly string[] = ["invalid", "untestable"];
+const CAVEAT_SEPARATOR = ":";
+
+export interface PlainVerdict {
+  verdict: Verdict;
+  label: string;
+  sentence: string;
+}
+
+export interface ExecutiveSummary {
+  answer: string;
+  points: string[];
+}
+
+function capitalised(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function verdict(kind: Verdict, sentence: string): PlainVerdict {
+  return { verdict: kind, label: VERDICT_LABELS[kind], sentence };
+}
+
+function claimOf(row: HypothesisRow): string {
+  return `${metricLabel(row.metric)} in the ${row.scope} network`;
+}
+
+function preregisteredVerdict(row: HypothesisRow, checks: ArtifactCheckRow[], headline: boolean): PlainVerdict {
+  const claim = claimOf(row);
+  if (headline) return verdict("held", `${claim} changed, and the change held up under every check.`);
+  if (row.supported === "inconclusive") return verdict("unclear", `${claim}: the evidence is mixed.`);
+  if (row.supported === "no") return verdict("none", `${claim}: no reliable change.`);
+  const failed = checks.find((c) => c.passes === false);
+  if (failed) {
+    return verdict("artifact", `${claim} looked like a real change, but a check showed a quirk of the data explains it: ${failed.note}.`);
+  }
+  if (checks.some((c) => c.passes === null)) {
+    return verdict("weak", `${claim} looked like a real change, but the check for quirks of the data could not run, so it is not claimed.`);
+  }
+  return verdict("weak", `${claim} looked like a real change, but it is not robust enough to claim (${row.confidence} confidence).`);
+}
+
+/** The reason after "invalid:" or "untestable:", or null for any other caveat. */
+function untestableReason(caveat: string): string | null {
+  const separator = caveat.indexOf(CAVEAT_SEPARATOR);
+  if (separator < 0) return null;
+  const prefix = caveat.slice(0, separator).trim().toLowerCase();
+  return UNTESTABLE_PREFIXES.includes(prefix) ? caveat.slice(separator + 1).trim() : null;
+}
+
+function exploratoryVerdict(row: ExploratoryRow): PlainVerdict {
+  const measure = row.measure;
+  const reason = untestableReason(row.caveat);
+  if (reason !== null) return verdict("untestable", `${capitalised(measure)} could not be tested with this data: ${reason}.`);
+  const note = row.caveat === "" ? "" : ` (${row.caveat})`;
+  switch (row.outcome) {
+    case "confident":
+      return verdict("held", `${capitalised(measure)} went ${row.direction}, as predicted, and the change held up under every check.`);
+    case "inconclusive":
+      return verdict("unclear", `The evidence on ${measure} is mixed${note}.`);
+    case "not supported":
+      return verdict("none", `No reliable change in ${measure}${note}.`);
+    case null:
+      return verdict("withheld", `${capitalised(measure)}: withheld, because too few people were compared to publish it.`);
+  }
+}
+
+export function plainVerdict(entry: HypothesisEntry): PlainVerdict {
+  return entry.kind === "preregistered"
+    ? preregisteredVerdict(entry.row, entry.checks, entry.heldTrue)
+    : exploratoryVerdict(entry.row);
+}
+
+/** One bullet per reason, singular or plural; the long tail ("no reliable change") is not listed by id. */
+function summaryPoint(kind: Verdict, ids: string[]): string {
+  const one = ids.length === 1;
+  const named = ` (${ids.join(", ")})`;
+  switch (kind) {
+    case "artifact":
+      return `${ids.length} looked real at first but ${one ? "is explained by a quirk" : "are explained by quirks"} of the data${named}.`;
+    case "weak":
+      return `${ids.length} looked real but ${one ? "is" : "are"} not robust enough to claim${named}.`;
+    case "unclear":
+      return `${ids.length} gave mixed evidence${named}.`;
+    case "untestable":
+      return `${ids.length} could not be tested with this data${named}.`;
+    case "none":
+      return `${ids.length} showed no reliable change.`;
+    case "withheld":
+      return `${ids.length} ${one ? "was" : "were"} withheld because too few people were compared.`;
+    case "held":
+      return `${ids.length} held up${named}.`;
+  }
+}
+
+/** The one-line answer and the reasons, for the Overview. */
+export function executiveSummary(entries: HypothesisEntry[]): ExecutiveSummary {
+  const byVerdict = new Map<Verdict, string[]>();
+  for (const entry of entries) {
+    const kind = plainVerdict(entry).verdict;
+    byVerdict.set(kind, [...(byVerdict.get(kind) ?? []), entry.id]);
+  }
+  const held = byVerdict.get("held") ?? [];
+  const answer =
+    held.length === 0
+      ? `None of the ${entries.length} hypotheses held up under the checks.`
+      : `${held.length} of ${entries.length} hypotheses held up: ${held.join(", ")}.`;
+  const points = SUMMARY_ORDER.flatMap((kind) => {
+    const ids = byVerdict.get(kind);
+    return ids ? [summaryPoint(kind, ids)] : [];
+  });
+  return { answer, points };
+}
+
+/** The week in one sentence: its busiest link between groups and how many pairs exchanged mail. */
+export function weekInPlainWords(week: string | null, ties: readonly GroupTie[]): string {
+  if (week === null) return "No week selected.";
+  const [busiest] = ties;
+  if (!busiest) return `In the week of ${week} no published mail ran between groups.`;
+  return (
+    `In the week of ${week} the busiest link between groups was ${busiest.a} ↔ ${busiest.b} ` +
+    `(weight ${formatNumber(busiest.total)}); ${ties.length} ${ties.length === 1 ? "pair" : "pairs"} of groups exchanged mail.`
+  );
+}

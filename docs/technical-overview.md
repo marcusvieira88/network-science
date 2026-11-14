@@ -270,11 +270,11 @@ ui-sample` writes. So the UI cannot show anything the report could not. Its view
 
 | View | Shows |
 |------|-------|
-| Overview | why H1–H4 give no finding (the artifact checks that ruled out H2 and H3), any hypothesis held true (none in this release) and key numbers. The record change is in the report only; the UI has no view of `record_profile` |
+| Overview | an "In short" answer in plain words for non-specialists (how many hypotheses held up, why the rest did not, the re-identification result), then why H1–H4 give no finding (the artifact checks that ruled out H2 and H3), any hypothesis held true (none in this release) and key numbers. The record change is in the report only; the UI has no view of `record_profile` |
 | Metrics | each weekly metric by scope, with the change point, public events and baseline marked |
-| Network | a **graph of groups** and their ties, week by week, drawn with Sigma.js (WebGL) and laid out once with ForceAtlas2: zoom, fullscreen, search by group label, hover highlighting; an anonymous Individuals mode fills each group with unlabelled points; an Overlap mode draws the week's six heaviest pairs as intersecting outlined contours (`@sigma/layer-webgl`) (mail between groups, not shared members); SVG fallback without WebGL (no Overlap mode) |
+| Network | a "How to read this" guide and a one-sentence summary of the selected week, then a **graph of groups** and their ties, week by week, drawn with Sigma.js (WebGL) and laid out once with ForceAtlas2: zoom, fullscreen, search by group label, hover highlighting; an anonymous Individuals mode fills each group with unlabelled points; an Overlap mode draws the week's six heaviest pairs as intersecting outlined contours (`@sigma/layer-webgl`) (mail between groups, not shared members); SVG fallback without WebGL (no Overlap mode) |
 | Clusters | a **chord diagram** of mail between and within groups for the baseline year, the crisis weeks or all weeks; each group's size, within-group share and top partner groups; and the group whose cross-group share changed most, with the stale-baseline caveat |
-| Hypotheses | H1–H4 with their artifact checks, and H5–H25 |
+| Hypotheses | every hypothesis in one plain sentence with a verdict (held up, explained by the data, unclear, could not be tested, no real change) and a glossary of the terms; then, for analysts, H1–H4 with their artifact checks, and H5–H25 |
 | Data quality, Privacy and risk, Limits | the cleaning funnel, header rulings, the attacks before and after mitigation, and the limits |
 
 Every node, arc and segment is a **group of at least five people**, never an individual; group

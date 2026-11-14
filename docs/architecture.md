@@ -236,7 +236,7 @@ flowchart LR
     S10 --> J[(ui/public/data/release.json<br/>the UI's only input)]
     J --> APP[React 18 + TypeScript · Vite<br/>shadcn/ui · dark theme]
     subgraph Views
-        V1[Overview<br/>finding statement, key numbers]
+        V1[Overview<br/>plain-language answer, finding statement, key numbers]
         V2["Metrics<br/>metric / scope / variant selectors<br/>(only the default variant is published),<br/>change point, public events, baseline band"]
         V3[Network<br/>Sigma.js WebGL graph of groups, ForceAtlas2,<br/>zoom, fullscreen, search, hover, week slider;<br/>anonymous Individuals mode; SVG fallback]
         V4[Clusters<br/>chord diagram of group-to-group weight,<br/>per-group table]

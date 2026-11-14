@@ -51,7 +51,15 @@ Hovering a group lists each overlap's message count and both sides' shares (`src
 `src/lib/sigmaNetwork.ts` and `src/lib/cells.ts`; tests replace React Sigma with
 `src/test/reactSigma.tsx`, since jsdom has no WebGL.
 
-The hypotheses view shows one list: the `hypotheses` table (stated before any data, with their
+Readers who are not data scientists get the answer first, in plain words. The Overview opens with
+an "In short" card; the Hypotheses view opens with one sentence and a verdict per hypothesis and a
+glossary (`src/lib/glossary.ts`); the Network view opens with "How to read this" and a sentence
+summing up the selected week. Every sentence is built from release fields by fixed rules in
+`src/lib/plainLanguage.ts`: a headline or confident outcome "held up"; a supported hypothesis whose
+artifact check fails is "explained by the data"; a caveat starting `invalid:` or `untestable:` means
+"could not be tested". Nothing in these texts is written by hand about the results.
+
+The hypotheses view then shows, for analysts, one list: the `hypotheses` table (stated before any data, with their
 artifact checks under each row) and the `exploratory` table (stated before being computed), merged
 and ordered by the number in each id (`src/lib/hypotheses.ts`). The headline and every confident
 outcome are marked "Held true"; the Overview repeats each held-true measure in one line.
