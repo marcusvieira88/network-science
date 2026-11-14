@@ -52,6 +52,7 @@ conflicts with the constitution, the constitution wins.
   which reports the exit code of `tail`. If `ui/` changed, `make ui-gate` is green too.
 - Reviewed before hand-off with `/code-quality-review` (typing and these rules),
   `/data-privacy-review` (the content and identifier promises) and `/code-review` (correctness).
+- Changes that touch analysis, cleaning or hypotheses are also reviewed with `/data-scientist-review`.
 - Output tables validate against their contract.
 - Docs and contracts still describe what the code does.
 - Commits are small, with the task ID in the message (`T024: parse header records`).
