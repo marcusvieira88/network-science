@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, timedelta
 
 import numpy as np
 import polars as pl
+import pytest
 
 from enron_case.config import (
     CRISIS_WINDOW,
@@ -223,6 +224,11 @@ def test_family_finds_a_planted_change_and_nothing_else() -> None:
     e11 = table.filter(pl.col("hypothesis") == "H15").row(0, named=True)
     assert e11["outcome"] == ex.CONFIDENT
     assert e11["placebo_passes"] and e11["loo_stable"]
+    # Family-adjusted equalised p: twenty hypotheses, so p times 20, capped at 1.
+    assert e11["equalised_p_holm"] == pytest.approx(min(1.0, 20 * e11["equalised_p"]))
+    assert table.filter(pl.col("equalised_p").is_null())["equalised_p_holm"].null_count() == (
+        table.filter(pl.col("equalised_p").is_null()).height
+    )
     flat = ex.run_family(
         _family_events(planted=False), _entities(events), Config(exploratory_bootstrap_reps=500)
     )

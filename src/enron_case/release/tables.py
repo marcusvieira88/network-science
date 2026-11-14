@@ -329,6 +329,7 @@ def exploratory(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
         "equalised_ci_low",
         "equalised_ci_high",
         "equalised_p",
+        "equalised_p_holm",
         "retention_median",
         "retention_ci_low",
         "retention_ci_high",

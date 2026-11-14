@@ -379,3 +379,15 @@ def test_n2_limit_reports_the_manual_check_from_data_quality(synth: SynthOutput)
 def test_funnel_table_shows_the_precision_interval(synth: SynthOutput, tmp_path: Path) -> None:
     quality = render_report(synth, tmp_path).split("## The finding", 1)[0]
     assert "| Precision low | Precision high |" in quality
+
+
+def test_held_true_statement_gives_the_family_adjusted_equalised_p(synth: SynthOutput) -> None:
+    exploratory = synth.table("exploratory").with_columns(
+        pl.when(pl.col("hypothesis") == "H20")
+        .then(pl.lit("confident"))
+        .otherwise(pl.col("outcome"))
+        .alias("outcome")
+    )
+    text = render.exploratory_statement(exploratory)
+    assert "Held true: H20" in text
+    assert "family-adjusted p = 0.02" in text

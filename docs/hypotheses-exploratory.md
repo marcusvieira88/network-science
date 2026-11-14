@@ -133,3 +133,34 @@ they were fixed so the code measures what was stated:
 - **Caveats** are recorded in the results and block a "confident" outcome: E1 (timestamp shift),
   E3 (Bcc repeats Cc), E15 (the 26-week look-back depends on how much older mail was kept).
 - Parameters (minimum messages, bootstrap draws, alpha) are `Config` fields.
+
+## Checks added after results were seen
+
+**Written after the results of E1–E20 were known, and says so.** Two checks were added to this
+family after its results, so they are post hoc. They can only stop a hypothesis from being held
+true; neither can make one confident.
+
+- **Mail-volume equalisation** (870f808, after E12 came out confident on the first computation).
+  For every hypothesis not rejected and without a caveat, each custodian's sent and received
+  messages in both windows are subsampled to the smaller window's count, the measure is
+  recomputed and the paired test rerun. It is reported next to the outcome, not part of the
+  rule. Because it is run only for the hypotheses that survived, its p has no Holm rank of its
+  own: `equalised_p_holm` multiplies it by the family size (20) and caps it at 1, which is Holm's
+  multiplier for the family's smallest p and conservative at every other rank. Read the
+  equalised result against `equalised_p_holm`, not the unadjusted `equalised_p`.
+- **Retention check** (2703cba, after the data-science review, run with the
+  `/data-scientist-review` skill). Inbox retention differs by person and period, so a contact's
+  message can be missing because the custodian's inbox lost it. E12 is recomputed counting only
+  contacts who are themselves custodians, whose messages survive in their own sent folders
+  whatever the receiving inbox kept; crisis against reference with the same placebo. It passes
+  only if the crisis interval lies on the hypothesised side over at least k custodians and the
+  placebo passes; a hypothesis that fails it is at most inconclusive. E12 fails it: among
+  custodian-to-custodian contacts the change is not established, and the same subset rises
+  before the crisis. No hypothesis in E1–E20 is held true. The check is defined for E12 only.
+  The same threat applies to the other received-side measures (E10, E14, E16–E18), but none of
+  them was held true (in the last committed real run E16 is inconclusive and the others are not
+  supported), and a failed check can only cap an outcome at inconclusive, so it could not change
+  theirs. A future run in which one of them is held true needs its own retention check first.
+
+E12 measures whether a contact sent the custodian anything in the same window, not whether they
+replied: headers carry no thread.

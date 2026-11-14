@@ -498,6 +498,12 @@ def volume_equalised(
     return compare(d, config, stream)
 
 
+def family_adjusted(p: float) -> float:
+    """p times the family size, capped at 1. The equalised test is run only for the hypotheses
+    that survived, so it has no Holm rank of its own; the largest multiplier is the safe one."""
+    return min(1.0, len(FAMILY) * p)
+
+
 RETENTION_STREAM = 300
 
 
@@ -613,6 +619,7 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
                 "equalised_ci_low": equalised.ci_low if equalised else None,
                 "equalised_ci_high": equalised.ci_high if equalised else None,
                 "equalised_p": equalised.p if equalised else None,
+                "equalised_p_holm": family_adjusted(equalised.p) if equalised else None,
                 "retention_median": retention.crisis.median if retention else None,
                 "retention_ci_low": retention.crisis.ci_low if retention else None,
                 "retention_ci_high": retention.crisis.ci_high if retention else None,

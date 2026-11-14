@@ -327,7 +327,8 @@ def exploratory_statement(exploratory: pl.DataFrame) -> str:
             text += (
                 f"; with mail volume equalised, {format_value(r['equalised_median'])} "
                 f"(interval {format_value(r['equalised_ci_low'])} to "
-                f"{format_value(r['equalised_ci_high'])})"
+                f"{format_value(r['equalised_ci_high'])}, family-adjusted p = "
+                f"{format_value(r['equalised_p_holm'])})"
             )
         parts.append(text + ".")
     return (

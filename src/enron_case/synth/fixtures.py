@@ -529,6 +529,7 @@ class FixtureBuilder:
                     "equalised_ci_low": 0.06 if strong else None,
                     "equalised_ci_high": 0.17 if strong else None,
                     "equalised_p": 0.001 if strong else None,
+                    "equalised_p_holm": 0.02 if strong else None,
                     "retention_median": 0.11 if hid == "H16" else None,
                     "retention_ci_low": -0.1 if hid == "H16" else None,
                     "retention_ci_high": 0.3 if hid == "H16" else None,

@@ -153,6 +153,9 @@ def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
         Col("equalised_ci_low", FLOAT, nullable=True),
         Col("equalised_ci_high", FLOAT, nullable=True),
         Col("equalised_p", FLOAT, nullable=True),
+        # The family size times `equalised_p`, capped at 1: Holm's multiplier for the family's
+        # smallest p and conservative at every other rank (added after results were seen).
+        Col("equalised_p_holm", FLOAT, nullable=True),
         # Retention check (added after the data-science review): the hypothesis on a measure
         # that inbox retention cannot move; null where no such check applies.
         Col("retention_median", FLOAT, nullable=True),
