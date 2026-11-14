@@ -58,6 +58,16 @@ Let `d` = +1 for "up" and −1 for "down". Significance level α = 0.05 (`config
 `change_week` is reported only when `p_holm < α`. A hypothesis whose effect cannot be computed
 enters the Holm correction with `p_perm = 1`, and its effect and interval are reported as NaN.
 
+*Amendment to the statistic, made after the hypotheses were stated and before any real-data run
+of the network or finding stage:* the hypotheses were first committed (4c19702, 2026-11-14
+11:33) with the unweighted CUSUM `T = max_τ −d · Σ_{i<τ}(x_i − mean x)`. The weight
+`√(n / (τ (n − τ)))` was added in 7ab70d4 (11:42), with the implementation, because on
+synthetic series the unweighted statistic mislocates changes late in the window. The only
+real-data run before it (78f18ed, 11:41) stopped before the network stage, so no real metric
+series existed; the first real-data finding run is 57dff81 (12:03). The p = 1 rule for an
+undefined estimate and the 20 null replicates were added in the same commit. History:
+`git log -- docs/hypotheses.md`.
+
 ## Robustness checks
 
 - **Null model (c)**: within each week, recipients are shuffled among events of equal weight
