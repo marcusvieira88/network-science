@@ -149,6 +149,7 @@ class ReleaseTables:
     risk: pl.DataFrame
     weekly_metrics: pl.DataFrame
     artifact_checks: pl.DataFrame
+    exploratory: pl.DataFrame
 
     @classmethod
     def read(cls, ctx: StageContext) -> ReleaseTables:
@@ -159,6 +160,7 @@ class ReleaseTables:
             risk=ctx.read("risk"),
             weekly_metrics=ctx.read("weekly_metrics"),
             artifact_checks=ctx.read("artifact_checks"),
+            exploratory=ctx.read("exploratory"),
         )
 
 
@@ -289,6 +291,81 @@ def artifact_section(checks: pl.DataFrame) -> str:
             "A check that fails or cannot run caps confidence at low.",
             table(
                 ["Hypothesis", "Check", "Statistic", "Interval", "Units", "Result", "Reading"],
+                rows,
+            ),
+        )
+    )
+
+
+def exploratory_statement(exploratory: pl.DataFrame) -> str:
+    """One sentence per confident exploratory hypothesis, or a sentence saying there is none."""
+    rows = exploratory.filter(pl.col("outcome") == "confident").rows(named=True)
+    if not rows:
+        return "Exploratory families E1–E20: no hypothesis reached the confident standard."
+    parts = []
+    for r in rows:
+        text = (
+            f"{r['hypothesis']} ({r['measure']}, predicted {r['direction']}) is confident: "
+            f"median within-custodian change {format_value(r['median_change'])} "
+            f"(interval {format_value(r['ci_low'])} to {format_value(r['ci_high'])}, "
+            f"Holm-adjusted p = {format_value(r['p_holm'])}, "
+            f"{format_value(r['custodians'])} custodians)"
+        )
+        if r["equalised_median"] is not None:
+            text += (
+                f"; with mail volume equalised, {format_value(r['equalised_median'])} "
+                f"(interval {format_value(r['equalised_ci_low'])} to "
+                f"{format_value(r['equalised_ci_high'])})"
+            )
+        parts.append(text + ".")
+    return (
+        "Exploratory, not pre-registered: "
+        + " ".join(parts)
+        + " A lead for confirmation on independent data, not a finding of the same standing."
+    )
+
+
+def exploratory_section(exploratory: pl.DataFrame) -> str:
+    rows = [
+        [
+            r["hypothesis"],
+            r["measure"],
+            r["direction"],
+            format_value(r["custodians"]),
+            format_value(r["median_change"]),
+            f"{format_value(r['ci_low'])} to {format_value(r['ci_high'])}",
+            format_value(r["p_holm"]),
+            "passes" if r["placebo_passes"] else "fails",
+            "stable" if r["loo_stable"] else "unstable",
+            r["outcome"],
+            r["caveat"] or "—",
+        ]
+        for r in exploratory.iter_rows(named=True)
+    ]
+    return "\n\n".join(
+        (
+            "## Exploratory hypotheses E1–E20",
+            "Two exploratory families, each stated and committed before it was computed "
+            "(docs/hypotheses-exploratory.md). Every comparison is a custodian against "
+            "themselves between fixed windows (the crisis weeks against the same weeks a year "
+            "earlier), with a pre-crisis placebo, leave-one-out and Holm's correction across all "
+            "twenty. Mail-volume equalisation was added after the first confident result and is "
+            "labelled as such.",
+            exploratory_statement(exploratory),
+            table(
+                [
+                    "ID",
+                    "Measure",
+                    "Predicted",
+                    "Custodians",
+                    "Median change",
+                    "Interval",
+                    "Holm p",
+                    "Placebo",
+                    "Leave-one-out",
+                    "Outcome",
+                    "Caveat",
+                ],
                 rows,
             ),
         )
@@ -475,6 +552,7 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
         quality.quality_section(tables.data_quality, tables.header_fields),
         finding_section(tables.hypotheses, tables.artifact_checks),
         hypotheses_section(tables.hypotheses),
+        exploratory_section(tables.exploratory),
         risk_section(tables.risk, config.k_min),
         limits_section(tables.data_quality),
     )
@@ -567,6 +645,7 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
         {
             "headline_statement": headline_statement(tables.hypotheses, tables.artifact_checks),
             "utility_phrase": utility_phrase(tables.risk, top),
+            "exploratory_statement": exploratory_statement(tables.exploratory),
             "headline_chart": headline_chart(tables),
             "artifact_table": artifact_section(tables.artifact_checks).split("\n\n", 2)[2],
             "quality_table": quality.funnel_table(tables.data_quality),

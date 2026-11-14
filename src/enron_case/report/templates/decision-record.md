@@ -44,7 +44,7 @@ injected from release tables; none is typed.
   k = {{k_min}}. On the aggregate release (R1) the shares fall to {{risk_r1_a1_reid_top1}} and
   {{risk_r1_a2_reid_top1}}. {{utility_phrase}}
 
-**Finding.** {{headline_statement}}
+**Finding.** {{headline_statement}} {{exploratory_statement}}
 
 ## What changes with real customer data
 

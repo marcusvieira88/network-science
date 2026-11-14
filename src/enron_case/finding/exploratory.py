@@ -39,7 +39,7 @@ DST_UTC: tuple[tuple[datetime, datetime], ...] = tuple(
     )
 )
 CAVEATS = {
-    "E1": "invalid: timestamps in the 2000 part of the corpus are shifted by several hours",
+    "E1": "invalid: timestamps in the reference year of the corpus are shifted by several hours",
     "E3": "untestable: every Bcc line in the corpus repeats the Cc line",
     "E15": "retention-sensitive: the 26-week look-back depends on how much older mail was kept",
 }

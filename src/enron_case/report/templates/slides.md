@@ -54,6 +54,8 @@ measured on a synthetic corpus with known answers.
 
 {{hypotheses_summary}}
 
+{{exploratory_statement}}
+
 ---
 
 ## The strongest signal, over time
