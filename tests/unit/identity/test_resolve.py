@@ -81,9 +81,7 @@ def test_resolution_is_independent_of_input_order(rnd: random.Random) -> None:
 
 
 # ---- stage on the synthetic corpus ----------------------------------------------------------
-def test_every_address_maps_to_exactly_one_entity(
-    ran: dict[str, Any], synth: SynthOutput
-) -> None:
+def test_every_address_maps_to_exactly_one_entity(ran: dict[str, Any], synth: SynthOutput) -> None:
     amap: pl.DataFrame = ran["address_map"]
     entities: pl.DataFrame = ran["entities"]
     occurrences = rules.address_occurrences(synth.table("messages"))

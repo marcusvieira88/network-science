@@ -11,7 +11,9 @@ from enron_case.contracts import schemas
 BASE = datetime(2001, 1, 1, tzinfo=UTC)
 
 
-def messages(rows: list[tuple[str, list[str]]], sent_owner: dict[int, str] | None = None) -> pl.DataFrame:
+def messages(
+    rows: list[tuple[str, list[str]]], sent_owner: dict[int, str] | None = None
+) -> pl.DataFrame:
     """One message per (sender, recipients); `sent_owner` maps a row index to the owner whose
     sent folder held it."""
     owners = sent_owner or {}
@@ -30,11 +32,13 @@ def messages(rows: list[tuple[str, list[str]]], sent_owner: dict[int, str] | Non
         }
         for i, (sender, recipients) in enumerate(rows)
     ]
-    return schemas.conform(pl.DataFrame(data, schema=schemas.table("messages").polars_schema), "messages")
+    return schemas.conform(
+        pl.DataFrame(data, schema=schemas.table("messages").polars_schema), "messages"
+    )
 
 
 def headers(rows: list[dict[str, object]]) -> pl.DataFrame:
-    """Header records; each row gives from_addr, x_from and optionally to_addrs/x_to, cc_addrs/x_cc."""
+    """Header records from rows of from_addr, x_from and optional to_addrs/x_to, cc_addrs/x_cc."""
     data = []
     for i, row in enumerate(rows):
         data.append(

@@ -138,13 +138,17 @@ def test_n4_links_legacy_form_paired_at_the_same_position() -> None:
 
 def test_n4_needs_support_and_ignores_misaligned_lists() -> None:
     rows = legacy_rows([("Kim Lo/HOU/ECT", "kim.lo@org.com")], SUPPORT - 1)
-    rows.append({"from_addr": "boss@org.com", "to_addrs": ["kim.lo@org.com"], "x_to": "A, Kim Lo/HOU/ECT"})
+    rows.append(
+        {"from_addr": "boss@org.com", "to_addrs": ["kim.lo@org.com"], "x_to": "A, Kim Lo/HOU/ECT"}
+    )
     found = rules.legacy_candidates(headers(rows), {"kim.lo@org.com", "peer@org.com"}, SUPPORT)
     assert found == []
 
 
 def test_n4_blocks_a_legacy_form_paired_with_two_addresses() -> None:
-    rows = legacy_rows([("Kim Lo/HOU/ECT", "kim.lo@org.com"), ("Kim Lo/HOU/ECT", "kl@org.com")], SUPPORT)
+    rows = legacy_rows(
+        [("Kim Lo/HOU/ECT", "kim.lo@org.com"), ("Kim Lo/HOU/ECT", "kl@org.com")], SUPPORT
+    )
     known = {"kim.lo@org.com", "kl@org.com", "peer@org.com"}
     found = rules.legacy_candidates(headers(rows), known, SUPPORT)
     assert accepted(found) == set()
@@ -157,20 +161,29 @@ def test_n4_attaches_legacy_form_to_the_entity_with_its_support() -> None:
     found = rules.legacy_candidates(headers(rows), set(occurrences), SUPPORT)
     amap = resolve(occurrences, found).address_map
     row = amap.filter(pl.col("addr") == "kim lo/hou/ect").row(0, named=True)
-    assert row == {"addr": "kim lo/hou/ect", "entity_id": "kim.lo@org.com", "rule": "N4", "support": SUPPORT}
+    assert row == {
+        "addr": "kim lo/hou/ect",
+        "entity_id": "kim.lo@org.com",
+        "rule": "N4",
+        "support": SUPPORT,
+    }
 
 
 # ---- N5 -------------------------------------------------------------------------------------
 def test_n5_marks_dominant_sent_address_per_owner() -> None:
     msgs = messages(
-        [("kim.lo@org.com", ["a@org.com"])] * 3 + [("klo@org.com", ["a@org.com"])] + [("a@org.com", ["kim.lo@org.com"])],
+        [("kim.lo@org.com", ["a@org.com"])] * 3
+        + [("klo@org.com", ["a@org.com"])]
+        + [("a@org.com", ["kim.lo@org.com"])],
         sent_owner={0: "lo-k", 1: "lo-k", 2: "lo-k", 3: "lo-k"},
     )
     assert rules.custodian_addresses(msgs) == {"kim.lo@org.com"}
 
 
 def test_n5_breaks_ties_by_smallest_address() -> None:
-    msgs = messages([("b@org.com", ["c@org.com"]), ("a@org.com", ["c@org.com"])], sent_owner={0: "x", 1: "x"})
+    msgs = messages(
+        [("b@org.com", ["c@org.com"]), ("a@org.com", ["c@org.com"])], sent_owner={0: "x", 1: "x"}
+    )
     assert rules.custodian_addresses(msgs) == {"a@org.com"}
 
 
@@ -186,14 +199,20 @@ def test_rules_merge_every_supported_ground_truth_alias(synth: SynthOutput, tmp_
     occurrences = rules.address_occurrences(msgs)
     sent = msgs.group_by("sender_addr").len()
     sent_count = dict(zip(sent["sender_addr"].to_list(), sent["len"].to_list(), strict=True))
-    entity_of = dict(resolve(occurrences, synth_candidates(synth, tmp_path)).address_map.select("addr", "entity_id").iter_rows())
+    entity_of = dict(
+        resolve(occurrences, synth_candidates(synth, tmp_path))
+        .address_map.select("addr", "entity_id")
+        .iter_rows()
+    )
     checked = 0
     for entity in truth["entities"]:
         observed = [a for a in entity["addresses"] if a in occurrences]
         primary = entity["addresses"][0]
         for alias in observed[1:]:
             subdomain = rules.local_part(alias) == rules.local_part(primary)
-            supported = subdomain or min(sent_count.get(alias, 0), sent_count.get(primary, 0)) >= SUPPORT
+            supported = (
+                subdomain or min(sent_count.get(alias, 0), sent_count.get(primary, 0)) >= SUPPORT
+            )
             if supported:
                 checked += 1
                 assert entity_of[alias] == entity_of[primary], entity["truth_id"]
@@ -204,7 +223,8 @@ def test_homonym_stays_separate(synth: SynthOutput, tmp_path: Path) -> None:
     truth = synth.truth()
     homonym = next(e for e in truth["entities"] if e["truth_id"] == "X900")
     twin = next(
-        e for e in truth["entities"]
+        e
+        for e in truth["entities"]
         if e["display_name"] == homonym["display_name"] and e["truth_id"] != "X900"
     )
     candidates = synth_candidates(synth, tmp_path)

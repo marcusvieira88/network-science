@@ -87,8 +87,9 @@ def test_custodian_flag_only_via_n5(synth: SynthOutput, tmp_path: Path) -> None:
     assert not ctx.read("entities")["is_custodian"].any()
 
     truth = {e["entity_id"] for e in synth.truth()["entities"] if e["is_custodian"]}
-    full = ctx_with_fixtures("identity", synth, tmp_path / "b", tables=("messages", "header_records"))
+    full = ctx_with_fixtures(
+        "identity", synth, tmp_path / "b", tables=("messages", "header_records")
+    )
     stage.run(full)
     flagged = set(full.read("entities").filter(pl.col("is_custodian"))["entity_id"].to_list())
     assert flagged == truth
-
