@@ -1,5 +1,16 @@
-order,step,count_in,count_out,removed,rule,precision,recall
-1,files parsed,517401,517364,37,,,
-2,deduplicate,517364,250537,266827,exact+subset,,
-3,resolve identities,85388,84759,629,N1-N4,,
-4,manual merge check,50,50,0,"seeded sample, judged by a person",1.0,
+order,step,count_in,count_out,removed,rule,precision,recall,precision_ci_low,precision_ci_high
+1,files parsed,517401,517364,37,,,,,
+2,deduplicate,517364,250537,266827,exact+subset,,,,
+3,resolve identities,85388,84759,629,N1-N4,,,,
+4,manual merge check,50,50,0,"seeded sample, judged by a person",1.0,,0.9288782635358024,1.0
+5,rejected files: no header end,517401,517371,30,"file not parsed: no clean end of the header, or outside a mailbox folder",,,,
+6,rejected files: outside maildir,517401,517394,7,"file not parsed: no clean end of the header, or outside a mailbox folder",,,,
+7,deduplicate: exact copies,517364,251503,265861,"copies merged by the exact key alone (sender, second, recipient set)",,,,
+8,deduplicate: subset copies,251503,250537,966,"copies of messages that needed a subset merge, with any exact copies they had",,,,
+9,flag: bad address,250537,243854,6683,messages flagged; kept in the network,,,,
+10,flag: date out of range,250537,250167,370,"messages flagged; kept, but left out of the network",,,,
+11,flag: mass mailing,250537,245771,4766,"messages flagged; kept, but left out of the network",,,,
+12,flag: no recipients,250537,242493,8044,"messages flagged; kept, but left out of the network",,,,
+13,flag: self-only,250537,246720,3817,"messages flagged; kept, but left out of the network",,,,
+14,messages without a timestamp,250537,250537,0,kept in messages; no events are built from them,,,,
+15,events in the network,1328123,823488,504635,sender-recipient events of messages without an exclusion flag,,,,

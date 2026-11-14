@@ -28,12 +28,23 @@ A headers-only, privacy-first analysis of the public Enron email corpus
 
 ## What we found in the data
 
-| Step | In | Out | Removed | Rule | Precision | Recall |
-|---|---|---|---|---|---|---|
-| files parsed | 517401 | 517364 | 37 | — | — | — |
-| deduplicate | 517364 | 250537 | 266827 | exact+subset | — | — |
-| resolve identities | 85388 | 84759 | 629 | N1-N4 | — | — |
-| manual merge check | 50 | 50 | 0 | seeded sample, judged by a person | 1 | — |
+| Step | In | Out | Removed | Rule | Precision | Recall | Precision low | Precision high |
+|---|---|---|---|---|---|---|---|---|
+| files parsed | 517401 | 517364 | 37 | — | — | — | — | — |
+| deduplicate | 517364 | 250537 | 266827 | exact+subset | — | — | — | — |
+| resolve identities | 85388 | 84759 | 629 | N1-N4 | — | — | — | — |
+| manual merge check | 50 | 50 | 0 | seeded sample, judged by a person | 1 | — | 0.929 | 1 |
+| rejected files: no header end | 517401 | 517371 | 30 | file not parsed: no clean end of the header, or outside a mailbox folder | — | — | — | — |
+| rejected files: outside maildir | 517401 | 517394 | 7 | file not parsed: no clean end of the header, or outside a mailbox folder | — | — | — | — |
+| deduplicate: exact copies | 517364 | 251503 | 265861 | copies merged by the exact key alone (sender, second, recipient set) | — | — | — | — |
+| deduplicate: subset copies | 251503 | 250537 | 966 | copies of messages that needed a subset merge, with any exact copies they had | — | — | — | — |
+| flag: bad address | 250537 | 243854 | 6683 | messages flagged; kept in the network | — | — | — | — |
+| flag: date out of range | 250537 | 250167 | 370 | messages flagged; kept, but left out of the network | — | — | — | — |
+| flag: mass mailing | 250537 | 245771 | 4766 | messages flagged; kept, but left out of the network | — | — | — | — |
+| flag: no recipients | 250537 | 242493 | 8044 | messages flagged; kept, but left out of the network | — | — | — | — |
+| flag: self-only | 250537 | 246720 | 3817 | messages flagged; kept, but left out of the network | — | — | — | — |
+| messages without a timestamp | 250537 | 250537 | 0 | kept in messages; no events are built from them | — | — | — | — |
+| events in the network | 1328123 | 823488 | 504635 | sender-recipient events of messages without an exclusion flag | — | — | — | — |
 
 Duplicates are found without content (sender, second, recipients); precision and recall are
 measured on a synthetic corpus with known answers.
@@ -64,7 +75,7 @@ No finding about the crisis year is claimed. H2, H3 passed the pre-registered st
 | H3 | the organization turned inward | -1.46 | -2.65 to -0.944 | 0.004 | yes | low |
 | H4 | working relationships were rewired faster | -0.195 | -0.938 to 0.335 | 1 | no | low |
 
-Among H5–H24, no hypothesis reached the standard to be held true. H16 (share of sent-to contacts who also wrote back) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose replies are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It remains the strongest lead, largely explained by how much inbox mail was kept.
+Among H5–H24, no hypothesis reached the standard to be held true. H16 (share of sent-to contacts who also wrote to the custodian) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It remains the strongest lead, largely explained by how much inbox mail was kept.
 
 ---
 
@@ -124,8 +135,9 @@ The jump comes right after the baseline year used to fit the groups ends.
 - Observational design: a structural change near public events does not show what people knew. Hypotheses fixed in advance limit hindsight bias but do not remove it.
 - No group-level attack on the community graph was run: an attacker who knows some group members could try to infer ties or membership from group-to-group weights, and that risk is bounded only by the minimum of k distinct senders per published tie, not measured.
 - The effect interval is computed at a change week chosen from the same data (the week that maximises the change statistic), so it is optimistic: it ignores the uncertainty of where the change happened.
+- For H5–H24, the pre-crisis placebos run on fewer custodians than the crisis comparison (fewer meet the minimum message count in the January-to-April windows; see the placebo custodians column), so they have less power: a passing placebo does not exclude a pre-existing trend.
 - The artifact checks were added after the first real-data run, because two hypotheses passed every pre-registered check yet looked implausibly strong. They are documented as a post-hoc amendment; a reader should weigh them as diagnostics, not as pre-registered tests.
-- Rule N2 merges addresses with the same local part under one registered domain, so it can merge two different people who share a local part across an ISP's regional subdomains; a manual check of 50 sampled real merges found 0 wrong merges.
+- Rule N2 merges addresses with the same local part under one registered domain, so it can merge two different people who share a local part across an ISP's regional subdomains; a manual check of 50 sampled real merges found 0 wrong merges (precision 1, exact binomial interval 0.929 to 1).
 
 ---
 
