@@ -119,6 +119,13 @@ replaces "largest supported effect" so that it matches the pre-registered rule i
 - The collection was shaped by an investigation.
 - The permutation test assumes weeks are exchangeable under no change; serial correlation in a
   weekly series makes it optimistic. The block bootstrap interval partly offsets this.
+  *Calibration (added after the data-science review):* on 1,000 simulated 117-week series with
+  no change, the test at α = 0.05 rejects 3.2 % of independent series, but 14.8 % of AR(1)
+  series with φ = 0.3 and 25.6 % with φ = 0.5 (`tests/unit/finding/test_stats.py`,
+  `test_permutation_test_is_liberal_on_autocorrelated_no_change`). Weekly network metrics are
+  autocorrelated, so `p_perm` and `p_holm` overstate significance; a small p alone is weak
+  evidence here. No H1–H4 finding is claimed, so this changes no published conclusion, but it is
+  one more reason the supported H2 and H3 needed the artifact checks.
 - The null model preserves in-weight per person per week, so in-degree concentration (H1) is
   largely reproduced by the null by construction; H1 will rarely pass (c) and so rarely reach
   high confidence. This is reported, not tuned away.
