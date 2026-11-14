@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // Fails unless the production build in dist/ is self-contained: no URL to another origin that
-// the app could request, a Content-Security-Policy that blocks other origins, and every asset
+// the app could request, a strict Content-Security-Policy (scripts/csp.mjs), and every asset
 // referenced by index.html present locally. Run after `npm run build`.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { cspProblems } from "./csp.mjs";
 
 const DIST = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
 const TEXT_EXTENSIONS = [".html", ".js", ".mjs", ".css", ".json", ".svg", ".txt", ".webmanifest"];
@@ -17,8 +19,6 @@ const NON_REQUEST_URLS = [
   { prefix: "https://reactjs.org/docs/error-decoder.html", reason: "React error message text" },
   { prefix: "http://fb.me/use-check-prop-types", reason: "React warning message text" },
 ];
-
-const REQUIRED_CSP = ["default-src 'self'", "connect-src 'self'", "script-src 'self'", "font-src 'self'"];
 
 function files(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -53,9 +53,7 @@ for (const path of files(DIST).filter(isText)) {
 
 const html = readFileSync(join(DIST, "index.html"), "utf8");
 const csp = (html.match(/http-equiv="Content-Security-Policy"\s+content="([^"]+)"/)?.[1] ?? "").replaceAll("&#39;", "'");
-for (const directive of REQUIRED_CSP) {
-  if (!csp.includes(directive)) problems.push(`index.html: Content-Security-Policy lacks "${directive}"`);
-}
+for (const problem of cspProblems(csp)) problems.push(`index.html: Content-Security-Policy ${problem}`);
 for (const [, ref] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
   if (!existsSync(join(DIST, ref.replace(/^\.\//, "")))) problems.push(`index.html: missing local asset ${ref}`);
 }
