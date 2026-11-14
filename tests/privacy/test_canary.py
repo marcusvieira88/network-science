@@ -34,8 +34,7 @@ def identifiers(truth: GroundTruth) -> list[str]:
 
 
 def test_pipeline_ran_something(sample_run: SampleRun) -> None:
-    if not sample_run.result.ran:
-        pytest.skip("no stage implemented yet")
+    assert sample_run.result.ran
 
 
 def test_no_content_marker_anywhere(sample_run: SampleRun) -> None:

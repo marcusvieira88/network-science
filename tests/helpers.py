@@ -55,7 +55,7 @@ class SampleRun:
 
 
 def run_sample(root: Path, keep_ingest: bool = False, last: str | None = None) -> SampleRun:
-    """Run every implemented stage on the synthetic sample into `root`."""
+    """Run the pipeline (to `last`, default the report) on the synthetic sample into `root`."""
     paths = tmp_paths(root)
     logs: list[str] = []
     result = run_pipeline(
@@ -64,7 +64,6 @@ def run_sample(root: Path, keep_ingest: bool = False, last: str | None = None) -
         sample=True,
         stages=select(None, last),
         keep_ingest=keep_ingest,
-        stop_at_missing=True,
         log=logs.append,
     )
     return SampleRun(paths, result, logs)
