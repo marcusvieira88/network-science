@@ -129,7 +129,7 @@ def parse_archive(archive: Path, batch_rows: int) -> tuple[pl.DataFrame, IngestC
                 if record is None:
                     rejected[reason or REJECT_OUTSIDE_MAILDIR] += 1
                     continue
-                fields.update(allowlist.canonical(name) for name in names)
+                fields.update(allowlist.counted_name(name) for name in names)
                 parse_flags = record["parse_flags"]
                 if not isinstance(parse_flags, list):
                     raise ContractViolation("header record: parse_flags is not a list")
