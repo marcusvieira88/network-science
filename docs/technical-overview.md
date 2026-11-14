@@ -15,8 +15,8 @@ and one descriptive profile of the record.
 
 - **The finding: the record changed under the analysis.** Within the same custodians, the share
   of weekday sent mail stamped outside working hours falls from roughly half (every month up to
-  April 2001) to a few percent (from May 2001 on), and the mail kept per month grows several-fold
-  into the crisis. Working days do not move by hours: the `Date` convention changed, most likely
+  April 2001) to a few percent (from August 2001 on; the fall starts in May), and the received
+  mail kept per month grows up to several-fold into the crisis. Working days do not move by hours: the `Date` convention changed, most likely
   with a change of mail system (not verified: folder names would show it, and we do not read
   them). Every within-custodian comparison sets a crisis window after that change against a
   reference window before it. Confidence that the record changed: high. It is a finding about
@@ -106,7 +106,7 @@ the parser enforces it and a test compares the two.
 | **Usable metadata** | `Date` | pseudonymized events, truncated to the hour; published weekly | *When* is the only fact needed beyond *who*. Second-level timestamps fingerprint people, so they are coarsened at the boundary. |
 | **Direct identifier, ingest zone only** | `From`, `To`, `Cc`, `Bcc`, `X-From`, `X-To`, `X-cc`, `X-bcc` | ingest zone only; replaced by keyed pseudonyms, then purged | Needed to know who talked to whom and to link one person's several addresses. Display names are used to resolve identities and then discarded. |
 | **Content, never stored** | `Subject`, `X-Folder` (and folder names in the archive path) | nowhere; dropped as the line is read | A subject line is a one-line summary of the body written by its author. Folder names are topic labels written by the mailbox owner. Both are content in everything but position. A folder name is reduced at once to one of four classes (sent, inbox, deleted, other). |
-| **Dropped** | `X-FileName`, `X-Origin`, `Message-ID`, MIME fields, anything unknown | nowhere | No analytical use (`X-Origin` and `X-FileName` repeat the mailbox owner; `Message-ID` was assigned per stored copy, measured: no group of duplicate copies shares one, so it cannot deduplicate). Unknown fields are denied by default; only their *names* are counted. |
+| **Dropped** | `X-FileName`, `X-Origin`, MIME fields, anything unknown; `Message-ID` after the ingest zone | nowhere (`Message-ID`: ingest zone only, for dedupe diagnostics, then purged) | No analytical use (`X-Origin` and `X-FileName` repeat the mailbox owner and are ruled identifiers in `header_fields.csv`, but not kept; `Message-ID` was assigned per stored copy, measured: no group of duplicate copies shares one, so it cannot deduplicate). Unknown fields are denied by default; only their *names* are counted. |
 
 The hardest call is **`Subject`**. Keeping a keyed hash of it would have improved deduplication and
 allowed thread and reply-time analysis. We rejected it: a hash of a short, guessable string is a
@@ -274,7 +274,7 @@ ui-sample` writes. So the UI cannot show anything the report could not. Its view
 | Metrics | each weekly metric by scope, with the change point, public events and baseline marked |
 | Network | a "How to read this" guide and a one-sentence summary of the selected week, then a **graph of groups** and their ties, week by week, drawn with Sigma.js (WebGL) and laid out once with ForceAtlas2: zoom, fullscreen, search by group label, hover highlighting; an anonymous Individuals mode fills each group with unlabelled points; an Overlap mode draws the week's six heaviest pairs as intersecting outlined contours (`@sigma/layer-webgl`) (mail between groups, not shared members); SVG fallback without WebGL (no Overlap mode) |
 | Clusters | a **chord diagram** of mail between and within groups for the baseline year, the crisis weeks or all weeks; each group's size, within-group share and top partner groups; and the group whose cross-group share changed most, with the stale-baseline caveat |
-| Hypotheses | every hypothesis in one plain sentence with a verdict (held up, explained by the data, unclear, could not be tested, no real change) and a glossary of the terms; then, for analysts, H1–H4 with their artifact checks, and H5–H25 |
+| Hypotheses | every hypothesis in one plain sentence with a verdict (held up, explained by the data, not robust, unclear, could not be tested, no real change, withheld) and a glossary of the terms; then, for analysts, H1–H4 with their artifact checks, and H5–H25 |
 | Data quality, Privacy and risk, Limits | the cleaning funnel, header rulings, the attacks before and after mitigation, and the limits |
 
 Every node, arc and segment is a **group of at least five people**, never an individual; group
@@ -472,7 +472,7 @@ derived from message text and would break the content rule, so they were only re
 | Addresses → persons | 85,388 → 84,759 (629 merges: N2 532, N4 97, N3 0) | 1,234 addresses → 557 Enron people (2.2 per person) | Diesner, Frantz & Carley (2005) | Theirs is a manual mapping of employees; ours is rule-based over all addresses and favours precision. It is **clearly weaker for employees**: the name rule N3 made no merge on real data (193 candidates blocked as name-only), so aliases split people. That lowers degree and density alike in every period, unless alias use changed over time (see the record change) |
 | Invalid dates | 370 messages outside 1998–2002 | 327 in the ISI database (e.g. 2044, 0001) | Diesner & Carley (2005) | Different windows and database; same order of magnitude |
 | Bcc | `Bcc` and `Cc` occur exactly as often (127,881); every Bcc line repeats Cc | "X-bcc not provided" | Zhou et al. (2007) | Consistent: the release carries no independent Bcc information, so H7 is untestable |
-| Timestamp convention | changes between April and May 2001 (record profile) | not documented in what we found; ISI dates lack a time zone, CALO "canonicalised" dates | Tsipenyuk & Crowcroft (2017); EnronData | To our knowledge not described before; worth checking against the folder names by someone allowed to read them |
+| Timestamp convention | changes from May 2001, complete by August (record profile) | not documented in what we found; ISI dates lack a time zone, CALO "canonicalised" dates | Tsipenyuk & Crowcroft (2017); EnronData | To our knowledge not described before; worth checking against the folder names by someone allowed to read them |
 
 ### Findings about 2001
 
@@ -480,7 +480,7 @@ derived from message text and would break the content rule, so they were only re
 |--------------|--------|----------|------------|--------------------|
 | Density 0.018 → 0.031 and 96 → 39 strong components, October 2000 against October 2001; executives form a tight-knit clique (no significance test) | Diesner & Carley (2005) | H25: each custodian's share of the other custodians they exchanged mail with, crisis weeks against the same weeks a year earlier, paired, with a placebo | +0.008 (interval 0 to 0.033), Holm p 0.24, placebo as large: **not supported** | Their comparison is two single months of the whole record. Mail received by custodians in October 2001 is about five times October 2000's (record profile), so any network density computed from the record rises with retention. Comparing each custodian with themselves removes who-is-in-the-data, and the change is no larger than before the crisis |
 | Employee-level density does not track the scandal; communication becomes "more diverse", previously disconnected people start to talk; betweenness centralisation peaks in December 2001 | Diesner, Frantz & Carley (2005) | H2 (crossing frozen groups), H1 (in-degree concentration in the core) | H2 passes its tests (+13.8 sd) but a calm half-year out of sample already jumps 10.8 sd: groups fitted on a baseline go stale. H1 not supported | "Previously disconnected people start to talk" is what stale groups produce mechanically. Our frozen communities make the artifact visible; a refitted or descriptive analysis cannot see it |
-| Scan-statistic anomalies in late April 2001 and mid-August 2001 | Priebe et al. (2005); Wang et al. (2014) | change points of H2 and H3 | H2 changes in the week of 2001-04-16, H3 on 2001-05-21; the timestamp convention changes between April and May 2001 | Not tested, but the coincidence suggests at least the spring anomaly is a change of the record, not of behaviour |
+| Scan-statistic anomalies in late April 2001 and mid-August 2001 | Priebe et al. (2005); Wang et al. (2014) | change points of H2 and H3 | H2 changes in the week of 2001-04-16, H3 on 2001-05-21; the timestamp convention starts changing in May 2001 | Not tested, but the coincidence suggests at least the spring anomaly is a change of the record, not of behaviour |
 
 **Why our design does not reproduce published effects.** Three choices, each deliberate: (1) a
 custodian-only core and within-custodian comparisons, so a change in which mailboxes hold mail
@@ -619,7 +619,9 @@ The full story, including what was rejected and why, is in
 
 ## Next steps
 
-How to run all of this on AWS (zones as buckets and IAM roles, the key in KMS, Step Functions and
+The order is the README's roadmap, each step a gate for the next: connectors, a query API
+(Polars for processing, DuckDB for serving), security on that API, load and penetration tests,
+deployment on AWS, then further analysis. How to run all of this on AWS (zones as buckets and IAM roles, the key in KMS, Step Functions and
 Fargate, CloudFront, per-tenant accounts, monitoring with CloudWatch, Prometheus and Grafana) is
 in [docs/deployment-aws.md](deployment-aws.md); the sections below stay cloud-neutral.
 
@@ -636,7 +638,8 @@ DuckDB becomes the right tool when the UI must **query** rather than display:
 - re-aggregation on demand (other windows, departments as groups);
 - an audit trail of who asked what.
 
-DuckDB fits that well. It runs in-process with no server to operate and reads Parquet in place, so
+DuckDB fits that well, with Polars staying the pipeline's processing engine and writing the
+release tables as Parquet. DuckDB runs in-process with no server to operate and reads Parquet in place, so
 the release tables need no load step. Many processes can open it **read-only** at once, and only
 one process writes. That matches this workload: the pipeline writes once per run, and many viewers
 read.
@@ -670,7 +673,7 @@ out of reach of the service entirely.
 
 | Step | What changes |
 |------|--------------|
-| Metadata-only connectors | Microsoft Graph and Slack APIs request header fields only, so content never leaves the source instead of being skipped after download. |
+| Metadata-only connectors | Gmail (`gmail.metadata` scope) and Microsoft 365 (Graph `Mail.ReadBasic.All`) return headers without bodies, so content never leaves the source instead of being skipped after download. Teams and Slack have no metadata-only scope: their connectors drop the text in memory before anything is written, a weaker promise stated as such. |
 | Key custody and an entity registry | The key lives in the customer's KMS. A persisted registry of surrogate IDs keeps pseudonyms stable when identity rules change. |
 | Formal privacy budget | Replace the noise sketch (release R2) with differential privacy accounted across every published output. |
 | Group-level attack | Attack the published group graph itself (communities matched to the public corpus), not only person-level releases. |

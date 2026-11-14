@@ -7,7 +7,7 @@ details are in [contracts/cli.md](contracts/cli.md); table schemas in
 ## Prerequisites
 
 - Python 3.12 and `uv`; Node.js 20 or later and `npm` (for the explorer UI)
-- `make`, about 3 GB free disk, internet access for the corpus download (about 450 MB)
+- `make`, about 3 GB free disk, internet access for the corpus download (about 440 MB)
 
 ## 0. Everything at once
 

@@ -26,10 +26,10 @@ of them the download; the pipeline itself takes about 2.5.
   messages; about 85,400 addresses resolve to about 84,800 entities.
 - **Finding:** what changed in the crisis year is the *record*, not measurable behaviour. For
   the same custodians, the share of weekday sent mail stamped outside working hours drops from
-  about half to a few percent between April and May 2001, and the mail kept per month grows
-  several-fold: the `Date` convention changed (most likely the mail system) right between the
-  windows every comparison sets against each other. Confidence: high that the record changed;
-  its cause is not established.
+  about half to a few percent between spring and late summer 2001, and the received mail kept
+  per month grows up to several-fold: the `Date` convention changed (most likely the mail system)
+  right between the windows every comparison sets against each other. Confidence: high that the
+  record changed; its cause is not established.
 - **Behaviour:** no hypothesis among H1–H25 is held true. H2/H3 passed their tests but are
   artifacts (stale baseline groups; a changing mailbox mix); H16 fails its retention check; H25,
   a post-hoc replication of the published "denser network in the crisis", finds no change within
@@ -132,7 +132,7 @@ Skills used ([`.claude/skills/`](.claude/skills/); detail in
 [`docs/ai-workflow.md`](docs/ai-workflow.md)):
 
 - **Spec Kit (SDD):** `speckit-constitution` (seven principles), `speckit-specify` (five user
-  stories), `speckit-plan` (zones, contracts), `speckit-tasks` (about a hundred tasks).
+  stories), `speckit-plan` (zones, contracts), `speckit-tasks` (just over a hundred tasks).
   Implementation ran from `tasks.md` through agent briefs (lead plus ten agents), not the
   `speckit-implement` skill. Planned, not run: `speckit-converge`.
 - **Review skills (custom, written for this project):** `data-privacy-review` (caught

@@ -14,10 +14,11 @@ them non-negotiable: message content never enters the system, and privacy is des
 added. The **spec** stated five user stories and their acceptance scenarios; the **plan** chose
 the design (data zones, versioned table contracts, one stage per package) and the research notes
 settled each open question; **tasks** broke the plan into a little over a hundred tasks, each
-owned by one work package. **Implement** was split between a lead agent and ten implementation
-agents. At the end the documents were **converged** with the code: the plan gained an as-built
-section, the task list a record of work done beyond it, and the architecture, contracts and data
-model were rewritten to describe what the code does.
+owned by one work package. **Implementation** ran from the task list through briefs to a lead
+agent and ten implementation agents, not through Spec Kit's implement command. At the end the
+documents were brought in line with the code by hand (Spec Kit's converge command was not run):
+the plan gained an as-built section, the task list a record of work done beyond it, and the
+architecture, contracts and data model were rewritten to describe what the code does.
 
 ## How the work was split
 

@@ -20,7 +20,7 @@ A headers-only, privacy-first analysis of the public Enron email corpus
 
 - The parser stops at the first blank line: bodies are never decoded, held or stored
 - **Content, never stored**: Subject, X-Folder
-- **Identifiers, ingest zone only**: Bcc, Cc, From, To, X-FileName, X-From, X-Origin, X-To, X-bcc, X-cc; **usable metadata**: Date
+- **Identifiers, never past the ingest zone**: Bcc, Cc, From, To, X-FileName, X-From, X-Origin, X-To, X-bcc, X-cc; **usable metadata**: Date
 - `Subject` counts as content: it is a summary of the body. Cost: no threads, no reply times
 - Keyed HMAC per resolved person; identifiers purged after every run; downstream code sees
   pseudonyms only; the release holds aggregates meeting k = 5
