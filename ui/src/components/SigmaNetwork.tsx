@@ -2,7 +2,8 @@
  * The WebGL group network (Sigma.js via React Sigma). Loaded on demand (React.lazy) so Sigma and
  * graphology stay out of the bundle the other views load. All data mapping lives in
  * lib/sigmaNetwork.ts; this file wires it to Sigma: loading the week's graph, hover and search
- * focus, the Overlap mode's contour layer, zoom and fullscreen controls, and the legend.
+ * focus, the Overlap mode's contour layer, and zoom and fullscreen controls; the legend and the
+ * focused group's summary are their own components.
  */
 import "@react-sigma/core/lib/style.css";
 
@@ -23,17 +24,15 @@ import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from "rea
 import type { Settings } from "sigma/settings";
 import { animateNodes } from "sigma/utils";
 
+import { FocusSummary } from "@/components/FocusSummary";
+import { NetworkLegend } from "@/components/NetworkLegend";
 import { type NetworkMode, anonymousPoints } from "@/lib/cells";
 import { bindGroupContours } from "@/lib/contourLayer";
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
-import { formatNumber } from "@/lib/format";
 import { type GroupTie, NETWORK_HEIGHT, publishedTies } from "@/lib/network";
 import {
   OVERLAP_DISC_COLOR,
-  OVERLAP_PAIRS,
-  type Overlap,
   type WeekOverlaps,
-  overlapsOf,
   relaxPositions,
   weekOverlaps,
 } from "@/lib/overlap";
@@ -51,8 +50,6 @@ import {
   groupKey,
   groupNodeRadius,
   layoutPositions,
-  legendSizes,
-  legendWeights,
   networkGraph,
   networkPalette,
   nodeAppearance,
@@ -62,12 +59,8 @@ const LABEL_SIZE = 12;
 const LABEL_WEIGHT = "600";
 const LABEL_FONT = "'Inter Variable', ui-sans-serif, system-ui, sans-serif";
 const ZOOM_DURATION_MS = 300;
-const LEGEND_MAX_RADIUS = 10;
-const LEGEND_MAX_WIDTH = 5;
-const LEGEND_LINE_LENGTH = 24;
 /** Duration of the Overlap mode's move from one week's layout to the next. */
 const WEEK_MOTION_MS = 400;
-const PERCENT = 100;
 const NO_OVERLAPS: WeekOverlaps = { overlaps: [], lines: [] };
 const NO_CONTOURS: readonly ContourStyle[] = [];
 /** Sizes are in layout units and grow with the zoom, so a group's points stay inside its disc. */
@@ -239,96 +232,6 @@ function GroupSearch({ labels, onSelect }: { labels: string[]; onSelect: (key: s
   );
 }
 
-function percent(share: number): string {
-  return `${Math.round(share * PERCENT)}%`;
-}
-
-interface SummaryProps {
-  graph: NetworkGraph;
-  focusKey: string | null;
-  people: ReadonlyMap<string, number>;
-  /** The week's overlaps in the Overlap mode; null in the other modes. */
-  overlaps: readonly Overlap[] | null;
-}
-
-/**
- * The focused group's published facts: label, size and how many groups it has a tie with; in the
- * Overlap mode also each overlap's message count and both sides' shares.
- */
-function FocusSummary({ graph, focusKey, people, overlaps }: SummaryProps) {
-  const focus = focusOn(graph, focusKey);
-  if (!focus) return null;
-  const label = graph.getNodeAttribute(focus.key, "label") ?? "";
-  return (
-    <div role="status" className="absolute right-12 top-2 z-[101] rounded-md border bg-card px-2 py-1 text-xs">
-      <p>
-        Group {label} · {people.get(label)} people · tied to {focus.neighbours.size}{" "}
-        {focus.neighbours.size === 1 ? "group" : "groups"} this week
-      </p>
-      {overlapsOf(overlaps ?? [], label).map((o) => (
-        <p key={o.partner}>
-          {o.group} ↔ {o.partner} · {formatNumber(o.messages)} messages · {percent(o.share)} of {o.group}&apos;s mail ·{" "}
-          {percent(o.partnerShare)} of {o.partner}&apos;s mail
-        </p>
-      ))}
-    </div>
-  );
-}
-
-interface LegendProps {
-  groups: CommunityGroupRow[];
-  maxTie: number;
-  mode: NetworkMode;
-}
-
-function Legend({ groups, maxTie, mode }: LegendProps) {
-  const sizes = legendSizes(groups, LEGEND_MAX_RADIUS);
-  const weights = legendWeights(maxTie, LEGEND_MAX_WIDTH);
-  return (
-    <div
-      data-testid="network-legend"
-      className="absolute bottom-2 left-2 z-[101] space-y-1 rounded-md border bg-card/90 px-2 py-1.5 text-xs text-muted-foreground"
-    >
-      <div className="flex items-center gap-2">
-        <span>Circle area: people</span>
-        {sizes.map((sample) => (
-          <span key={sample.people} className="flex items-center gap-1">
-            <svg width={2 * LEGEND_MAX_RADIUS} height={2 * LEGEND_MAX_RADIUS} aria-hidden>
-              <circle cx={LEGEND_MAX_RADIUS} cy={LEGEND_MAX_RADIUS} r={sample.radius} fill="hsl(var(--muted-foreground))" />
-            </svg>
-            {sample.people}
-          </span>
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <span>Line width: weekly weight</span>
-        {weights.map((sample) => (
-          <span key={sample.weight} className="flex items-center gap-1">
-            <svg width={LEGEND_LINE_LENGTH} height={LEGEND_MAX_WIDTH} aria-hidden>
-              <line
-                x1={0}
-                x2={LEGEND_LINE_LENGTH}
-                y1={LEGEND_MAX_WIDTH / 2}
-                y2={LEGEND_MAX_WIDTH / 2}
-                stroke="hsl(var(--muted-foreground))"
-                strokeWidth={sample.width}
-              />
-            </svg>
-            {formatNumber(sample.weight)}
-          </span>
-        ))}
-      </div>
-      {mode === "individuals" && <div>Each small dot: one anonymous person (illustrative position)</div>}
-      {mode === "overlap" && (
-        <>
-          <div>Overlap = mail between two groups, not shared members — each person is in exactly one group.</div>
-          <div>The week&apos;s {OVERLAP_PAIRS} heaviest pairs overlap; depth: shared ÷ (own within-group + shared) messages.</div>
-        </>
-      )}
-    </div>
-  );
-}
-
 export default function SigmaNetwork({ groups, edges, week, maxTie, mode, seed }: SigmaNetworkProps) {
   const palette = useMemo(() => networkPalette(groups, readThemeVariable), [groups]);
   const settings = useMemo(() => sigmaSettings(palette), [palette]);
@@ -389,7 +292,7 @@ export default function SigmaNetwork({ groups, edges, week, maxTie, mode, seed }
             <Minimize2 className="h-4 w-4" aria-hidden />
           </FullScreenControl>
         </ControlsContainer>
-        <Legend groups={groups} maxTie={maxTie} mode={mode} />
+        <NetworkLegend groups={groups} maxTie={maxTie} mode={mode} />
       </SigmaContainer>
     </div>
   );
