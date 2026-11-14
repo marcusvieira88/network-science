@@ -35,10 +35,31 @@ describe("AppShell", () => {
   it("selects a view by keyboard", async () => {
     const onSelect = renderShell();
     const user = userEvent.setup();
+    // Skip link, Executive summary, Overview, then Metrics.
+    await user.tab();
+    await user.tab();
     await user.tab();
     await user.tab();
     await user.keyboard("{Enter}");
     expect(onSelect).toHaveBeenCalledWith("metrics");
+  });
+
+  it("offers a skip link to the content first", async () => {
+    renderShell();
+    const user = userEvent.setup();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "Skip to content" })).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
+    expect(screen.getByRole("main")).toHaveAttribute("id", "main");
+  });
+
+  it("opens with the executive summary and ends with the glossary", () => {
+    renderShell();
+    const labels = within(screen.getByRole("navigation", { name: "Views" }))
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+    expect(labels[0]).toBe("Executive summary");
+    expect(labels[labels.length - 1]).toBe("Glossary");
   });
 
   it("shows run details in the footer", () => {

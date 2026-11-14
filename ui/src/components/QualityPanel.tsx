@@ -1,8 +1,16 @@
+import { AnalystDetails } from "@/components/AnalystDetails";
+import { ChartHeadline } from "@/components/ChartHeadline";
+import { Explain } from "@/components/Explain";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { DataQualityRow, DegreeRow, HeaderFieldRow } from "@/lib/data";
+import { funnelHeadline, headerHeadline } from "@/lib/executive";
 import { formatNumber, formatShare } from "@/lib/format";
+
+const FUNNEL_CAPTION =
+  "Each row is one cleaning step: the count going in, the count coming out, and a bar for the share kept. " +
+  "Rows after the main steps break those steps down. Flagged messages are kept, but most flags leave them out of the network.";
 
 const RULING_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
   usable: "default",
@@ -61,9 +69,13 @@ export function QualityPanel({ steps, headerFields, degrees }: QualityPanelProps
       <Card>
         <CardHeader>
           <CardTitle>Cleaning funnel</CardTitle>
-          <CardDescription>Counts in and out of each step; the bar shows the share kept.</CardDescription>
+          <CardDescription>
+            Counts in and out of each step; the bar shows the share kept. Precision and recall
+            <Explain term="Precision and recall" /> are shown where they were measured.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-5">
+          <ChartHeadline headline={funnelHeadline(steps)} caption={FUNNEL_CAPTION} />
           <ol className="space-y-5">
             {steps.map((step) => (
               <FunnelStep key={step.order} step={step} />
@@ -71,12 +83,14 @@ export function QualityPanel({ steps, headerFields, degrees }: QualityPanelProps
           </ol>
         </CardContent>
       </Card>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+      <Card>
           <CardHeader>
             <CardTitle>Header ruling</CardTitle>
-            <CardDescription>
-              Every header field seen, and what the parser does with it. Content fields are dropped unread.
+            <CardDescription className="space-y-1">
+              <span className="block text-base font-medium text-foreground">{headerHeadline(headerFields)}</span>
+              <span className="block">
+                Every header field seen, and what the parser does with it. Content fields are dropped unread.
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -103,7 +117,8 @@ export function QualityPanel({ steps, headerFields, degrees }: QualityPanelProps
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
+      </Card>
+      <AnalystDetails>
         <Card>
           <CardHeader>
             <CardTitle>Degree distribution</CardTitle>
@@ -139,7 +154,7 @@ export function QualityPanel({ steps, headerFields, degrees }: QualityPanelProps
             </Table>
           </CardContent>
         </Card>
-      </div>
+      </AnalystDetails>
     </div>
   );
 }

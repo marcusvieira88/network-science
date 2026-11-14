@@ -1,3 +1,4 @@
+import { Explain } from "@/components/Explain";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ArtifactCheckRow, HypothesisRow } from "@/lib/data";
@@ -49,19 +50,31 @@ export function FindingCard({
       <CardContent>
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
-            <dt className="text-xs text-muted-foreground">Effect (standardised)</dt>
+            <dt className="text-xs text-muted-foreground">
+              Effect (standardised)
+              <Explain term="Effect (standardised)" />
+            </dt>
             <dd className="text-2xl font-semibold tabular-nums">{formatFloat(finding.effect)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">95% interval</dt>
+            <dt className="text-xs text-muted-foreground">
+              95% interval
+              <Explain term="95% interval" />
+            </dt>
             <dd className="text-2xl font-semibold tabular-nums">{formatInterval(finding.ci_low, finding.ci_high)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">p (Holm-adjusted)</dt>
+            <dt className="text-xs text-muted-foreground">
+              p (Holm-adjusted)
+              <Explain term="p (Holm)" />
+            </dt>
             <dd className="text-2xl font-semibold tabular-nums">{formatP(finding.p_holm)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">Robust variants</dt>
+            <dt className="text-xs text-muted-foreground">
+              Robust variants
+              <Explain term="Robustness variants" />
+            </dt>
             <dd className="text-2xl font-semibold tabular-nums">
               {finding.robust_variants_passed} / {finding.robust_variants_total}
             </dd>

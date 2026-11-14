@@ -3,6 +3,7 @@ import { formatNumber, formatShare } from "@/lib/format";
 import { namedGroups } from "@/lib/network";
 import { outsideLabel, outsidePeople } from "@/lib/outside";
 import { minimumGroupSize } from "@/lib/privacy";
+import { worstReidentification } from "@/lib/risk";
 import { analysisWeeks, baselinePeriod } from "@/lib/series";
 
 export interface KeyNumber {
@@ -13,8 +14,7 @@ export interface KeyNumber {
 
 /** The strongest attacker's re-identification rate against one release variant, or null if none ran. */
 export function worstReid(data: ReleaseData, variant: "R0" | "R1"): number | null {
-  const rates = data.tables.risk.filter((row) => row.release_variant === variant).flatMap((row) => (row.reid_top1 === null ? [] : [row.reid_top1]));
-  return rates.length ? Math.max(...rates) : null;
+  return worstReidentification(data.tables.risk, variant)?.rate ?? null;
 }
 
 /** The groups card's note: k, and the outside bucket's size apart, since it is not a group. */

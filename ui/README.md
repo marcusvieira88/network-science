@@ -51,6 +51,19 @@ Hovering a group lists each overlap's message count and both sides' shares (`src
 `src/lib/sigmaNetwork.ts` and `src/lib/cells.ts`; tests replace React Sigma with
 `src/test/reactSigma.tsx`, since jsdom has no WebGL.
 
+The explorer opens on an **Executive summary** for leaders who do not read statistics: six cards
+(what was studied, what we found, the main finding, how sure we are, privacy, data quality), each
+linking to its evidence view, then "What this means for a real organisation" and "What this cannot
+tell you". A "Print this summary" button prints it on one A4 page (print styles in `src/index.css`).
+Every sentence is built from release fields by fixed rules in `src/lib/executive.ts`, tested against
+the sample and against the real outcomes; the fixed sentences restate method and limits from
+`docs/` and `release/report.md`, never a result. The Metrics, Data quality and Privacy and risk
+charts open with a headline generated from the data and a "How to read it" caption. A "?" next to a
+technical term opens its plain meaning from `src/lib/glossary.ts` (`src/components/Explain.tsx`);
+the Glossary view lists them all. Full statistics stay one click away under "Details for analysts".
+The release does not carry the month-by-month record profile, so the summary names the change in
+the record through H5 and the two comparison windows, not by month.
+
 Readers who are not data scientists get the answer first, in plain words. The Overview opens with
 an "In short" card; the Hypotheses view opens with one sentence and a verdict per hypothesis and a
 glossary (`src/lib/glossary.ts`); the Network view opens with "How to read this" and a sentence

@@ -9,7 +9,7 @@ import type { HypothesisEntry } from "@/lib/hypotheses";
 import { type GroupTie, OTHER_GROUP } from "@/lib/network";
 
 /** What a hypothesis came to, in plain terms. */
-export type Verdict = "held" | "artifact" | "weak" | "unclear" | "untestable" | "none" | "withheld";
+export type Verdict = "held" | "artifact" | "weak" | "unclear" | "untestable" | "opposite" | "none" | "withheld";
 
 export const VERDICT_LABELS: Record<Verdict, string> = {
   held: "Held up",
@@ -17,12 +17,13 @@ export const VERDICT_LABELS: Record<Verdict, string> = {
   weak: "Not robust",
   unclear: "Unclear",
   untestable: "Could not be tested",
+  opposite: "Changed the other way",
   none: "No real change",
   withheld: "Withheld",
 };
 
 /** Order of the summary bullets: what held up first, then the reasons something did not. */
-const SUMMARY_ORDER: readonly Verdict[] = ["artifact", "weak", "unclear", "untestable", "none", "withheld"];
+const SUMMARY_ORDER: readonly Verdict[] = ["artifact", "weak", "unclear", "untestable", "opposite", "none", "withheld"];
 
 /** Caveat prefixes (before the colon) the analysis uses for a test that could not be run validly. */
 const UNTESTABLE_PREFIXES: readonly string[] = ["invalid", "untestable"];
@@ -67,12 +68,23 @@ function preregisteredVerdict(row: HypothesisRow, checks: ArtifactCheckRow[], he
 }
 
 /** The reason after "invalid:" or "untestable:", or null for any other caveat. */
-function untestableReason(caveat: string): string | null {
+export function untestableReason(caveat: string): string | null {
   const separator = caveat.indexOf(CAVEAT_SEPARATOR);
   if (separator < 0) return null;
   const prefix = caveat.slice(0, separator).trim().toLowerCase();
   return UNTESTABLE_PREFIXES.includes(prefix) ? caveat.slice(separator + 1).trim() : null;
 }
+
+/**
+ * True when the whole interval lies on the side opposite to the prediction: the measure moved,
+ * but the other way. "Not supported" then must not read as "no change".
+ */
+export function wentOpposite(row: ExploratoryRow): boolean {
+  if (row.ci_low === null || row.ci_high === null) return false;
+  return row.direction === "up" ? row.ci_high < 0 : row.ci_low > 0;
+}
+
+const OPPOSITE_OF = { up: "down", down: "up" } as const;
 
 function exploratoryVerdict(row: ExploratoryRow): PlainVerdict {
   const measure = row.measure;
@@ -85,6 +97,12 @@ function exploratoryVerdict(row: ExploratoryRow): PlainVerdict {
     case "inconclusive":
       return verdict("unclear", `The evidence on ${measure} is mixed${note}.`);
     case "not supported":
+      if (wentOpposite(row) && row.ci_low !== null && row.ci_high !== null) {
+        return verdict(
+          "opposite",
+          `${capitalised(measure)} did not go ${row.direction} as predicted: it went ${OPPOSITE_OF[row.direction]} (interval ${formatNumber(row.ci_low)} to ${formatNumber(row.ci_high)})${note}.`,
+        );
+      }
       return verdict("none", `No reliable change in ${measure}${note}.`);
     case null:
       return verdict("withheld", `${capitalised(measure)}: withheld, because too few people were compared to publish it.`);
@@ -110,6 +128,8 @@ function summaryPoint(kind: Verdict, ids: string[]): string {
       return `${ids.length} gave mixed evidence${named}.`;
     case "untestable":
       return `${ids.length} could not be tested with this data${named}.`;
+    case "opposite":
+      return `${ids.length} changed the opposite way to the prediction${named}.`;
     case "none":
       return `${ids.length} showed no reliable change.`;
     case "withheld":

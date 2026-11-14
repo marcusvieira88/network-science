@@ -9,6 +9,7 @@ const VERDICT_VARIANT: Record<Verdict, "default" | "secondary" | "outline" | "de
   weak: "secondary",
   unclear: "secondary",
   untestable: "outline",
+  opposite: "secondary",
   none: "outline",
   withheld: "outline",
 };

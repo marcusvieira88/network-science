@@ -68,6 +68,18 @@ describe("plainVerdict, hypotheses stated before being computed", () => {
     expect(mixed.sentence).toBe("The evidence on measure 16 is mixed (fails the retention check: x).");
   });
 
+  it("says a not-supported one whose interval lies wholly on the other side changed the other way", () => {
+    // Predicted up, interval -0.27 to -0.10: it went down (the real H14 shape).
+    const down = verdictOf([], [exploratory(14, { direction: "up", ci_low: -0.27, ci_high: -0.1 })], []);
+    expect(down.verdict).toBe("opposite");
+    expect(down.sentence).toBe("Measure 14 did not go up as predicted: it went down (interval -0.27 to -0.1).");
+    // Predicted down, interval 0.04 to 0.09: it went up (the real H22 shape).
+    expect(verdictOf([], [exploratory(22, { direction: "down", ci_low: 0.04, ci_high: 0.09 })], []).verdict).toBe("opposite");
+    // An interval that touches zero is no change either way.
+    expect(verdictOf([], [exploratory(25, { direction: "up", ci_low: 0, ci_high: 0.03 })], []).verdict).toBe("none");
+    expect(verdictOf([], [exploratory(9, { direction: "up", ci_low: -0.2, ci_high: 0.1 })], []).verdict).toBe("none");
+  });
+
   it("says a suppressed outcome was withheld", () => {
     expect(verdictOf([], [exploratory(9, { outcome: null })], []).verdict).toBe("withheld");
   });
@@ -89,6 +101,14 @@ describe("executiveSummary", () => {
         "2 showed no reliable change.",
       ],
     });
+  });
+
+  it("lists the ones that changed the other way by id", () => {
+    const entries = allHypotheses([], [exploratory(14, { ci_low: -0.27, ci_high: -0.1 }), exploratory(9)], []);
+    expect(executiveSummary(entries).points).toEqual([
+      "1 changed the opposite way to the prediction (H14).",
+      "1 showed no reliable change.",
+    ]);
   });
 
   it("names what held up", () => {

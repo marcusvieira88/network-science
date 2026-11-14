@@ -1,6 +1,7 @@
 /**
  * The analysis terms the explorer uses, each in one or two plain sentences, for readers who are
- * not data scientists. Shown on the Hypotheses view; kept in one place so every view agrees.
+ * not data scientists. Shown on the Glossary and Hypotheses views and behind every "?" next to a
+ * term; kept in one place so every view agrees.
  */
 export interface GlossaryTerm {
   term: string;
@@ -66,4 +67,64 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
     term: "Re-identification",
     meaning: "The share of people an attacker with outside knowledge could single out in a released table. Lower is safer.",
   },
+  {
+    term: "Confidence",
+    meaning:
+      "How many robustness checks a supported result passed: high if all of them, moderate if all but one, low otherwise. A result that is not supported is always low.",
+  },
+  {
+    term: "Robustness variants",
+    meaning: "The same test rerun with another reasonable setting, for example monthly instead of weekly. A real change should survive them.",
+  },
+  {
+    term: "Retention check",
+    meaning:
+      "The test repeated on mail that survives whatever an inbox kept, so that what people deleted or kept cannot create the change by itself.",
+  },
+  {
+    term: "Change point",
+    meaning: "The week in which a weekly series shifts the most, estimated from the data itself.",
+  },
+  {
+    term: "Core and observed network",
+    meaning:
+      "Core: mail between custodians only, so every tie is seen from both mailboxes. Observed: every tie between internal people that the archive shows.",
+  },
+  {
+    term: "Precision and recall",
+    meaning:
+      "Precision: of the merges a rule made, the share that were right. Recall: of the merges it should have made, the share it found.",
+  },
+  {
+    term: "Pseudonym",
+    meaning:
+      "A code that replaces a name or address. It hides the name but not the pattern of who wrote to whom, so pseudonymised data is not anonymous.",
+  },
+  {
+    term: "Minimum group size (k)",
+    meaning:
+      "The fewest people any published number may describe; anything smaller is hidden. This is the idea of k-anonymity: no published number singles out fewer than k people.",
+  },
+  {
+    term: "Releases R0, R1, R2",
+    meaning:
+      "The three versions of the output that were attacked. R0: person-level data under pseudonyms, never published. R1: group totals only, the published release. R2: R1 with random noise added, a sketch rather than a formal guarantee.",
+  },
+  {
+    term: "Attackers A1, A2, A3",
+    meaning:
+      "Three simulated attackers. A1: an outsider holding the public archive. A2: an insider who knows a few people. A3: an insider who knows every mailbox owner, since the public archive names them all.",
+  },
+  {
+    term: "Anonymity set and unique share",
+    meaning:
+      "Anonymity set: how many people look the same as a given person in a release. Unique share: the share of people who look like nobody else, the easiest to single out.",
+  },
 ];
+
+/** The plain meaning of one term; an unknown term is a programming error, so it throws. */
+export function glossaryMeaning(term: string): string {
+  const entry = GLOSSARY.find((item) => item.term === term);
+  if (!entry) throw new Error(`No glossary entry for "${term}"`);
+  return entry.meaning;
+}
