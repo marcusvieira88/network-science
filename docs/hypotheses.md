@@ -34,9 +34,10 @@ owners); scope `observed` = every internal person seen in the headers.
 
 Let `d` = +1 for "up" and −1 for "down". Significance level α = 0.05.
 
-1. **Change point (a)**: directional CUSUM over the analysis window,
-   `T = max over candidate weeks τ of −d · Σ_{i<τ}(x_i − mean x)`. The change week is the
-   maximising τ. p-value `p_perm` by permuting the weeks (`config.permutations` permutations,
+1. **Change point (a)**: weighted directional CUSUM over the analysis window of `n` weeks,
+   `T = max over candidate weeks τ of −d · Σ_{i<τ}(x_i − mean x) · √(n / (τ (n − τ)))`. The
+   change week is the maximising τ. (The weight keeps changes near the end of the window from
+   being under-scored.) p-value `p_perm` by permuting the weeks (`config.permutations` permutations,
    seeded from `config.seed`), `p = (1 + #{T_perm ≥ T}) / (1 + permutations)`.
 2. **Effect (b)**: `effect = (mean after change − mean baseline) / sd baseline` (sample sd).
    95% interval `ci_low .. ci_high` by moving-block bootstrap (blocks of 4 weeks,
@@ -53,13 +54,14 @@ Let `d` = +1 for "up" and −1 for "down". Significance level α = 0.05.
 - **no** if `p_holm ≥ α` and the interval does not lie wholly on the hypothesised side;
 - **inconclusive** otherwise (the change-point test and the interval disagree).
 
-`change_week` is reported only when `p_holm < α`.
+`change_week` is reported only when `p_holm < α`. A hypothesis whose effect cannot be computed
+enters the Holm correction with `p_perm = 1`, and its effect and interval are reported as NaN.
 
 ## Robustness checks
 
 - **Null model (c)**: within each week, recipients are shuffled among events of equal weight
   and equal `in_network` flag, which preserves every sender's out-weight and every recipient's
-  in-weight in that week. The metric series is recomputed on each rewired network and the
+  in-weight in that week. The metric series is recomputed on each of 20 rewired networks and the
   effect taken at the same change week. `null_z = (effect − mean null effect) / sd null effect`.
   Passes when `d · null_z > z_{1−α}` (one-sided, 1.645). A change that the volume-preserving
   null reproduces is a volume or degree change, not a structural one.
