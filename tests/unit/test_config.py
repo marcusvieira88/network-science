@@ -60,10 +60,19 @@ def test_unknown_parameter_is_a_usage_error() -> None:
 def test_boolean_values_parse_from_the_documented_spellings() -> None:
     """No Config field is a bool today; the rule is checked on the parser itself because a bool
     is also an int and must be matched first."""
-    assert [_parse_like(False, raw, "flag") for raw in ("1", "TRUE", "yes", "0", "no")] == [
+    assert [
+        _parse_like(False, raw, "flag") for raw in ("1", "TRUE", "yes", "0", "False", "no")
+    ] == [
         True,
         True,
         True,
+        False,
         False,
         False,
     ]
+
+
+@pytest.mark.parametrize("raw", ["maybe", "on", "", "ture"])
+def test_unknown_boolean_spelling_is_a_usage_error_not_false(raw: str) -> None:
+    with pytest.raises(UsageError, match="bad value for parameter flag"):
+        _parse_like(True, raw, "flag")

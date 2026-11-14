@@ -222,10 +222,15 @@ class Config:
         return {k: _jsonable(v) for k, v in dataclasses.asdict(self).items()}
 
 
+# `--set` spellings of a boolean parameter. Any other spelling is a usage error, never False.
+TRUE_SPELLINGS = frozenset({"1", "true", "yes"})
+FALSE_SPELLINGS = frozenset({"0", "false", "no"})
+
+
 def _parse_like(example: object, raw: str, name: str) -> object:
     try:
         if isinstance(example, bool):
-            return raw.lower() in {"1", "true", "yes"}
+            return _parse_bool(raw)
         if isinstance(example, int):
             return int(raw)
         if isinstance(example, float):
@@ -237,6 +242,13 @@ def _parse_like(example: object, raw: str, name: str) -> object:
     except ValueError as exc:
         raise UsageError(f"bad value for parameter {name}") from exc
     return raw
+
+
+def _parse_bool(raw: str) -> bool:
+    spelling = raw.lower()
+    if spelling not in TRUE_SPELLINGS | FALSE_SPELLINGS:
+        raise ValueError("not a boolean spelling")
+    return spelling in TRUE_SPELLINGS
 
 
 def _parse_tuple(example: tuple[object, ...], raw: str) -> tuple[object, ...]:
