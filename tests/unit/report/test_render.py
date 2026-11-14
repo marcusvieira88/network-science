@@ -523,6 +523,10 @@ def test_n2_limit_without_a_per_rule_count_says_the_rule_mix_is_not_recorded(
         },
         schema=synth.table("data_quality").schema,
     )
-    text = " ".join(render.limits(pl.concat([synth.table("data_quality"), manual])))
+    text = " ".join(
+        render.limits(
+            pl.concat([synth.table("data_quality"), manual]), synth.table("community_groups"), 5
+        )
+    )
     assert "sampled from the merges of every rule" in text
     assert "how many were N2 merges is not in the committed check" in text
