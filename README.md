@@ -3,7 +3,8 @@
 An engineering case study: a privacy-first pipeline that reads only the headers of the public Enron
 email corpus, so message content never enters the system. It cleans and pseudonymizes the headers,
 tests pre-stated hypotheses about how the communication network changed in the 2001 crisis,
-attacks its own output to measure re-identification risk, and publishes only aggregates.
+attacks its own unpublished person-level data to measure re-identification risk, and publishes
+only aggregates.
 
 ## Run it
 
@@ -25,10 +26,10 @@ uv run enron-case all    # Windows (or .\run.cmd); `uv run enron-case check` wit
 
 It installs locked dependencies, creates a key outside the repository if needed, fetches and
 verifies the corpus, runs the pipeline and every test, then serves the explorer at
-http://localhost:4173. Each step prints one line as it finishes.
+http://localhost:4173. Each step prints one line.
 
 **How long it takes.** The first run takes about **25 minutes**, most of it the corpus download;
-later runs take about **4 minutes**, because the verified corpus is kept in `data/raw/`.
+later runs take about **4 minutes**, since the verified corpus stays in `data/raw/`.
 
 | Step | First run | Later runs |
 |------|-----------|------------|
@@ -39,40 +40,41 @@ later runs take about **4 minutes**, because the verified corpus is kept in `dat
 
 ## Results in brief
 
-- **Content line:** `Subject` and folder names count as content and are dropped as each line is
-  read; only `Date` and the address fields are used, and addresses never leave the ingest zone.
+- **Content line:** content is never decoded, parsed, held, stored or logged: `Subject` is
+  discarded as the header is scanned, a folder name reduced at once to one of four classes.
+  Addresses, display names and `Message-ID` stay in the ingest zone.
 - **Data quality:** about 517,000 files, half of them duplicate copies, give about 250,000
   messages; about 85,400 addresses resolve to about 84,800 entities.
-- **Finding:** what the headers establish for the crisis year is a change in the *record*; no
-  change in behaviour is established. For the same custodians, the share of weekday sent mail
-  stamped outside working hours falls from about half to a few percent, step by step from May
-  to August 2001, and the received mail kept per month rises to up to about three times the
-  reference months: the `Date` convention changed (most likely the mail system) between the
-  windows every comparison sets against each other. Confidence: high that the record changed;
-  its cause is not established.
-- **Structure:** no structural change is established either. H26 (post hoc, stated before
-  computing) asks whether custodians left during the crisis: a custodian who stops sending
-  while their own mailbox keeps receiving mail, so a mailbox that was no longer collected does
-  not count. Fewer than five of the 66 custodians at risk did so in the crisis window, not a
-  higher share than in the same weeks a year earlier nor above every earlier window, and no
-  published robustness variant reaches significance. Limits: with this few custodians only a
-  large wave was detectable, and departures after the bankruptcy filing fall where collection
-  ends.
-- **Behaviour:** no hypothesis among H1–H25 is held true. H2/H3 passed their tests but are
-  explained by artifacts (stale baseline groups; a changing mailbox mix); H16 fails its retention
-  check; H25, a post-hoc replication of the published "denser network in the crisis", does not
-  establish it within custodians.
+- **The finding: the record changed** (high confidence that it changed; cause not established).
+  No behavioural finding about the crisis year is claimed. For the same custodians, the share of
+  weekday sent mail stamped outside working hours falls from about half to a few percent, step
+  by step from May to August 2001, and received mail kept per month rises to up to about 3.5
+  times the largest reference month (about five times October on October): the `Date`
+  convention changed between the windows every comparison sets against each other.
+- **Structure:** no structural change is established either. H26 (post hoc) asks whether
+  custodians left during the crisis: stopped sending while their own mailbox kept receiving
+  mail, so a mailbox no longer collected does not count. Fewer than five of the 66 custodians at
+  risk did so, not a higher share than a year earlier, and no published robustness variant
+  reaches significance. Only a large wave was detectable, and departures after the bankruptcy
+  filing fall where collection ends.
+- **Behaviour:** no hypothesis among H1–H25 is held true. Pre-registered H2/H3 passed their
+  tests but are explained by artifacts (stale baseline groups; a changing mailbox mix). Of
+  H5–H24 (stated before computed, after earlier results), H16 is not established once inbox
+  retention is accounted for, H20 is inconclusive (its placebo fails), and H14, H21 and H22
+  changed the other way. H25, a post hoc replication of the published "denser network in the
+  crisis", does not establish it.
 - **Risk:** person-level pseudonymized edges are re-identifiable: an outsider (A1) matches about
   a quarter of people, an insider knowing a few custodians (A2) more than half, one knowing all of
   them (A3; the corpus names them) about as many. So only aggregates of at least five people
-  are published.
+  are published; with no person-level record, their rate is 0 by construction, not a
+  measurement.
 
 ## Architecture and data flow
 
 Data lives in zones. A path guard (`zones.py`) confines each package to the zones it may use, and
-an import-boundary test keeps everything after `pseudo` away from the identifier-side packages. The
-ingest zone is deleted at the end of every run; `risk` alone may score its guesses against it,
-emitting counts only.
+an import-boundary test keeps everything after `pseudo` away from the identifier-side packages.
+`run` deletes the ingest zone when it ends (a single `stage` keeps it for the next and warns);
+`risk` alone may score its guesses against it, emitting counts only.
 
 ```mermaid
 flowchart LR
@@ -87,13 +89,14 @@ flowchart LR
     subgraph RES["restricted · pseudonyms only, git-ignored"]
         pseudo --> network --> finding
         network --> risk
+        finding -.-> risk
         CNT[("counts<br/>per-stage counts")]
     end
     CHK[("checks<br/>manual merge counts")]
-    subgraph REL["release · aggregates, k ≥ 5, committed"]
+    subgraph REL["release · aggregates and report.md, k ≥ 5, committed"]
         release
     end
-    DOCS[("docs<br/>report.md, documents")]
+    DOCS[("docs<br/>generated documents")]
     UI[("ui<br/>release.json")]
     A --> ingest
     identity -.-> CHK
@@ -110,9 +113,9 @@ Each arrow names what crosses it; every table crossing a zone is validated again
 ```mermaid
 flowchart TB
     D["CMU tarball<br/>download + SHA-256 check<br/>make, enron-case all"]
-    H["ingest: read each header<br/>stop at the first blank line<br/>Subject, body, attachments never read"]
+    H["ingest: read each header<br/>stop at the first blank line<br/>Subject discarded as scanned,<br/>body and attachments skipped"]
     C["clean: normalize, dedupe"]
-    I["identity: resolve aliases, rules N1–N5"]
+    I["identity: resolve aliases, rules N1–N4;<br/>N5 flags custodians"]
     P["pseudo: keyed HMAC pseudonyms"]
     N["network: weekly snapshots,<br/>Louvain groups"]
     F["finding: H1–H26,<br/>record profile"]
@@ -121,14 +124,15 @@ flowchart TB
     T[("release/*.csv + report.md")]
     U["uiexport"]
     J[("ui/public/data/release.json")]
-    V["Vite + React explorer: Overview · Metrics · Network · Clusters<br/>Hypotheses · Data quality · Privacy and risk · Limits"]
+    V["Vite + React explorer: Executive summary · Overview · Metrics · Network · Clusters<br/>Hypotheses · Data quality · Privacy and risk · Limits · Glossary"]
     D -->|"archive bytes"| H
     H -->|"header records with addresses:<br/>Date, From, To, Cc, Bcc, X-From,<br/>X-To, X-cc, X-bcc, Message-ID"| C
     C -->|"deduplicated messages"| I
     I -->|"entities + address map"| P
     P -->|"pseudonymized events"| N
     N -->|"snapshots, metrics, groups"| F
-    N -->|"snapshots"| R
+    N -->|"snapshots, metrics, groups"| R
+    F -.->|"headline, for utility"| R
     F -->|"results"| K
     R -->|"risk scores"| K
     K -->|"aggregates ≥ 5"| T
@@ -175,7 +179,7 @@ flowchart LR
 ```
 
 Each subkey is the HMAC of its label under the master key, so IDs of different kinds cannot be
-compared. Same key, same IDs, so runs compare; another key shares none (quickstart V4). Unlike a
+compared. Same key, same IDs, so runs compare; another key shares none (`test_different_key_gives_disjoint_pids`). Unlike a
 plain hash, a guessed address cannot be confirmed without the key. Collision odds for 84,759
 entities at 80 bits: n²/2⁸¹ ≈ 3 × 10⁻¹⁵; the stage aborts on one.
 
@@ -195,15 +199,16 @@ structure still re-identifies (R0: 25–59 % in `release/risk.csv`).
 | Aggregates-only release | nothing person-level published | no person-level analysis for readers |
 
 **With real customer data:** metadata-only scopes where the provider has one (Gmail, Outlook), so
-mail content never leaves the source; Teams and Slack have none, so their text is dropped in memory,
-retention schedules, and works council review of questions and thresholds before the first run.
+bodies and attachments never leave the source; `Subject` still arrives and is discarded at the
+allowlist. Teams and Slack have none, so their text is dropped in memory. Also retention schedules, and works council review of questions and thresholds before the first run.
 
 ## AI workflow
 
 Built spec-first with GitHub Spec Kit (in `specs/`). A lead agent froze the configuration,
 contracts and a synthetic corpus with known answers; ten agents then built one work package each
-in parallel worktrees, testing against that ground truth. `make gate` (lint, strict typing, tests,
-a privacy canary, an import-boundary test) ran on every change.
+in worktrees (branches `wp/a-ingest` to `wp/j-ui`), testing against that ground truth. Every
+change must pass `make gate` (lint, strict typing, tests, a privacy canary, an import-boundary
+test).
 
 Skills used ([`.claude/skills/`](.claude/skills/); detail in
 [`docs/ai-workflow.md`](docs/ai-workflow.md)):
@@ -214,14 +219,15 @@ Skills used ([`.claude/skills/`](.claude/skills/); detail in
   `speckit-implement` skill. Planned, not run: `speckit-converge`.
 - **Review skills (custom, written for this project):** `data-privacy-review` (caught
   differencing below the minimum group size), `code-quality-review` (strict typing of tests, no
-  `Any`), `data-scientist-review` (showed H16 to be a retention artifact).
-- **Built-in:** `code-review` (blocked a header reader running into message bodies). Planned, not
-  run: `security-review`.
+  `Any`), `data-scientist-review` (H16: not established once inbox retention is accounted for).
+- **Built-in:** `code-review` (blocked a header reader running into message bodies);
+  `security-review`, applied by hand to the whole repository (the skill reviews diffs): no
+  critical or high finding.
 
-The lead's checks showed H2/H3 to be artifacts; a final review against prior work added the
-record change, H25 and attacker A3. A person decided the content line, judged a sample
-of real identity merges in a terminal (so real identifiers never entered an AI conversation) and
-rejected the artifact results.
+The lead agent's diagnostics showed H2/H3 to be artifacts, and the person decided not to claim
+them; a final review against prior work added the record change, H25 and attacker A3. The
+person also decided the content line and judged a sample of real identity merges in a terminal,
+so real identifiers never entered an AI conversation.
 
 ## Compared with prior work
 
@@ -232,20 +238,21 @@ published manual cleanups; within custodians the published 2001 network changes 
 ## Limits
 
 - Body bytes pass through the decompressor on the way to being skipped; the archive on disk holds them.
-- About 150 mailboxes collected by an investigation: what people kept differs by person and period.
+- About 150 mailboxes (147 custodian entities) collected by an investigation: what people kept differs by person and period.
 - Every crisis comparison, H1–H4 included, crosses the change of the `Date` convention; the placebo windows cannot see it.
 - Groups are frozen on 2000 ties. People with no 2000 tie fall outside every group, and in the
   crisis months about two-thirds of the messages in the group graph touch them.
-- Identity precision on real data rests on a manual sample, not ground truth.
+- Identity precision and recall are measured on the synthetic corpus only; on the real corpus a
+  person checked 50 merges (precision interval 0.929–1), no recall.
 - The noise release is a sketch without a formal privacy budget.
 
 ## Next steps
 
 In order; each step is a gate for the next. Details: [technical overview](docs/technical-overview.md#next-steps), [deployment on AWS](docs/deployment-aws.md).
 
-1. **Connectors instead of a file.** The corpus here is a public archive downloaded once; real data
+1. **Connectors instead of a file.** Real data
    comes from the customer's tools, pulled through their APIs with OAuth admin consent, the
-   narrowest scopes, tokens in a secrets manager, and incremental sync (webhooks or delta queries):
+   narrowest scopes, tokens in a secrets manager, and incremental sync:
    - **Gmail / Google Workspace:** the `gmail.metadata` scope returns headers but never bodies or
      attachments, so the promise is enforced by Google, not only by our code.
    - **Microsoft 365 (Outlook):** Microsoft Graph `Mail.ReadBasic.All` reads mail without body or
@@ -253,22 +260,20 @@ In order; each step is a gate for the next. Details: [technical overview](docs/t
    - **Microsoft Teams and Slack:** no metadata-only scope exists; message APIs return text. The
      connector keeps sender, recipients/channel, time and thread IDs and drops the text in memory
      before anything is written, with the canary test extended to cover it. Weaker than a scope,
-     so stated as such to the customer.
+     and stated as such.
 
    Each connector is a new ingest-side package: identifiers stay behind the pseudonymization
-   boundary and `Subject` is still discarded at the allowlist.
+   boundary.
 
 2. **An API to serve the explorer.** Today the browser fetches one static `release.json`. Replace
-   it with a read-only query API: Polars stays the processing engine of the pipeline, which writes
-   the release tables as Parquet; DuckDB serves them, querying Parquet in place with no load step.
+   it with a read-only query API: Polars stays the pipeline's engine and writes
+   the release tables as Parquet; DuckDB serves them in place, with no load step.
    Every answer passes the same k ≥ 5 suppression as the release, plus a differencing guard.
-3. **Security on the API.** JWT authentication through the customer's own identity provider (IdP: the system their staff
-   already sign in with, such as Microsoft Entra ID, Okta or Google Workspace) via OIDC, user roles (viewer,
+3. **Security on the API.** JWT authentication through the customer's own identity provider via OIDC, user roles (viewer,
    analyst, admin) checked on every route, rate limits and a query budget per user and tenant,
-   HTTPS only, encrypted storage with per-tenant keys, an audit log of who asked what.
-4. **Load and penetration tests** against that architecture: load tests (k6 or Locust) with
-   realistic query mixes and tenant counts; an external penetration test; abuse tests that try to
-   re-identify people through the API, extending the attacks in `risk/` from releases to queries.
+   HTTPS only, encrypted storage with per-tenant keys, an audit log.
+4. **Load and penetration tests**: load tests (k6 or Locust); an external penetration test; abuse tests that try to
+   re-identify people through the API, extending the attacks in `risk/` to queries.
 5. **Deploy on AWS**, giving each privacy guarantee a second line in the platform:
 
 ```mermaid
@@ -291,9 +296,10 @@ flowchart LR
 ```
 
    Zones become buckets and IAM roles mirror `zones.ALLOWED`; the key stays in the customer's KMS;
-   images are signed only after `make gate`; one account per tenant, residency by region.
-   Infrastructure is written with Pulumi in Python, the pipeline's language: typed, tested
-   infrastructure, with the IAM policies generated from `zones.ALLOWED` in code.
+   images are signed only after `make gate`; a workload and a serving account per tenant,
+   residency by region.
+   Infrastructure as code: Pulumi in Python, with the IAM policies generated from
+   `zones.ALLOWED`.
 6. **Analysis:** a record-profile view in the explorer; differential privacy for releases; a
    group-level attack.
 
