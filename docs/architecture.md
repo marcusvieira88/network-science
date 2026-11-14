@@ -138,7 +138,9 @@ a full `run`, or delete `data/ingest/`, when done.
 `enron-case run --sample` (`make sample`) runs the same stages on the synthetic corpus into
 `release-sample/` with a fixed test key; documents are written only on real-corpus runs.
 `enron-case review-merges` is the manual merge check: it shows a seeded sample of merges in a
-terminal and stores only two counts (`identity_manual`: `manual_checked`, `manual_correct`).
+terminal and stores only counts (`identity_manual`: `manual_checked`, `manual_correct` and the
+same per rule when the review records them; the committed `checks/identity_manual.json` holds
+the two totals only).
 
 ### Identity resolution and pseudonymization
 

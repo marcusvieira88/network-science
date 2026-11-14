@@ -21,8 +21,8 @@ anything else stops the affected packages until fixtures are regenerated.
 | 1.3 | `exploratory_results` (restricted) and `exploratory` (release): hypotheses H5–H24 with volume-equalised columns; in the release, outcome and placebo and leave-one-out flags are nullable and suppressed with their comparison | The exploratory families (`docs/hypotheses-exploratory.md`) became pipeline output |
 | 1.4 | `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` on both exploratory tables | The data-science review showed H16 could be produced by inbox retention |
 | 1.5 | `data_quality.precision_ci_low` / `precision_ci_high`, funnel detail rows (rejected reasons, dedupe split, message flags, messages without a timestamp, events in the network), per-rule manual-check rows; `exploratory.equalised_p_holm` | Data-science review findings F3, F7, F10 |
-| 1.7 | `departure_results` / `departure_test_results` (restricted) and `departures` / `departure_tests` (release): H26, custodian departures in the crisis window | The brief asks for one finding about how the organization changed; every behavioural hypothesis had failed, so a structural question was stated post hoc (O1 in `docs/hypotheses-exploratory.md`) |
 | 1.6 | `exploratory_results` / `exploratory` gain row H25 and family `post hoc`; `profile_results` (restricted) and `record_profile` (release): the custodians' mail by month and the after-hours share of their weekday sent mail; attacker `A3` in `risk_results` / `risk` | Final review against prior work: a replication test (H25), evidence for the change of the timestamp convention in 2001, and the realistic insider who knows every custodian (A3) |
+| 1.7 | `departure_results` / `departure_test_results` (restricted) and `departures` / `departure_tests` (release): H26, custodian departures in the crisis window | The brief asks for one finding about how the organization changed; every behavioural hypothesis had failed, so a structural question was stated post hoc (O1 in `docs/hypotheses-exploratory.md`) |
 
 Two release changes came from reviews without a version bump, because they narrowed what is
 published rather than changing a schema: `weekly_metrics` publishes only the default variant,
@@ -51,10 +51,12 @@ flowchart LR
     MT -->|finding| HY[hypothesis_results]
     EV -->|finding| AF[artifact_results]
     EV -->|finding| EX[exploratory_results]
+    EV -->|finding| PF[profile_results]
+    EV -->|finding| DP[departure_results,<br/>departure_test_results]
     SN -->|risk| RK[risk_results]
     HY -->|risk| RK
     PS([parse, clean, identity, pseudo]) -.->|counts| CT[(counts/*.json)]
-    HY & AF & EX & RK & SN & MT & CO & CT -->|release| RL[release tables]
+    HY & AF & EX & PF & DP & RK & SN & MT & CO & CT -->|release| RL[release tables]
     RL -->|report| RP[report.md + docs]
     RL -->|ui-data| UJ[ui/public/data/release.json]
 ```
@@ -178,8 +180,8 @@ release table is built from and that the risk stage attacks. R0 is never written
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `pid` | str | persons active in the baseline period |
-| `community` | int | baseline community, frozen; `-1` (`vocab.UNASSIGNED_COMMUNITY`) if not assigned |
+| `pid` | str | every internal person in `entities_p`, whether or not active in the baseline period |
+| `community` | int | baseline community, frozen; `-1` (`vocab.UNASSIGNED_COMMUNITY`) for a person with no tie in the baseline period |
 
 Used for `cross_community_share`, the H2 artifact check and, aggregated, for the release tables
 `community_graph` and `community_groups`.
@@ -315,7 +317,7 @@ Written with `ctx.write_counts`, which refuses any text containing `@`. Shapes i
 | `clean_counts` | clean | `records_in`, `messages_out`, `removed_exact`, `removed_subset`, `flags`, `message_id_shared_share` (research R3), dedupe precision and recall (sample only) |
 | `identity_counts` | identity | addresses, entities, entities by type, merges by rule, blocked merges by guard, cluster sizes, precision and recall (sample only) |
 | `pseudo_counts` | pseudo | entities, events, messages without time, events in network |
-| `identity_manual` | `enron-case review-merges` | `manual_checked`, `manual_correct`: the only output of the manual merge check (a person judges a seeded sample in a terminal; nothing else is stored) |
+| `identity_manual` | `enron-case review-merges` | `manual_checked`, `manual_correct` and `manual_by_rule` (the same two counts per identity rule): the only output of the manual merge check (a person judges a seeded sample in a terminal; nothing else is stored). The committed `checks/identity_manual.json` holds the two totals only |
 
 `header_rulings` lets the release stage publish rulings without importing ingest code.
 
@@ -341,9 +343,9 @@ every value of the person-count metric `active_persons`. `kanon.check` aborts th
 
 | File | Content |
 |------|---------|
-| `release/data_quality.csv` | `order`, step, count_in, count_out, removed, rule, precision, recall, `precision_ci_low`, `precision_ci_high` (1.5: exact binomial interval where precision is estimated from a sample, i.e. the manual merge check). Rows: files parsed; deduplicate (`exact+subset`); resolve identities (`N1-N4`); the manual merge check and its per-rule composition when `identity_manual` exists; then rejected files by reason, the exact/subset dedupe split, the five message flags, messages without a timestamp and events in the network, each reconciled with its parent count. Counts of files, messages, events and judged merges, not persons: no k-suppression. Precision and recall are null on the real corpus except for the manual check |
+| `release/data_quality.csv` | `order`, step, count_in, count_out, removed, rule, precision, recall, `precision_ci_low`, `precision_ci_high` (1.5: exact binomial interval where precision is estimated from a sample, i.e. the manual merge check). Rows: files parsed; deduplicate (`exact+subset`); resolve identities (`N1-N4`); the manual merge check when `identity_manual` exists, with one row per rule only when the file carries `manual_by_rule` (the committed file does not, so the committed release has the one total row); then rejected files by reason, the exact/subset dedupe split, the five message flags, messages without a timestamp and events in the network, each reconciled with its parent count. Counts of files, messages, events and judged merges, not persons: no k-suppression. Precision and recall are null on the real corpus except for the manual check |
 | `release/header_fields.csv` | field, occurrences, ruling. Only names in `vocab.KNOWN_HEADER_FIELDS`; every other name summed into `(other)`, ruling `dropped` |
-| `release/weekly_metrics.csv` | scope, week, metric, value, n_active, variant. Only `variant = default` is published: a sensitivity variant next to it would let default minus variant `n_active` reveal groups below k (the variants stay restricted and feed `robust_variants_*`). `n_active` below k is suppressed with its `value`; a value whose `n_active` is suppressed is refused |
+| `release/weekly_metrics.csv` | scope, week, metric, value, n_active, variant. Only `variant = default` is published: a sensitivity variant next to it would let default minus variant `n_active` reveal groups below k (the variants stay restricted and feed `robust_variants_*`). `n_active` below k is suppressed with its `value`; a value whose `n_active` is suppressed is refused. The core network is nested in the observed one, so where observed minus core `n_active` is between 1 and k − 1 the core row is suppressed too (`kanon.suppress_nested_scopes`), and `kanon.check` refuses a table that still has such a pair |
 | `release/hypotheses.csv` | `hypothesis_results` (H1–H4) |
 | `release/artifact_checks.csv` | `artifact_results`; `n_units` of `within_custodian` is suppressed when below k |
 | `release/record_profile.csv` | `profile_results` (1.6). A month whose sending side has fewer than k custodians is published without its sending columns (`custodians_sending`, `sent_messages`, `after_hours_share`); the same for the receiving side |
@@ -352,10 +354,10 @@ every value of the person-count metric `active_persons`. `kanon.check` aborts th
 | `release/departure_tests.csv` | `departure_test_results` (1.7) without its three restricted columns. `p` and `placebo_p` are published only on the primary row and only when every cell of their two-by-two table reaches k; otherwise the band alone. Variants publish no counts and no p-values (their counts are nested in the primary's). The direction, the bands and the rolling comparison are published even when a cell is below k, as stated before computing: they are inequalities over at least k custodians at risk, not counts (unlike `exploratory`, where a comparison over fewer than k custodians is hidden whole). A variant with a window of fewer than k custodians at risk publishes none of its comparisons; the power columns are published for the primary only |
 | `release/risk.csv` | `risk_results` |
 | `release/degree_distribution.csv` | period (half-year, `2000H1`), degree bucket (`1`, `2-4`, `5-9`, `10+` from `Config.degree_bucket_floors`; degree = number of distinct contacts in either direction), persons (≥ k or suppressed). When a period hides only one cell with a true value above zero, or only one cell at all, its smallest published cell is suppressed too: a hidden true zero does not protect a small count |
-| `release/community_graph.csv` | week, src_group, dst_group, weight, n_messages; plus `community_groups.csv`: group, n_persons. Groups are baseline communities with ≥ k persons, labelled `G01…` in an order unrelated to pseudonyms; smaller communities, and internal persons with no tie in the baseline period (people first seen in 2001–2002; the large majority of the bucket), are merged into `other`, which is published only if it reaches k. `other` is a leftover bucket, not a community. A weekly tie is dropped when it has fewer than k distinct senders in `src_group` (the number of distinct recipients is not limited). `weight` and `n_messages` sum the person-pair edges between the two groups, so `n_messages` counts per-pair messages: one message from a sender to three members of the other group counts three |
+| `release/community_graph.csv` | week, src_group, dst_group, weight, n_messages; plus `community_groups.csv`: group, n_persons. Groups are baseline communities with ≥ k persons, labelled `G01…` by decreasing size; groups of equal size keep the order of their community numbers, which the smallest pseudonym in each decides, so the order among equal-size groups is not independent of the pseudonyms (the labels reveal no pseudonym); smaller communities, and internal persons with no tie in the baseline period (people first seen in 2001–2002; the large majority of the bucket), are merged into `other`, which is published only if it reaches k. `other` is a leftover bucket, not a community. A weekly tie is dropped when it has fewer than k distinct senders in `src_group` (the number of distinct recipients is not limited). `weight` and `n_messages` sum the person-pair edges between the two groups, so `n_messages` counts per-pair messages: one message from a sender to three members of the other group counts three |
 | `release/report.md` | the report: quality, the record profile, H26 custodian departures, finding, hypotheses H1–H25, risk, limits (stage `report`) |
 | `release/run_manifest.json` | code version, sample flag, seed, every `Config` parameter, key fingerprint, `corpus_sha256` (the archive checksum verified by `fetch`; the synthetic archive's on sample runs), fingerprint per table and counts file, stages run with the code version that ran each; no wall-clock time and no durations, so two identical runs write identical bytes. Durations go to the git-ignored run log `data/logs/stage_timings.json` (`data/sample/logs/` on sample runs; `{"stages": [{"stage", "seconds"}]}`; a partial run replaces the stages it ran and keeps the others, which come first) |
-| `ui/public/data/release.json` | written by stage `ui-data` from the release tables above and the manifest's run block, and nothing else; same content, one file, for the explorer UI (format in `uiexport/export.py`) |
+| `ui/public/data/release.json` | written by stage `ui-data` from the release tables above and the manifest's run block, and nothing else: the tables in `uiexport.export.RELEASE_TABLES` (every CSV above except `record_profile`), the public event dates and the crisis and reference windows, in one file for the explorer UI (format in `uiexport/export.py`) |
 
 `checks/identity_manual.json` (committed) holds the result of the person's manual merge review
 (`enron-case review-merges`): counts only (`manual_checked`, `manual_correct`, per-rule counts

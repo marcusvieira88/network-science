@@ -5,6 +5,10 @@ identifiers, and which are usable metadata. This is the single source for `inges
 (`RULINGS`, `RETAINED`) and for the contract test `tests/unit/ingest/test_allowlist.py`, which
 parses the table below and compares it with the code.
 
+**The promise, stated precisely**: content is never decoded, parsed, held, stored or logged.
+`Subject` lines are discarded as the header is scanned; body bytes pass through the decompressor
+and are skipped; a folder name is reduced at once to one of four classes and never kept.
+
 **Rule**: a field not listed as *usable* or reaching *ingest only* is dropped by the parser. For
 dropped fields the value is never assigned to a variable that outlives the line being read.
 Every field name in the table below is counted by name (`ingest_counts.header_fields`); every
@@ -21,7 +25,8 @@ member it reads line by line and:
    reads further;
 2. **stops at the first line that is neither a continuation line nor a valid `Name: value`
    header line** (an RFC 5322 field name: printable ASCII without colon or whitespace);
-3. **stops after `MAX_HEADER_LINES` physical lines**, a cap far above the longest real header;
+3. **stops after `MAX_HEADER_LINES` physical lines or `config.MAX_HEADER_BYTES` bytes**, caps
+   far above the longest real header (a line cut short by the byte cap ends the block);
 4. classifies each line by field name as soon as it is read; the value of a field that is not
    kept is discarded with that line.
 
@@ -78,9 +83,11 @@ reduced at once to `folder_class` ∈ {sent, inbox, deleted, other} by the fixed
   `allowlist.RULINGS` appears in this file.
 - **Dropped values**: a parsed record contains no value of `Subject`, `X-Folder`, `X-Origin`,
   `X-FileName`, MIME fields or unknown fields, while their names are counted.
-- **Reader bound**: the reader stops at a blank or whitespace-only line, at a non-header line
-  and at the line cap, and such members are rejected (`tests/unit/ingest/`).
-- **Canary**: synthetic messages carry unique markers in body, `Subject`, `X-Folder`,
-  `X-FileName` and display names; after a full run, none appears in `data/restricted`,
-  `release/`, the run manifest or captured logs, and body and subject markers appear nowhere,
-  including `data/ingest` (`tests/privacy/`).
+- **Reader bound**: the reader stops at a blank or whitespace-only line, at a non-header line,
+  at the line cap and at the byte cap; a member that ends any way but the first is rejected
+  (`tests/unit/ingest/`).
+- **Canary**: the synthetic corpus carries unique markers in bodies, subjects, folder names and
+  file names; after a full run, none of the four appears in any zone, `data/ingest` included,
+  or in the logs. Identifiers (`@`, display names, mailbox owners' folder names) appear nowhere
+  past the boundary: not in `data/restricted`, `release/`, the UI data, the documents, the run
+  manifest or the logs (`tests/privacy/test_canary.py`).

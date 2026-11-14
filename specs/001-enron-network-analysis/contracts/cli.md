@@ -12,12 +12,18 @@ lets stages be run and tested one at a time.
 | `make` = `make all` | the one command, below: every step, then serves the explorer at http://localhost:4173 until Ctrl+C (`enron-case all`) | downloads it | creates one if none is configured |
 | `make check` | the same steps as `make all` except serving the explorer (`enron-case check`; reviewers without a server; never in CI) | downloads it | creates one if none is configured |
 | `make sample` | full pipeline on the bundled synthetic corpus, into `data/sample/` and `release-sample/` | no | uses the fixed test key |
-| `make gate` | ruff, mypy, pytest (unit, contract, privacy, integration on sample) (`enron-case gate`) | no | test key |
+| `make gate` | ruff, mypy, pytest (unit, contract and privacy tests; several run the whole pipeline on the sample) (`enron-case gate`) | no | test key |
 | `make key` | create a 32-byte key at `~/.config/enron-case/key` (mode 600; an owner-only ACL on Windows) if none exists (`enron-case key`) | no | — |
-| `make clean` | remove `data/` work zones, logs and regenerated sample files | no | no |
+| `make clean` | remove `data/ingest`, `data/restricted`, `data/sample`, `data/logs`, `release-sample/` and `tests/fixtures/`; the downloaded archive in `data/raw` stays | no | no |
 | `make ui` | export `release/` to `ui/public/data/release.json`, build and serve the explorer (needs Node 20+) | no | no |
 | `make ui-sample` | same, from `release-sample/` | no | no |
 | `make ui-gate` | UI lint, type check, unit tests, the UI privacy tests, build and build check (`enron-case ui-gate`) | no | no |
+
+Four targets have no CLI subcommand of the same name. On Windows: `make sample` is
+`uv run enron-case run --sample`; `make ui` is `uv run enron-case ui-deps`, then
+`uv run enron-case stage ui-data`, then `npm run build` and `npm run preview` in `ui/`;
+`make ui-sample` is the same with `stage ui-data --sample`; for `make clean`, delete the folders
+it names by hand. Every other target is `uv run enron-case <target>`.
 
 UI dependencies are installed with `npm ci` only when `ui/package-lock.json` is newer than the
 installed tree (`enron-case ui-deps`), so every UI target reuses them. The gate steps are listed
@@ -59,8 +65,8 @@ prints (`make: *** [all] Error 3`) before exiting with its own code 2.
    http://localhost:4173 in the foreground until Ctrl+C; `make check` exits 0 instead.
 
 A second `make` reuses the downloaded archive, the key and installed dependencies; it reruns the
-pipeline and the gates. On a fresh clone the whole run took about 24 minutes, 20 of them the
-download on that connection; the pipeline step takes about 2.5 minutes.
+pipeline and the gates. On a fresh clone the whole run took about 25 minutes (about 20 the
+download, on that connection); the pipeline step takes about 2.5 minutes.
 
 ## CLI
 
@@ -71,7 +77,8 @@ enron-case verify            # double-run determinism check on the sample
 enron-case check-key         # exit 0 if a usable key is configured, else 3
 enron-case summary [--sample]  # one line: how many hypotheses the release holds true
 enron-case review-merges     # a person judges a seeded sample of identity merges in the terminal;
-                             # only counts are kept (counts zone and checks/identity_manual.json)
+                             # only counts are kept (counts zone and checks/identity_manual.json).
+                             # Reads the ingest zone, so run `enron-case run --keep-ingest` first
 enron-case all | check       # the one command (above); what `make` and `make check` run
 enron-case gate | ui-gate    # the Python and UI gates; what `make gate` and `make ui-gate` run
 enron-case ui-deps           # `npm ci` in ui/ when the lockfile is newer than the installed tree
@@ -86,9 +93,14 @@ enron-case key               # create a key at KEY_FILE (default ~/.config/enron
 | Option | Meaning |
 |--------|---------|
 | `--sample` | use the synthetic corpus and the test key |
-| `--from/--to` | run a contiguous range of stages; earlier outputs must exist and match the manifest |
+| `--from/--to` | run a contiguous range of stages; the earlier stages' outputs must exist on disk (only their existence matters: they are not compared with the manifest, which is merged, not replaced, when the range does not start at `fetch` or `parse`). A range that starts after `parse` and reads the ingest zone needs an earlier run with `--keep-ingest` |
 | `--keep-ingest` | do not purge the ingest zone at the end (debugging; prints a warning; never used by `make all`) |
 | `--set` | override a parameter from `config.py`; recorded in the run manifest |
+
+**Ingest purge.** `enron-case run` deletes the ingest zone when it ends, also on failure, unless
+`--keep-ingest` is given. `enron-case stage STAGE` always keeps it, so that the next stage can
+read it, and prints the same warning. After working stage by stage, finish with a full
+`enron-case run` or delete `data/ingest/`.
 
 ## Key resolution
 
@@ -110,6 +122,7 @@ comparison between runs* computed as HMAC(key, "fingerprint-v1") truncated to 8 
 | Code | Meaning |
 |------|---------|
 | 0 | success |
+| 1 | a missing prerequisite of the one command (tool, free port, disk), `verify` finding outputs that differ, a stage that is not implemented or a missing release table, or an unexpected error (its details are withheld, since they may hold data) |
 | 2 | usage error |
 | 3 | key missing or unsafe |
 | 4 | corpus checksum mismatch or download failure |
@@ -123,6 +136,6 @@ comparison between runs* computed as HMAC(key, "fingerprint-v1") truncated to 8 
   are also written to `data/logs/stage_timings.json` (`data/sample/logs/` for
   `--sample`), git-ignored; `release/run_manifest.json` holds no durations, so identical runs
   write identical bytes.
-- Logs never contain header values. Modules outside the ingest zone have no access to them;
-  modules inside it log counts and `file_id` only.
+- Logs never contain header values, addresses, names or pseudonyms. Modules outside the ingest
+  zone have no access to header values; modules inside it log counts and `file_id` only.
 - On success the last line on stdout is the path to `release/report.md`.
