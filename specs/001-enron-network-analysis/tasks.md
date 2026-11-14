@@ -313,6 +313,7 @@ boundary, plus measured data-quality numbers
 ### US5 integration (Lead)
 
 - [ ] T099 [US5] (WP0) Run `make ui` on the real release; review WP-J with the `/code-review` and `/data-privacy-review` skills; check every view against `release/report.md` for the same numbers; save screenshots of the Overview, Metrics and Network views to `docs/img/` for `docs/slides.md`; log in `docs/ai-workflow-log.md`
+  - Status: not done as written. The UI was reviewed with `/code-review` and `/data-privacy-review` as part of the second independent review (T076), and the 3D network and Clusters views were later reviewed with `/code-review`; no screenshots are in `docs/img/` and no view-by-view number check against `release/report.md` is logged.
 
 **Checkpoint**: the results can be explored and presented visually
 
@@ -321,14 +322,23 @@ boundary, plus measured data-quality numbers
 ## Phase 8: Polish & Cross-Cutting Concerns
 
 - [ ] T100 (WP0) Run all validation scenarios V1–V10 of `specs/001-enron-network-analysis/quickstart.md` and record results in `docs/ai-workflow-log.md`
+  - Status: not done; no V1–V10 results are logged.
 - [ ] T101 (WP0) Final independent review by the Reviewer agent: run the `/code-review` skill on the whole repository and check it against the constitution, privacy principles first; fix or record each finding in `docs/ai-workflow-log.md`
+  - Status: not done as a whole-repository pass. Two independent reviews covered all packages (T045, T061/T076), and later changes were reviewed per change (see below).
 - [ ] T102 (WP0) Run the `/data-privacy-review` skill on the whole repository with real data on disk (verdict must not be BLOCKED; the content promise must be confirmed, not inferred), then the `/security-review` skill (focus: key handling in `src/enron_case/pseudo/keys.py`, zone guard in `src/enron_case/zones.py`, archive download and tar handling in `src/enron_case/ingest/`, anything committed that should not be); fix or record each finding in `docs/ai-workflow-log.md`
+  - Status: not done as a final pass. `/data-privacy-review` ran in both independent reviews; `/security-review` has not been run.
 - [ ] T103 [P] (WP0) Check honesty requirements: report, decision record and slides each name at least three limits; every number in them is injected; the decision record fits one page
+  - Status: partly covered by tests (`tests/unit/report/test_render.py`: numbers in the report, decision record and slides trace to release cells; the decision record fits one page); the limits count is not checked.
 - [ ] T104 [P] (WP0) Check the git history and working tree for anything from `data/`, any key, any real address or name; confirm `.gitignore` coverage
+  - Status: not done.
 - [ ] T105 (WP0) Clean-clone rehearsal on a second machine or fresh container: `make gate`, `make sample`, `make key`, `make all`
+  - Status: not done.
 - [ ] T106 (WP0) Run `/speckit-converge` to compare the code with spec, plan and tasks; resolve or record any gap
+  - Status: not done; the documentation was brought in line with the code by hand (this section and the as-built section of `plan.md`).
 - [ ] T107 (WP0) Rehearse the 15-minute presentation against `docs/slides.md` with a timer; cut slides until it fits
+  - Status: not done.
 - [ ] T108 (WP0) Tag the release commit and send the repository link as instructed in the brief
+  - Status: not done.
 
 ---
 
@@ -407,6 +417,47 @@ the explorer UI (Phase 7; `community_graph.csv` then leaves the release too), th
 the R2 noise release and the `window=month` variant. Do not extend a phase into the next one's
 time; report what is established and name the rest as not done. Never cut: canary, key handling,
 k-threshold, pre-stated hypotheses, the limits sections.
+
+---
+
+## Work done beyond the original tasks
+
+Recorded in order in `docs/ai-workflow-log.md`; commit messages name each change. None of this
+was in the task list above.
+
+- **Header reader hardening** (review 1, with T045): the reader also stops at whitespace-only
+  lines, non-header lines and a line cap, and such members are rejected; only contract-known
+  header names are published, others as `(other)`; multi-label public suffixes for N2; events
+  per recipient entity.
+- **Artifact checks for H2 and H3** (contract 1.2, `finding/artifacts.py`): baseline placebo and
+  within-custodian change; a failing or unrunnable check caps confidence at low. Added after the
+  first real run; labelled post hoc in `docs/hypotheses.md`.
+- **Review-2 fixes** (seventeen commits "Review-2 #1…#17"): only the default variant in
+  `weekly_metrics`; R0 attacked as published; the report no longer claims attacks on R1 and R2;
+  degree-distribution protection against a hidden true zero; person-count columns defined once in
+  `contracts.schemas`; no wall-clock time in the manifest; only `risk/score.py` loads the key;
+  non-finite numbers rendered as a dash and exported as null.
+- **Config refactor**: parameters agents had placed in their own modules became `Config`
+  fields (outputs unchanged).
+- **Strict typing of tests**: `mypy --strict` on `src/` and `tests/`, ruff annotation rules,
+  no `Any` in signatures; new skill `/code-quality-review`.
+- **Hypotheses H5–H24** (contract 1.3, `finding/exploratory.py`): two families stated in
+  `docs/hypotheses-exploratory.md` (as E1–E20) before each was computed; paired within-custodian
+  comparisons with Wilcoxon p, Holm, bootstrap interval, pre-crisis placebo, leave-one-out and a
+  volume-equalised check; caveats for H5, H7 and H19; published as `exploratory.csv` with
+  suppression below k; shown in report, decision record, slides and UI.
+- **Renumbering**: the exploratory hypotheses E1–E20 became H5–H24, one list H1–H24 in code,
+  release, report, README and UI, at the owner's request; the dated record keeps the E-numbers.
+- **Data-science review** (new skill `/data-scientist-review`): the retention check for H16
+  (contract 1.4); H16 capped at inconclusive; no hypothesis is held true.
+- **Explorer UI beyond WP-J**: 3D group network with a 2D fallback, then brain-style cells with
+  travelling signals and an anonymous Individuals mode; Clusters view (chord diagram); one
+  Hypotheses list H1–H24 with a held-true marker and the artifact and retention checks; release
+  format version 2 adds the crisis and reference windows.
+- **Manual identity check** (T046 as built): `enron-case review-merges`; a person judged a seeded
+  sample of real merges; two counts published in `data_quality`.
+- **Documentation as built**: architecture, contracts, data model, this section and the
+  as-built section of `plan.md` updated to describe the code.
 
 ---
 
