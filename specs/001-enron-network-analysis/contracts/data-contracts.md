@@ -1,4 +1,4 @@
-# Contract: Stage Tables (v1.4)
+# Contract: Stage Tables (v1.6)
 
 These schemas are the interfaces between stages. They are implemented once in
 `src/enron_case/contracts/schemas.py` (`TABLES`, `conform`, `validate`, `CONTRACT_VERSION`), the
@@ -21,6 +21,7 @@ anything else stops the affected packages until fixtures are regenerated.
 | 1.3 | `exploratory_results` (restricted) and `exploratory` (release): hypotheses H5–H24 with volume-equalised columns; in the release, outcome and placebo and leave-one-out flags are nullable and suppressed with their comparison | The exploratory families (`docs/hypotheses-exploratory.md`) became pipeline output |
 | 1.4 | `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` on both exploratory tables | The data-science review showed H16 could be produced by inbox retention |
 | 1.5 | `data_quality.precision_ci_low` / `precision_ci_high`, funnel detail rows (rejected reasons, dedupe split, message flags, messages without a timestamp, events in the network), per-rule manual-check rows; `exploratory.equalised_p_holm` | Data-science review findings F3, F7, F10 |
+| 1.6 | `exploratory_results` / `exploratory` gain row H25 and family `post hoc`; `profile_results` (restricted) and `record_profile` (release): the custodians' mail by month and the after-hours share of their weekday sent mail | Hiring review: a replication test of prior work (H25), and evidence for the change of the timestamp convention in 2001 |
 
 Two release changes came from reviews without a version bump, because they narrowed what is
 published rather than changing a schema: `weekly_metrics` publishes only the default variant,
@@ -215,29 +216,41 @@ Checks against known artifacts, added after the first real run (`finding/artifac
 
 ### `exploratory_results` — written by `finding` (WP-F). Sort: `order`
 
-Hypotheses H5–H24 (recorded as E1–E20 in `docs/hypotheses-exploratory.md`, stated before they
-were computed), `finding/exploratory.py`. One row per hypothesis. Each is a paired,
+Hypotheses H5–H25 (recorded as E1–E21 in `docs/hypotheses-exploratory.md`, each stated before
+it was computed; H25 post hoc, after every other result), `finding/exploratory.py`. One row per hypothesis. Each is a paired,
 within-custodian difference of a ratio between fixed windows (`config.CRISIS_WINDOW` against
 `config.REFERENCE_WINDOW`, the same weeks a year earlier), with a pre-crisis placebo comparison
 (`PLACEBO_AFTER_WINDOW` against `PLACEBO_BEFORE_WINDOW`).
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `order` | int | 5…24 |
-| `hypothesis` | str | `H5`…`H24` |
-| `family` | enum | first (H5–H14), second (H15–H24) |
+| `order` | int | 5…25 |
+| `hypothesis` | str | `H5`…`H25` |
+| `family` | enum | first (H5–H14), second (H15–H24), post hoc (H25) |
 | `measure`, `direction` | str, enum(up, down) | what is compared and the hypothesised sign |
 | `custodians` | int | custodians in the crisis comparison |
-| `median_change`, `ci_low`, `ci_high`, `p`, `p_holm` | float nullable | median paired difference, bootstrap interval, Wilcoxon p, Holm across the twenty |
+| `median_change`, `ci_low`, `ci_high`, `p`, `p_holm` | float nullable | median paired difference, bootstrap interval, Wilcoxon p, Holm across the twenty-one |
 | `placebo_custodians`, `placebo_median`, `placebo_ci_low`, `placebo_ci_high` | int, float nullable | the pre-crisis comparison |
 | `placebo_passes`, `loo_stable` | bool | placebo shows no comparable change; leave-one-custodian-out keeps the sign |
 | `outcome` | enum | confident, inconclusive, not supported |
 | `caveat` | str | `""`, or why the hypothesis cannot be confident (`schemas.EXPLORATORY_CAVEATS`: H5 invalid, H7 untestable, H19 retention-sensitive; or `schemas.RETENTION_FAILED`) |
 | `equalised_median`, `equalised_ci_low`, `equalised_ci_high`, `equalised_p` | float nullable | volume-equalised check (each custodian's mail subsampled to the same count in both windows); null unless computed: only for outcomes other than not supported, without a caveat, and not for look-back measures (H19) |
-| `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` | float, bool nullable | retention check: the hypothesis on a measure inbox retention cannot move; null where none applies and when the outcome is not supported. Only H16 has one (reciprocity counted between custodians only, whose messages to each other are kept in the sender's own mailbox). A failed retention check caps the outcome at inconclusive with caveat `RETENTION_FAILED` |
+| `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` | float, bool nullable | retention check: the hypothesis on a measure inbox retention cannot move; null where none applies and when the outcome is not supported. H16 has one (reciprocity counted between custodians only, whose messages to each other are kept in the sender's own mailbox) and H25 has one (only the custodians written to). A failed retention check caps the outcome at inconclusive with that hypothesis's caveat from `RETENTION_FAILED` |
 
 `confident` needs Holm-adjusted p below `alpha`, an interval on the hypothesised side, a passing
 placebo, a stable leave-one-out and no caveat.
+
+### `profile_results` — written by `finding` (WP-F). Sort: `month` (1.6)
+
+Descriptive, `finding/profile.py`: one row per month of the analysis window (Houston local time),
+over the custodians who are internal persons.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `month` | date | first day of the month |
+| `custodians_sending`, `sent_messages` | int | custodians with a sent message that month, and their sent messages |
+| `after_hours_share` | float nullable | share of their weekday sent messages stamped outside 07:00–19:00 local (the H5 definition); null without weekday mail |
+| `custodians_receiving`, `received_messages` | int | custodians who received a message that month, and the messages |
 
 ### `risk_results` — written by `risk` (WP-G). Sort: `release_variant, attacker`
 
@@ -288,6 +301,7 @@ every value of the person-count metric `active_persons`. `kanon.check` aborts th
 | `community_groups` | `n_persons` |
 | `risk` | `n_targets` |
 | `exploratory` | `custodians`, `placebo_custodians` |
+| `record_profile` | `custodians_sending`, `custodians_receiving` |
 
 | File | Content |
 |------|---------|
@@ -296,11 +310,12 @@ every value of the person-count metric `active_persons`. `kanon.check` aborts th
 | `release/weekly_metrics.csv` | scope, week, metric, value, n_active, variant. Only `variant = default` is published: a sensitivity variant next to it would let default minus variant `n_active` reveal groups below k (the variants stay restricted and feed `robust_variants_*`). `n_active` below k is suppressed with its `value`; a value whose `n_active` is suppressed is refused |
 | `release/hypotheses.csv` | `hypothesis_results` (H1–H4) |
 | `release/artifact_checks.csv` | `artifact_results`; `n_units` of `within_custodian` is suppressed when below k |
-| `release/exploratory.csv` | `exploratory_results` (H5–H24). Where `custodians` is below k, the crisis comparison is suppressed with everything derived from it: its statistics, the equalised and retention columns, `outcome` and `loo_stable`. Where `placebo_custodians` is below k, the placebo statistics and `placebo_passes` are suppressed. These columns are therefore nullable in the release only `equalised_p_holm` (1.5) is the equalised p times the family size, capped at 1 (a Bonferroni bound) |
+| `release/record_profile.csv` | `profile_results` (1.6). A month whose sending side has fewer than k custodians is published without its sending columns (`custodians_sending`, `sent_messages`, `after_hours_share`); the same for the receiving side |
+| `release/exploratory.csv` | `exploratory_results` (H5–H25). Where `custodians` is below k, the crisis comparison is suppressed with everything derived from it: its statistics, the equalised and retention columns, `outcome` and `loo_stable`. Where `placebo_custodians` is below k, the placebo statistics and `placebo_passes` are suppressed. These columns are therefore nullable in the release only `equalised_p_holm` (1.5) is the equalised p times the family size, capped at 1 (a Bonferroni bound) |
 | `release/risk.csv` | `risk_results` |
 | `release/degree_distribution.csv` | period (half-year, `2000H1`), degree bucket (`1`, `2-4`, `5-9`, `10+` from `Config.degree_bucket_floors`; degree = number of distinct contacts in either direction), persons (≥ k or suppressed). When a period hides only one cell with a true value above zero, or only one cell at all, its smallest published cell is suppressed too: a hidden true zero does not protect a small count |
 | `release/community_graph.csv` | week, src_group, dst_group, weight, n_messages; plus `community_groups.csv`: group, n_persons. Groups are baseline communities with ≥ k persons, labelled `G01…` in an order unrelated to pseudonyms; smaller communities are merged into `other`, which is published only if it reaches k. A weekly tie is dropped when it has fewer than k distinct senders in `src_group` (the number of distinct recipients is not limited). `weight` and `n_messages` sum the person-pair edges between the two groups, so `n_messages` counts per-pair messages: one message from a sender to three members of the other group counts three |
-| `release/report.md` | the report: quality, finding, hypotheses H1–H24, risk, limits (stage `report`) |
+| `release/report.md` | the report: quality, the record profile, finding, hypotheses H1–H25, risk, limits (stage `report`) |
 | `release/run_manifest.json` | code version, sample flag, seed, every `Config` parameter, key fingerprint, `corpus_sha256` (the archive checksum verified by `fetch`; the synthetic archive's on sample runs), fingerprint per table and counts file, stages run with their durations; no wall-clock time |
 | `ui/public/data/release.json` | written by stage `ui-data` from the release tables above and the manifest's run block, and nothing else; same content, one file, for the explorer UI (format in `uiexport/export.py`) |
 

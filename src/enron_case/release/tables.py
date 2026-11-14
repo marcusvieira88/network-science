@@ -355,3 +355,16 @@ def exploratory(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
         *[pl.when(small_crisis).then(None).otherwise(pl.col(c)).alias(c) for c in crisis_derived],
         *[pl.when(small_placebo).then(None).otherwise(pl.col(c)).alias(c) for c in placebo_derived],
     )
+
+
+def record_profile(profile: pl.DataFrame, k_min: int) -> pl.DataFrame:
+    """The monthly record profile. A side (sending or receiving) of a month with fewer than k
+    custodians is suppressed with every number computed from it."""
+    small_sending = pl.col("custodians_sending") < k_min
+    small_receiving = pl.col("custodians_receiving") < k_min
+    sending = ("custodians_sending", "sent_messages", "after_hours_share")
+    receiving = ("custodians_receiving", "received_messages")
+    return profile.with_columns(
+        *[pl.when(small_sending).then(None).otherwise(pl.col(c)).alias(c) for c in sending],
+        *[pl.when(small_receiving).then(None).otherwise(pl.col(c)).alias(c) for c in receiving],
+    )

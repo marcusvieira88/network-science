@@ -405,7 +405,8 @@ def _weekday_share(condition: pl.Expr) -> WindowMeasure:
     return measure
 
 
-after_hours = (pl.col("weekday") <= 5) & (
+LAST_WEEKDAY = 5  # Friday: weekday numbers run 1 = Monday ... 7 = Sunday
+after_hours = (pl.col("weekday") <= LAST_WEEKDAY) & (
     (pl.col("hour") < WORK_START) | (pl.col("hour") >= WORK_END)
 )
 MEASURES: dict[str, Measure] = {
@@ -600,15 +601,24 @@ def retention_check(
     return RetentionCheck(crisis, placebo, passes)
 
 
-def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -> pl.DataFrame:
+def custodian_tables(events: pl.DataFrame, entities_p: pl.DataFrame) -> Tables:
+    """Sent and received messages of the custodians who are internal persons."""
     custodians = entities_p.filter(
         pl.col("is_custodian") & (pl.col("type") == vocab.PERSON) & pl.col("is_internal")
     ).get_column("pid")
-    tables = Tables(
+    return Tables(
         sent_messages(events, custodians),
         received_messages(events, custodians),
         frozenset(custodians.to_list()),
     )
+
+
+def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -> pl.DataFrame:
+    return run_family_on(custodian_tables(events, entities_p), config)
+
+
+def run_family_on(tables: Tables, config: Config) -> pl.DataFrame:
+    """The `exploratory_results` table for H5–H25."""
     rows = []
     for index, hyp in enumerate(FAMILY):
         measure = MEASURES[hyp.id]

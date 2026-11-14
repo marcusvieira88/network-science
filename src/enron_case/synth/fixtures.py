@@ -545,6 +545,27 @@ class FixtureBuilder:
         spec = schemas.table("exploratory_results")
         return schemas.conform(pl.DataFrame(rows, schema=spec.polars_schema), spec.name)
 
+    def profile_results_table(self) -> pl.DataFrame:
+        """Reference shape only: every month of the analysis window, the after-hours share
+        dropping from one half to a tenth in mid-2001 as the timestamp convention changes."""
+        months = pl.date_range(
+            self.config.analysis_start, self.config.analysis_end, "1mo", eager=True
+        )
+        switch = date(2001, 6, 1)
+        rows = [
+            {
+                "month": month,
+                "custodians_sending": 6,
+                "sent_messages": 120,
+                "after_hours_share": 0.5 if month < switch else 0.1,
+                "custodians_receiving": 7,
+                "received_messages": 200,
+            }
+            for month in months.to_list()
+        ]
+        spec = schemas.table("profile_results")
+        return schemas.conform(pl.DataFrame(rows, schema=spec.polars_schema), spec.name)
+
     def artifact_results_table(self) -> pl.DataFrame:
         """Planted change is behavioural and communities never drift: both checks pass."""
         rows = [
@@ -760,6 +781,7 @@ class FixtureBuilder:
             "risk": self.risk_results_table(),
             "artifact_checks": self.artifact_results_table(),
             "exploratory": self.exploratory_results_table(),
+            "record_profile": self.profile_results_table(),
             "degree_distribution": degree,
             "community_graph": graph,
             "community_groups": groups,
@@ -836,6 +858,7 @@ class FixtureBuilder:
             "risk_results": self.risk_results_table(),
             "artifact_results": self.artifact_results_table(),
             "exploratory_results": self.exploratory_results_table(),
+            "profile_results": self.profile_results_table(),
         }
         tables.update(self.release_tables())
         return tables

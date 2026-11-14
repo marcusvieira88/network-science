@@ -15,7 +15,7 @@ from enron_case.contracts import vocab as v
 from enron_case.errors import ContractViolation
 from enron_case.zones import Zone
 
-CONTRACT_VERSION = "1.5"
+CONTRACT_VERSION = "1.6"
 
 STR = pl.String()
 INT = pl.Int64()
@@ -128,6 +128,19 @@ EXPLORATORY_CAVEATS = {
     "H7": "untestable: every Bcc line in the corpus repeats the Cc line",
     "H19": "retention-sensitive: the 26-week look-back depends on how much older mail was kept",
 }
+
+
+def _profile_cols(nullable: bool) -> tuple[Col, ...]:
+    """Monthly record profile (finding/profile.py): custodians' mail held per month and the
+    after-hours share of their weekday sent mail. Released with months below k suppressed."""
+    return (
+        Col("month", DATE),
+        Col("custodians_sending", INT, nullable=nullable),
+        Col("sent_messages", INT, nullable=nullable),
+        Col("after_hours_share", FLOAT, nullable=True),
+        Col("custodians_receiving", INT, nullable=nullable),
+        Col("received_messages", INT, nullable=nullable),
+    )
 
 
 def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
@@ -291,6 +304,7 @@ TABLES: dict[str, Table] = {
         _t("risk_results", Zone.RESTRICTED, ("release_variant", "attacker"), *_RISK_COLS),
         _t("artifact_results", Zone.RESTRICTED, ("hypothesis",), *_artifact_cols(False)),
         _t("exploratory_results", Zone.RESTRICTED, ("order",), *_exploratory_cols(False)),
+        _t("profile_results", Zone.RESTRICTED, ("month",), *_profile_cols(False)),
         # ---- Zone 3: release (aggregates, k-thresholded; committed) ----
         _t(
             "data_quality",
@@ -336,6 +350,7 @@ TABLES: dict[str, Table] = {
         _t("risk", Zone.RELEASE, ("release_variant", "attacker"), *_RISK_COLS, fmt="csv"),
         _t("artifact_checks", Zone.RELEASE, ("hypothesis",), *_artifact_cols(True), fmt="csv"),
         _t("exploratory", Zone.RELEASE, ("order",), *_exploratory_cols(True), fmt="csv"),
+        _t("record_profile", Zone.RELEASE, ("month",), *_profile_cols(True), fmt="csv"),
         _t(
             "degree_distribution",
             Zone.RELEASE,
@@ -375,6 +390,7 @@ PERSON_COUNT_COLUMNS: dict[str, tuple[str, ...]] = {
     "community_groups": ("n_persons",),
     "risk": ("n_targets",),
     "exploratory": ("custodians", "placebo_custodians"),
+    "record_profile": ("custodians_sending", "custodians_receiving"),
 }
 # The weekly metric whose value is itself a person count.
 PERSON_COUNT_METRIC = "active_persons"
