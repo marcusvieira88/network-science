@@ -57,8 +57,9 @@ export function ZoomControl({ labels = {} }: { labels?: Record<string, string> }
 export const FullScreenControl = ZoomControl;
 
 export function useLoadGraph() {
+  // Like React Sigma, the drawn graph is a copy: moving its nodes leaves the week's graph intact.
   return useCallback((graph: NetworkGraph) => {
-    sigmaStub.graph = graph;
+    sigmaStub.graph = graph.copy();
     sigmaStub.loads += 1;
   }, []);
 }

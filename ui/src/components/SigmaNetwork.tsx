@@ -114,9 +114,12 @@ function GraphLoader({ graph, animate }: { graph: NetworkGraph; animate: boolean
   const loadGraph = useLoadGraph<NetworkNode, NetworkEdge>();
   const sigma = useSigma<NetworkNode, NetworkEdge>();
   useEffect(() => {
+    if (!animate) {
+      loadGraph(graph);
+      return;
+    }
     const drawnBefore = nodePositions(sigma.getGraph());
     loadGraph(graph);
-    if (!animate) return;
     // Sigma's graph is its own copy of `graph`: moving its nodes leaves the week's graph intact.
     const drawn = sigma.getGraph();
     const targets: Record<string, Record<string, number>> = {};
