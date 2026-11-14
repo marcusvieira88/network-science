@@ -152,7 +152,7 @@ class FixtureBuilder:
                 flags.add("mass_mailing")
             if any(not _valid(a.lower()) for a in [*msg.to, *msg.cc]):
                 flags.add("bad_address")
-            sets = {tuple(sorted({*c.to, *c.cc, *c.bcc})) for c in copies}
+            sets = {tuple(sorted({a.lower() for a in (*c.to, *c.cc, *c.bcc)})) for c in copies}
             rule = "none" if len(copies) == 1 else ("subset" if len(sets) > 1 else "exact")
             rows.append(
                 {
@@ -167,12 +167,15 @@ class FixtureBuilder:
                     "sent_copy_owner": msg.sender.owner_dir if msg.sender.is_custodian else None,
                     "flags": sorted(flags),
                     "_truth": msg.truth_id,
+                    "_distinct_sets": len(sets),
                 }
             )
         return rows
 
     def messages_table(self) -> pl.DataFrame:
-        rows = [{k: val for k, val in r.items() if k != "_truth"} for r in self.message_rows()]
+        rows = [
+            {k: val for k, val in r.items() if not k.startswith("_")} for r in self.message_rows()
+        ]
         df = pl.DataFrame(rows, schema=schemas.table("messages").polars_schema)
         return schemas.conform(df, "messages")
 
@@ -614,12 +617,10 @@ class FixtureBuilder:
             "clean_counts": {
                 "records_in": n_files,
                 "messages_out": len(msgs),
-                "removed_exact": sum(
-                    r["n_copies"] - 1 for r in msgs if r["dedupe_rule"] == "exact"
-                ),
-                "removed_subset": sum(
-                    r["n_copies"] - 1 for r in msgs if r["dedupe_rule"] == "subset"
-                ),
+                # The exact pass leaves one copy per distinct recipient set; the subset pass
+                # folds those sets into one message.
+                "removed_exact": sum(r["n_copies"] - r["_distinct_sets"] for r in msgs),
+                "removed_subset": sum(r["_distinct_sets"] - 1 for r in msgs),
                 "flags": dict(flags),
                 "message_id_shared_share": 0.0,
                 "dedupe_precision": 1.0,

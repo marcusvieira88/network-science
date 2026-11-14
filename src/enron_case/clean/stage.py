@@ -35,7 +35,9 @@ def run(ctx: StageContext) -> None:
         truth = ctx.read_truth()["file_to_message"]
         by_file = {v.file_id(path): message for path, message in truth.items()}
         precision, recall = pairwise_scores((m.file_ids for m in messages), by_file)
-    counts = clean_counts(records.height, table, message_id_shared_share(exact), precision, recall)
+    counts = clean_counts(
+        records.height, len(exact), table, message_id_shared_share(exact), precision, recall
+    )
     ctx.write_counts("clean_counts", dict(counts))
     ctx.log(
         f"clean: {counts['records_in']} records -> {counts['messages_out']} messages "
@@ -65,21 +67,21 @@ def messages_frame(messages: list[Group], config: Config) -> pl.DataFrame:
 
 def clean_counts(
     records_in: int,
+    after_exact: int,
     messages: pl.DataFrame,
     message_id_share: float | None,
     precision: float | None,
     recall: float | None,
 ) -> CleanCounts:
-    """Counts side output; removed copies are attributed to the message's dedupe rule."""
-    removed = Counter[str]()
-    for rule, n_copies in messages.select("dedupe_rule", "n_copies").iter_rows():
-        removed[rule] += n_copies - 1
+    """Counts side output. Removed copies are counted per pass (records in minus groups after
+    the exact pass; those minus messages after the subset pass), not by each message's final
+    rule, which names only the last pass that touched it."""
     flags = Counter[str](messages.get_column("flags").explode().drop_nulls().to_list())
     return CleanCounts(
         records_in=records_in,
         messages_out=messages.height,
-        removed_exact=removed["exact"],
-        removed_subset=removed["subset"],
+        removed_exact=records_in - after_exact,
+        removed_subset=after_exact - messages.height,
         flags=dict(sorted(flags.items())),
         message_id_shared_share=message_id_share,
         dedupe_precision=precision,

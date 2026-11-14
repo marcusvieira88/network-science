@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
 import pytest
 
-from enron_case.clean.stage import run
+from enron_case.clean.dedupe import Group, exact_pass, subset_pass
+from enron_case.clean.stage import clean_counts, messages_frame, run
+from enron_case.config import Config
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.synth import SynthOutput
@@ -65,3 +68,29 @@ def test_logs_counts_only(synth: SynthOutput, tmp_path: Path) -> None:
     run(ctx)
     assert lines
     assert not any("@" in line for line in lines)
+
+
+def _copy(file_id: str, recipients: dict[str, str]) -> Group:
+    return Group.single(
+        file_id=file_id,
+        owner="o",
+        folder_class="inbox",
+        sender="a@x.org",
+        ts_utc=datetime(2001, 5, 14, 9, 0, tzinfo=UTC),
+        recipients=recipients,
+        message_id=None,
+        bad_address=False,
+    )
+
+
+def test_removed_copies_are_counted_per_pass() -> None:
+    # Five identical copies (exact pass removes 4) and one Cc-less copy that the subset pass
+    # folds in (removes 1). The message's final rule is "subset", but only 1 copy went that way.
+    full = {"b@x.org": "to", "c@x.org": "cc"}
+    copies = [_copy(f"f{i}", full) for i in range(5)] + [_copy("f5", {"b@x.org": "to"})]
+    exact = exact_pass(copies)
+    messages = messages_frame(subset_pass(exact), Config())
+    counts = clean_counts(len(copies), len(exact), messages, None, None, None)
+    assert messages.get_column("dedupe_rule").to_list() == ["subset"]
+    assert (counts["removed_exact"], counts["removed_subset"]) == (4, 1)
+    assert counts["messages_out"] == 1
