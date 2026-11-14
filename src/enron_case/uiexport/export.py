@@ -14,7 +14,8 @@ Shape of `release.json` (format_version 2; 2 added `windows`); `ui/src/lib/data.
 
 The tables are `RELEASE_TABLES`, among them `artifact_checks` (hypothesis, check, statistic,
 ci_low, ci_high, n_units, passes, note; `passes` is null when the check could not run) and
-`exploratory` (E1–E20, docs/hypotheses-exploratory.md: order, hypothesis, family, measure,
+`exploratory` (H5–H24, recorded as E1–E20 in docs/hypotheses-exploratory.md: order,
+hypothesis, family, measure,
 direction, custodians, median_change, ci_low, ci_high, p, p_holm, placebo_custodians,
 placebo_median, placebo_ci_low, placebo_ci_high, placebo_passes, loo_stable, outcome, caveat,
 equalised_median, equalised_ci_low, equalised_ci_high, equalised_p; `caveat` is "" when there is

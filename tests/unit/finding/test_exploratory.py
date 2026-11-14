@@ -64,7 +64,7 @@ def test_reciprocity_counts_contacts_who_wrote_back() -> None:
             _event("m3", 6, C, A),  # only C writes back
         ]
     )
-    assert _value(ex.MEASURES["E12"](tables, WINDOW), A) == 0.5
+    assert _value(ex.MEASURES["H16"](tables, WINDOW), A) == 0.5
 
 
 def test_new_contact_share_uses_the_lookback() -> None:
@@ -75,18 +75,18 @@ def test_new_contact_share_uses_the_lookback() -> None:
             _event("m2", 5, A, D),  # D is new in the window
         ]
     )
-    assert _value(ex.MEASURES["E15"](tables, WINDOW), A) == 0.5
+    assert _value(ex.MEASURES["H19"](tables, WINDOW), A) == 0.5
 
 
 def test_new_contact_share_needs_a_history() -> None:
     tables = _tables([_event("m1", 4, A, C)])
-    assert ex.MEASURES["E15"](tables, WINDOW).filter(pl.col("pid") == A).is_empty()
+    assert ex.MEASURES["H19"](tables, WINDOW).filter(pl.col("pid") == A).is_empty()
 
 
 def test_active_week_share() -> None:
     # Window 2001-09-03 .. 2001-09-30 spans four Monday-weeks; A sends in two of them.
     tables = _tables([_event("m1", 4, A, C), _event("m2", 5, A, C), _event("m3", 18, A, C)])
-    assert _value(ex.MEASURES["E19"](tables, WINDOW), A) == 0.5
+    assert _value(ex.MEASURES["H23"](tables, WINDOW), A) == 0.5
 
 
 def test_top_sender_share_and_external_share() -> None:
@@ -97,9 +97,9 @@ def test_top_sender_share_and_external_share() -> None:
     rows.append(_event("m9", 9, "p_eeeeeeeeeeeeeeee", A))
     tables = _tables(rows)
     # Top three senders (C, D, B) account for 8 of 9 received messages.
-    assert np.isclose(_value(ex.MEASURES["E17"](tables, WINDOW), A), 8 / 9)
-    assert np.isclose(_value(ex.MEASURES["E18"](tables, WINDOW), A), 3 / 9)
-    assert np.isclose(_value(ex.MEASURES["E14"](tables, WINDOW), A), 2 / 9)  # B is a custodian
+    assert np.isclose(_value(ex.MEASURES["H21"](tables, WINDOW), A), 8 / 9)
+    assert np.isclose(_value(ex.MEASURES["H22"](tables, WINDOW), A), 3 / 9)
+    assert np.isclose(_value(ex.MEASURES["H18"](tables, WINDOW), A), 2 / 9)  # B is a custodian
 
 
 def test_sent_shares_for_custodian_list_and_direct_mail() -> None:
@@ -112,9 +112,9 @@ def test_sent_shares_for_custodian_list_and_direct_mail() -> None:
             _event("m4", 7, A, A, n=1),  # to self: not a custodian hit
         ]
     )
-    assert _value(ex.MEASURES["E13"](tables, WINDOW), A) == 0.25
-    assert _value(ex.MEASURES["E20"](tables, WINDOW), A) == 0.25
-    assert _value(ex.MEASURES["E11"](tables, WINDOW), A) == 0.75
+    assert _value(ex.MEASURES["H17"](tables, WINDOW), A) == 0.25
+    assert _value(ex.MEASURES["H24"](tables, WINDOW), A) == 0.25
+    assert _value(ex.MEASURES["H15"](tables, WINDOW), A) == 0.75
 
 
 def test_decision_rule_requires_every_condition() -> None:
@@ -153,7 +153,7 @@ def test_active_weeks_count_full_weeks_only() -> None:
     window = (date(2001, 8, 14), date(2001, 12, 2))
     rows = [_event(f"m{i}", 1, A, C, month=9) for i in range(3)]
     rows.append(_event("edge", 14, A, C, month=8))  # Tuesday in a partial week: not counted
-    value = _value(ex.MEASURES["E19"](_tables(rows), window), A)
+    value = _value(ex.MEASURES["H23"](_tables(rows), window), A)
     assert np.isclose(value, 1 / 15)
 
 
@@ -164,7 +164,7 @@ def test_after_hours_share_ignores_weekend_volume() -> None:
         {**_event("m2", 4, A, C), "ts_hour": datetime(2001, 9, 5, 2, tzinfo=UTC)},  # 21:00
         {**_event("m3", 8, A, C), "ts_hour": datetime(2001, 9, 8, 17, tzinfo=UTC)},  # Saturday
     ]
-    assert _value(ex.MEASURES["E1"](_tables(rows), WINDOW), A) == 0.5
+    assert _value(ex.MEASURES["H5"](_tables(rows), WINDOW), A) == 0.5
 
 
 def _family_events(planted: bool) -> pl.DataFrame:
@@ -215,7 +215,7 @@ def test_family_finds_a_planted_change_and_nothing_else() -> None:
     events = _family_events(planted=True)
     table = ex.run_family(events, _entities(events), Config(exploratory_bootstrap_reps=500))
     assert table.height == len(ex.FAMILY)
-    e11 = table.filter(pl.col("hypothesis") == "E11").row(0, named=True)
+    e11 = table.filter(pl.col("hypothesis") == "H15").row(0, named=True)
     assert e11["outcome"] == ex.CONFIDENT
     assert e11["placebo_passes"] and e11["loo_stable"]
     flat = ex.run_family(
@@ -225,7 +225,7 @@ def test_family_finds_a_planted_change_and_nothing_else() -> None:
 
 
 def test_caveated_hypotheses_are_never_confident() -> None:
-    assert set(ex.CAVEATS) == {"E1", "E3", "E15"}
+    assert set(ex.CAVEATS) == {"H5", "H7", "H19"}
 
 
 def test_subsample_caps_each_custodian_and_ignores_row_order() -> None:
@@ -246,7 +246,7 @@ def test_volume_equalised_with_too_few_custodians_is_not_computed() -> None:
         ex.received_messages(events, events.get_column("sender_pid").unique()),
     )
     result = ex.volume_equalised(
-        tables, ex.MEASURES["E11"], CRISIS_WINDOW, REFERENCE_WINDOW, Config(), stream=0
+        tables, ex.MEASURES["H15"], CRISIS_WINDOW, REFERENCE_WINDOW, Config(), stream=0
     )
     assert result.n < Config().k_min
     assert np.isnan(result.median)

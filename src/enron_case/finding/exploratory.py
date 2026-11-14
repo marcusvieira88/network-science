@@ -1,4 +1,4 @@
-"""Exploratory hypotheses E1–E20 (docs/hypotheses-exploratory.md).
+"""Hypotheses H5–H24 (recorded as E1–E20 in docs/hypotheses-exploratory.md).
 
 Every hypothesis is a paired, within-custodian difference of a ratio between fixed windows, so
 neither a change in which mailboxes hold mail nor a change in how much mail was kept can
@@ -47,7 +47,7 @@ DST_UTC: tuple[tuple[datetime, datetime], ...] = tuple(
 CAVEATS = schemas.EXPLORATORY_CAVEATS
 # Measures that read rows outside their window; volume equalisation (which keeps only in-window
 # rows) cannot be applied to them.
-LOOKBACK_MEASURES = frozenset({"E15"})
+LOOKBACK_MEASURES = frozenset({"H19"})
 
 Window = tuple[date, date]
 
@@ -70,26 +70,26 @@ class Exploratory:
 
 
 FAMILY: tuple[Exploratory, ...] = (
-    Exploratory("E1", UP, "after-hours share of sent messages (weekdays)"),
-    Exploratory("E2", UP, "weekend share of sent messages"),
-    Exploratory("E3", UP, "share of sent messages with a Bcc recipient"),
-    Exploratory("E4", UP, "share of sent messages with a Cc recipient"),
-    Exploratory("E5", UP, "mean recipients per sent message"),
-    Exploratory("E6", UP, "share of sent messages with five or more recipients"),
-    Exploratory("E7", DOWN, "distinct internal contacts per active week"),
-    Exploratory("E8", UP, "sent messages per active week"),
-    Exploratory("E9", UP, "share of sent messages to the top three recipients"),
-    Exploratory("E10", UP, "share of received messages sent to 20 or more"),
-    Exploratory("E11", UP, "share of sent messages with one recipient (derived from E10)"),
-    Exploratory("E12", UP, "share of sent-to contacts who also wrote back"),
-    Exploratory("E13", UP, "share of sent messages to another custodian"),
-    Exploratory("E14", UP, "share of received messages from another custodian"),
-    Exploratory("E15", DOWN, "share of contacts new against the prior 26 weeks"),
-    Exploratory("E16", UP, "distinct senders per active week"),
-    Exploratory("E17", UP, "share of received messages from the top three senders"),
-    Exploratory("E18", DOWN, "share of received messages from external senders"),
-    Exploratory("E19", UP, "share of weeks with at least one sent message"),
-    Exploratory("E20", DOWN, "share of sent messages to a list, role or system address"),
+    Exploratory("H5", UP, "after-hours share of sent messages (weekdays)"),
+    Exploratory("H6", UP, "weekend share of sent messages"),
+    Exploratory("H7", UP, "share of sent messages with a Bcc recipient"),
+    Exploratory("H8", UP, "share of sent messages with a Cc recipient"),
+    Exploratory("H9", UP, "mean recipients per sent message"),
+    Exploratory("H10", UP, "share of sent messages with five or more recipients"),
+    Exploratory("H11", DOWN, "distinct internal contacts per active week"),
+    Exploratory("H12", UP, "sent messages per active week"),
+    Exploratory("H13", UP, "share of sent messages to the top three recipients"),
+    Exploratory("H14", UP, "share of received messages sent to 20 or more"),
+    Exploratory("H15", UP, "share of sent messages with one recipient (derived from H14)"),
+    Exploratory("H16", UP, "share of sent-to contacts who also wrote back"),
+    Exploratory("H17", UP, "share of sent messages to another custodian"),
+    Exploratory("H18", UP, "share of received messages from another custodian"),
+    Exploratory("H19", DOWN, "share of contacts new against the prior 26 weeks"),
+    Exploratory("H20", UP, "distinct senders per active week"),
+    Exploratory("H21", UP, "share of received messages from the top three senders"),
+    Exploratory("H22", DOWN, "share of received messages from external senders"),
+    Exploratory("H23", UP, "share of weeks with at least one sent message"),
+    Exploratory("H24", DOWN, "share of sent messages to a list, role or system address"),
 )
 
 
@@ -319,26 +319,26 @@ after_hours = (pl.col("weekday") <= 5) & (
     (pl.col("hour") < WORK_START) | (pl.col("hour") >= WORK_END)
 )
 MEASURES: dict[str, Measure] = {
-    "E1": _windowed("sent", _weekday_share(after_hours)),
-    "E2": _windowed("sent", _share(pl.col("weekday") >= 6)),
-    "E3": _windowed("sent", _share(pl.col("has_bcc"))),
-    "E4": _windowed("sent", _share(pl.col("has_cc"))),
-    "E5": _windowed("sent", _mean_recipients),
-    "E6": _windowed("sent", _share(pl.col("n_recipients") >= BROADCAST_SENT)),
-    "E7": _windowed("sent", _contacts_per_week),
-    "E8": _windowed("sent", _messages_per_week),
-    "E9": _windowed("sent", _top_recipient_share),
-    "E10": _windowed("received", _share(pl.col("n_recipients") >= BROADCAST_RECEIVED)),
-    "E11": _windowed("sent", _share(pl.col("n_recipients") == 1)),
-    "E12": _reciprocity,
-    "E13": _windowed("sent", _share(pl.col("to_custodian"))),
-    "E14": _windowed("received", _share(pl.col("from_custodian"))),
-    "E15": _new_contact_share,
-    "E16": _windowed("received", _senders_per_week),
-    "E17": _windowed("received", _top_sender_share),
-    "E18": _windowed("received", _share(~pl.col("sender_internal"))),
-    "E19": _active_week_share,
-    "E20": _windowed("sent", _share(pl.col("has_nonperson"))),
+    "H5": _windowed("sent", _weekday_share(after_hours)),
+    "H6": _windowed("sent", _share(pl.col("weekday") >= 6)),
+    "H7": _windowed("sent", _share(pl.col("has_bcc"))),
+    "H8": _windowed("sent", _share(pl.col("has_cc"))),
+    "H9": _windowed("sent", _mean_recipients),
+    "H10": _windowed("sent", _share(pl.col("n_recipients") >= BROADCAST_SENT)),
+    "H11": _windowed("sent", _contacts_per_week),
+    "H12": _windowed("sent", _messages_per_week),
+    "H13": _windowed("sent", _top_recipient_share),
+    "H14": _windowed("received", _share(pl.col("n_recipients") >= BROADCAST_RECEIVED)),
+    "H15": _windowed("sent", _share(pl.col("n_recipients") == 1)),
+    "H16": _reciprocity,
+    "H17": _windowed("sent", _share(pl.col("to_custodian"))),
+    "H18": _windowed("received", _share(pl.col("from_custodian"))),
+    "H19": _new_contact_share,
+    "H20": _windowed("received", _senders_per_week),
+    "H21": _windowed("received", _top_sender_share),
+    "H22": _windowed("received", _share(~pl.col("sender_internal"))),
+    "H23": _active_week_share,
+    "H24": _windowed("sent", _share(pl.col("has_nonperson"))),
 }
 
 
@@ -390,7 +390,8 @@ def _loo_stable(direction: int, d: np.ndarray) -> bool:
     return all(direction * float(np.median(np.delete(d, i))) > 0 for i in range(len(d)))
 
 
-SECOND_FAMILY_FROM = 11  # E11 onwards was stated after E1–E10 were computed
+SECOND_FAMILY_FROM = 11  # H15 (11th) onwards was stated after H5–H14 were computed
+FIRST_ID = 5  # H1–H4 are the pre-registered hypotheses; this family continues the numbering
 EQUALISED_STREAM = 200
 
 
@@ -504,7 +505,7 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
         )
         out.append(
             {
-                "order": order + 1,
+                "order": FIRST_ID + order,
                 "hypothesis": hyp.id,
                 "family": FIRST_FAMILY if order + 1 < SECOND_FAMILY_FROM else SECOND_FAMILY,
                 "measure": hyp.description,

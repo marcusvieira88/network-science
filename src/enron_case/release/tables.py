@@ -165,7 +165,7 @@ def artifact_checks(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
 
 
 def exploratory(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
-    """E1–E20 results. A comparison over fewer than k custodians is suppressed with its
+    """H5–H24 results. A comparison over fewer than k custodians is suppressed with its
     statistics (the count and every number derived from it)."""
     crisis = (
         "custodians",

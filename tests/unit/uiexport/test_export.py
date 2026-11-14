@@ -162,10 +162,10 @@ def test_exploratory_hypotheses_are_exported(synth: SynthOutput, tmp_path: Path)
     ctx = release_ctx(synth, tmp_path)
     run(ctx)
     rows = output(ctx)["tables"]["exploratory"]
-    assert [r["hypothesis"] for r in rows] == [f"E{i}" for i in range(1, 21)]
+    assert [r["hypothesis"] for r in rows] == [f"H{i}" for i in range(5, 25)]
     confident = [r for r in rows if r["outcome"] == "confident"]
     assert [(r["hypothesis"], r["family"], r["equalised_median"]) for r in confident] == [
-        ("E12", "second", 0.1)
+        ("H16", "second", 0.1)
     ]
     e1 = rows[0]
     assert e1["equalised_median"] is None

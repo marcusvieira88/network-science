@@ -138,3 +138,9 @@ the artifact is then not ruled out; it is reported as "not run", not as a pass. 
 have no artifact check: neither was supported. The checks are in `src/enron_case/finding/
 artifacts.py`, their results in `release/artifact_checks.csv`, and both are tested on synthetic
 data where groups do not drift and the planted change is behavioural (both checks pass there).
+
+## Further hypotheses H5–H24
+
+Twenty further hypotheses, stated by the project owner after the results of H1–H4 and committed
+before each was computed, continue this numbering. Their definitions, windows and decision rule
+are in `docs/hypotheses-exploratory.md` (recorded there as E1–E20; E*n* = H*n*+4).

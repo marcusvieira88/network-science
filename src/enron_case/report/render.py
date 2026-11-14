@@ -301,14 +301,14 @@ SUPPRESSED = "suppressed (fewer than k custodians)"
 
 
 def exploratory_statement(exploratory: pl.DataFrame) -> str:
-    """One sentence per confident exploratory hypothesis, or a sentence saying there is none."""
+    """One sentence per hypothesis held true among H5–H24, or a sentence saying there is none."""
     rows = exploratory.filter(pl.col("outcome") == schemas.EXPLORATORY_CONFIDENT).rows(named=True)
     if not rows:
-        return "Exploratory families E1–E20: no hypothesis reached the confident standard."
+        return "Among H5–H24, no hypothesis reached the standard to be held true."
     parts = []
     for r in rows:
         text = (
-            f"{r['hypothesis']} ({r['measure']}, predicted {r['direction']}) is confident: "
+            f"Held true: {r['hypothesis']} ({r['measure']}, predicted {r['direction']}): "
             f"median within-custodian change {format_value(r['median_change'])} "
             f"(interval {format_value(r['ci_low'])} to {format_value(r['ci_high'])}, "
             f"Holm-adjusted p = {format_value(r['p_holm'])}, "
@@ -322,9 +322,9 @@ def exploratory_statement(exploratory: pl.DataFrame) -> str:
             )
         parts.append(text + ".")
     return (
-        "Exploratory, not pre-registered: "
-        + " ".join(parts)
-        + " A lead for confirmation on independent data, not a finding of the same standing."
+        " ".join(parts)
+        + " It was stated after the results of H1–H4 and before being computed, so it is a lead"
+        " for confirmation on independent data rather than a pre-registered finding."
     )
 
 
@@ -347,13 +347,14 @@ def exploratory_section(exploratory: pl.DataFrame) -> str:
     ]
     return "\n\n".join(
         (
-            "## Exploratory hypotheses E1–E20",
-            "Two exploratory families, each stated and committed before it was computed "
-            "(docs/hypotheses-exploratory.md). Every comparison is a custodian against "
+            "## Hypotheses H5–H24",
+            "Twenty further hypotheses, stated by the project owner in two groups of ten, each "
+            "committed before it was computed (recorded under their original numbers E1–E20 in "
+            "docs/hypotheses-exploratory.md). Every comparison is a custodian against "
             "themselves between fixed windows (the crisis weeks against the same weeks a year "
             "earlier), with a pre-crisis placebo, leave-one-out and Holm's correction across all "
-            "twenty. Mail-volume equalisation was added after the first confident result and is "
-            "labelled as such.",
+            "twenty. A hypothesis is held true only if all of these pass. Mail-volume "
+            "equalisation was added after the first such result and is labelled as such.",
             exploratory_statement(exploratory),
             table(
                 [

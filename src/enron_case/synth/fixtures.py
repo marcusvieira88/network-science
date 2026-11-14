@@ -500,12 +500,12 @@ class FixtureBuilder:
         caveats = schemas.EXPLORATORY_CAVEATS
         rows = []
         for i in range(1, 21):
-            hid = f"E{i}"
-            outcome = {"E12": "confident", "E16": "inconclusive"}.get(hid, "not supported")
+            hid = f"H{i + 4}"
+            outcome = {"H16": "confident", "H20": "inconclusive"}.get(hid, "not supported")
             strong = outcome != "not supported"
             rows.append(
                 {
-                    "order": i,
+                    "order": i + 4,
                     "hypothesis": hid,
                     "family": schemas.EXPLORATORY_FAMILIES[0 if i < 11 else 1],
                     "measure": f"measure {hid}",
@@ -520,7 +520,7 @@ class FixtureBuilder:
                     "placebo_median": 0.0,
                     "placebo_ci_low": -0.03,
                     "placebo_ci_high": 0.04,
-                    "placebo_passes": hid != "E16",
+                    "placebo_passes": hid != "H20",
                     "loo_stable": strong,
                     "outcome": outcome,
                     "caveat": caveats.get(hid, ""),

@@ -30,7 +30,7 @@ def run_with(ctx: StageContext, recompute: Recompute) -> None:
         exploratory.run_family(network.events, network.entities_p, ctx.config),
     )
     confident = explored.filter(explored["outcome"] == exploratory.CONFIDENT).height
-    ctx.log(f"[finding] exploratory E1-E{explored.height}: {confident} confident")
+    ctx.log(f"[finding] hypotheses H5-H{4 + explored.height}: {confident} held true")
     supported = table.filter(table["supported"] == select.YES).height
     ctx.log(
         f"[finding] {table.height} hypotheses tested, {supported} supported, "

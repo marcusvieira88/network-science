@@ -116,14 +116,14 @@ EXPLORATORY_CONFIDENT, EXPLORATORY_INCONCLUSIVE, EXPLORATORY_NOT_SUPPORTED = EXP
 EXPLORATORY_FAMILIES = ("first", "second")
 # Why a hypothesis cannot be confident whatever its numbers (docs/hypotheses-exploratory.md).
 EXPLORATORY_CAVEATS = {
-    "E1": "invalid: timestamps in the reference year of the corpus are shifted by several hours",
-    "E3": "untestable: every Bcc line in the corpus repeats the Cc line",
-    "E15": "retention-sensitive: the 26-week look-back depends on how much older mail was kept",
+    "H5": "invalid: timestamps in the reference year of the corpus are shifted by several hours",
+    "H7": "untestable: every Bcc line in the corpus repeats the Cc line",
+    "H19": "retention-sensitive: the 26-week look-back depends on how much older mail was kept",
 }
 
 
 def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
-    """E1–E20 results (docs/hypotheses-exploratory.md); one row per hypothesis."""
+    """H5–H24 results (E1–E20 in docs/hypotheses-exploratory.md); one row per hypothesis."""
     return (
         Col("order", INT),
         Col("hypothesis", STR),

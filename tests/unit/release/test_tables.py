@@ -38,7 +38,7 @@ def test_exploratory_rows_below_k_hide_every_derived_value() -> None:
     k = 5
     row: dict[str, object] = {
         "order": 1,
-        "hypothesis": "E1",
+        "hypothesis": "H5",
         "family": "first",
         "measure": "m",
         "direction": "up",
@@ -73,4 +73,4 @@ def test_exploratory_rows_below_k_hide_every_derived_value() -> None:
         "placebo_passes",
     ):
         assert out[column] is None, column
-    assert out["hypothesis"] == "E1"
+    assert out["hypothesis"] == "H5"
