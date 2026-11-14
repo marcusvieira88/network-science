@@ -25,4 +25,22 @@ describe("RiskPanel", () => {
     expect(table).toHaveTextContent("90%");
     expect(table).toHaveTextContent("0.97");
   });
+
+  it("shows whether the finding survives as yes, no or n/a", () => {
+    const [first, second, third] = rows;
+    if (!first || !second || !third) throw new Error("sample has fewer than three risk rows");
+    render(
+      <RiskPanel
+        rows={[
+          { ...first, finding_survives: null },
+          { ...second, finding_survives: false },
+          { ...third, finding_survives: true },
+        ]}
+      />,
+    );
+    const [table] = screen.getAllByRole("table");
+    if (!table) throw new Error("table missing");
+    const lastCells = [...table.querySelectorAll("tbody tr")].map((tr) => tr.lastElementChild?.textContent);
+    expect(lastCells).toEqual(["n/a", "no", "yes"]);
+  });
 });

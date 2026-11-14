@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { MetricChart } from "@/components/MetricChart";
@@ -81,5 +82,16 @@ describe("MetricChart", () => {
       />,
     );
     expect(screen.getByRole("list", { name: "Chart markers" })).toHaveTextContent("not a pre-registered hypothesis");
+  });
+
+  it("switches the scope between core and observed from its tabs", async () => {
+    const user = userEvent.setup();
+    render(<MetricChart rows={data.tables.weekly_metrics} hypotheses={hypotheses} events={[]} baseline={null} />);
+    await user.click(screen.getByRole("tab", { name: "observed" }));
+    expect(screen.getByRole("tab", { name: "observed" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText(/Weekly value, observed network/)).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "core" }));
+    expect(screen.getByRole("tab", { name: "core" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText(/Weekly value, core \(custodians\)/)).toBeInTheDocument();
   });
 });

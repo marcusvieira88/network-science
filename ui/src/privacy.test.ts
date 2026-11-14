@@ -39,6 +39,14 @@ describe("privacy of the loaded data", () => {
     expect(identifierCount(rawSample())).toBe(0);
   });
 
+  it("takes the minimum group size from k_min, never below the floor of 5", () => {
+    const withK = (kMin: unknown) => ({ ...data, run: { ...data.run, parameters: { ...data.run.parameters, k_min: kMin } } });
+    expect(minimumGroupSize(withK(9))).toBe(9);
+    expect(minimumGroupSize(withK(3))).toBe(5);
+    expect(minimumGroupSize(withK("9"))).toBe(5);
+    expect(minimumGroupSize(withK(undefined))).toBe(5);
+  });
+
   it("publishes no person count below the minimum group size", () => {
     expect(minimumGroupSize(data)).toBeGreaterThanOrEqual(5);
     expect(smallPersonCounts(data)).toBe(0);
