@@ -36,8 +36,8 @@ A headers-only, privacy-first analysis of the public Enron email corpus
 | manual merge check | 50 | 50 | 0 | seeded sample, judged by a person | 1 | — | 0.929 | 1 |
 | rejected files: no header end | 517401 | 517371 | 30 | file not parsed: no clean end of the header, or outside a mailbox folder | — | — | — | — |
 | rejected files: outside maildir | 517401 | 517394 | 7 | file not parsed: no clean end of the header, or outside a mailbox folder | — | — | — | — |
-| deduplicate: exact copies | 517364 | 251503 | 265861 | copies merged by the exact key alone (sender, second, recipient set) | — | — | — | — |
-| deduplicate: subset copies | 251503 | 250537 | 966 | copies of messages that needed a subset merge, with any exact copies they had | — | — | — | — |
+| deduplicate: exact copies | 517364 | 250839 | 266525 | copies merged by the exact key alone (sender, second, recipient set) | — | — | — | — |
+| deduplicate: subset copies | 250839 | 250537 | 302 | copies of messages that needed a subset merge, with any exact copies they had | — | — | — | — |
 | flag: bad address | 250537 | 243854 | 6683 | messages flagged; kept in the network | — | — | — | — |
 | flag: date out of range | 250537 | 250167 | 370 | messages flagged; kept, but left out of the network | — | — | — | — |
 | flag: mass mailing | 250537 | 245771 | 4766 | messages flagged; kept, but left out of the network | — | — | — | — |
@@ -75,7 +75,7 @@ No finding about the crisis year is claimed. H2, H3 passed the pre-registered st
 | H3 | the organization turned inward | -1.46 | -2.65 to -0.944 | 0.004 | yes | low |
 | H4 | working relationships were rewired faster | -0.195 | -0.938 to 0.335 | 1 | no | low |
 
-Among H5–H24, no hypothesis reached the standard to be held true. H16 (share of sent-to contacts who also wrote to the custodian) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It remains the strongest lead, largely explained by how much inbox mail was kept.
+Among H5–H24, no hypothesis reached the standard to be held true. H16 (share of sent-to contacts who also wrote to the custodian) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose messages are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It remains the strongest lead, but it is not established once how much inbox mail was kept is held fixed.
 
 ---
 

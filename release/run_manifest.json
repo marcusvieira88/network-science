@@ -1,5 +1,5 @@
 {
-  "code_version": "c7490ca",
+  "code_version": "c3acfde",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -57,13 +57,13 @@
     "communities": "75e8456f71e028cf225bdda26ceb77fa688fdc9e491d1065a0b7d13244619ec5",
     "community_graph": "d5cfef45c919c2c245d72b45b9956920dd7de15bee172b3176c231fcea0cf0dd",
     "community_groups": "9eacfc92d01fb77d18c71e226a3f399c9269b5827621487fbcf71c0b24b2fefa",
-    "data_quality": "2a906ebf6787d409117a38f5c304c95a44c66bb1dd10bc34321788ad6203a4f8",
+    "data_quality": "656573bfe0e1ace49e2dc8c191f42834bc3e00a467c7bbb1620a5782269444b0",
     "degree_distribution": "428004c79d9da95950529686820dd98adf5094dbfd2f6d75ebdd8c374bb50244",
     "entities": "397cac15e1bc104b4ae5b770c130007ff9757175e22b764f828978dede8a45d2",
     "entities_p": "807c6b92ddaebacd9f2df97adc2067267380da3ebb0fadbe5a1238b76709e357",
     "events": "b77a33ef0dc912cf14817e6f64f69acd0cc38bcde6b30f9e8342b5e7d20966bf",
-    "exploratory": "3e8ace6e87b40da88394c37d44c826bcd4995a7250b4b7392d6c5a29f4b5e3e3",
-    "exploratory_results": "3e8ace6e87b40da88394c37d44c826bcd4995a7250b4b7392d6c5a29f4b5e3e3",
+    "exploratory": "7b6a8d9aa3ffef29f2a1656bacce2ad8695e0030cd2d4a08da2db4654339e5c8",
+    "exploratory_results": "7b6a8d9aa3ffef29f2a1656bacce2ad8695e0030cd2d4a08da2db4654339e5c8",
     "header_fields": "abe77c7a00f3a9f98aa0375ff3add6e1e7d4f68f643f825b08b0e6c22f1640e3",
     "header_records": "b49d34453c50a23d81d245db2c25b83a31b3ab893988578af8064b1d6f16126b",
     "hypotheses": "a7a1e034d7597946d5fadd5c80f58061bbfea688e905411e88541d1084349538",
@@ -76,7 +76,7 @@
     "weekly_metrics": "8e41d497efb8f7c69da3a8f3c40879c821f100cba5a755bcfb964cb78821f4a2"
   },
   "counts": {
-    "clean_counts": "e4486083fb58b0d5320a2e044d332112835543a2ab9ded3816149d092f01e63f",
+    "clean_counts": "709051e457fed5e0b2ff6017aff8d3b70f4819461360a446961da7e0740f8a6d",
     "identity_counts": "283d606afb8176f11529f27bf2364eaf5b264a7c2109d3faaee3e36f77ed777c",
     "ingest_counts": "9614889f0da1b79fd8449bd32d2f48841035a8888afc8372e635c79fe65f2107",
     "pseudo_counts": "63ffc199a38c663abc0c785ba01f7db7b3ef976391778aa2fc30075d8a61b216"
@@ -84,43 +84,43 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.22
+      "seconds": 0.19
     },
     {
       "stage": "parse",
-      "seconds": 34.29
+      "seconds": 28.99
     },
     {
       "stage": "clean",
-      "seconds": 27.06
+      "seconds": 24.5
     },
     {
       "stage": "identity",
-      "seconds": 5.4
+      "seconds": 4.43
     },
     {
       "stage": "pseudo",
-      "seconds": 18.58
+      "seconds": 15.54
     },
     {
       "stage": "network",
-      "seconds": 1.26
+      "seconds": 0.8
     },
     {
       "stage": "finding",
-      "seconds": 28.08
+      "seconds": 22.58
     },
     {
       "stage": "risk",
-      "seconds": 48.29
+      "seconds": 49.15
     },
     {
       "stage": "release",
-      "seconds": 0.23
+      "seconds": 0.11
     },
     {
       "stage": "report",
-      "seconds": 0.03
+      "seconds": 0.01
     }
   ]
 }
