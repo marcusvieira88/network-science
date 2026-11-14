@@ -1,5 +1,5 @@
 {
-  "code_version": "d4bd004",
+  "code_version": "9ca66a4",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -86,43 +86,47 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.25
+      "seconds": 0.32
     },
     {
       "stage": "parse",
-      "seconds": 33.42
+      "seconds": 62.79
     },
     {
       "stage": "clean",
-      "seconds": 35.96
+      "seconds": 31.08
     },
     {
       "stage": "identity",
-      "seconds": 4.89
+      "seconds": 5.5
     },
     {
       "stage": "pseudo",
-      "seconds": 16.46
+      "seconds": 24.48
     },
     {
       "stage": "network",
-      "seconds": 0.89
+      "seconds": 0.75
     },
     {
       "stage": "finding",
-      "seconds": 30.84
+      "seconds": 31.78
     },
     {
       "stage": "risk",
-      "seconds": 47.54
+      "seconds": 58.0
     },
     {
       "stage": "release",
-      "seconds": 0.08
+      "seconds": 0.12
     },
     {
       "stage": "report",
-      "seconds": 0.02
+      "seconds": 0.03
+    },
+    {
+      "stage": "ui-data",
+      "seconds": 0.05
     }
   ]
 }
