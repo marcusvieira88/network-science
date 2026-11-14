@@ -14,6 +14,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from enron_case.config import HYPOTHESES_STATED, Config
 from enron_case.contracts import vocab
 from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.report import render
@@ -31,6 +32,8 @@ REPORT_TABLES = (
     "artifact_checks",
     "exploratory",
     "record_profile",
+    "departures",
+    "departure_tests",
     "community_groups",
 )
 RELEASE_TABLES = (*REPORT_TABLES, "weekly_metrics")
@@ -131,13 +134,26 @@ def test_limits_section_has_at_least_three_items(synth: SynthOutput, tmp_path: P
     assert len(re.findall(r"^- ", limits, flags=re.MULTILINE)) >= 3
 
 
+def run_parameters(config: Config) -> list[float]:
+    """Run parameters the H26 section states (its definitions and decision rule)."""
+    return [
+        float(config.alpha),
+        float(HYPOTHESES_STATED),
+        float(config.departure_silence_weeks),
+        float(config.departure_live_weeks),
+        float(config.departure_active_weeks),
+        float(config.departure_lookback_weeks),
+        float(config.departure_rolling_min_at_risk),
+    ]
+
+
 def test_every_number_in_report_traces_to_a_release_cell(
     synth: SynthOutput, tmp_path: Path
 ) -> None:
     text = render_report(synth, tmp_path)
     numbers, dates = cell_values(synth, REPORT_TABLES)
     config = ctx_with_fixtures("report", synth, tmp_path / "cfg").config
-    numbers += [float(config.k_min), float(config.seed)]
+    numbers += [float(config.k_min), float(config.seed), *run_parameters(config)]
     assert untraced(text, numbers, dates) == []
 
 

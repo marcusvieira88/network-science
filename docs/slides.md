@@ -86,6 +86,27 @@ Among the within-custodian hypotheses, none reached the standard to be held true
 
 ---
 
+## Structure: did the custodians leave? (post hoc)
+
+No wave of custodian departures in the crisis can be established.
+
+- Asked after every behavioural hypothesis had failed; stated and committed before computing
+- A departure: a custodian stops sending while their own mailbox keeps receiving mail only it
+  holds; if that mail stops too, the mailbox was no longer collected (a record end)
+- Read in weeks from the presence of mail, so the hour shift of the record barely moves it;
+  the growth of inbox mail kept is tested by a stricter variant
+
+| Period | From | To | At risk | Departures | Record ends | Share departed |
+|---|---|---|---|---|---|---|
+| crisis | 2001-08-14 | 2001-12-02 | 66 | — | — | — |
+| reference | 2000-08-14 | 2000-12-02 | 26 | — | — | — |
+| placebo after | 2001-01-01 | 2001-04-30 | 51 | — | — | — |
+| placebo before | 2000-01-01 | 2000-04-30 | 9 | — | — | — |
+| crisis before the split | 2001-08-14 | 2001-10-15 | 66 | — | — | — |
+| crisis from the split | 2001-10-16 | 2001-12-02 | 66 | — | — | — |
+
+---
+
 ## Why we do not believe the two signals that passed
 
 | Hypothesis | Check | Statistic | Interval | Units | Result | Reading |

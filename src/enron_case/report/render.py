@@ -18,7 +18,7 @@ from enron_case.contracts import schemas, vocab
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.release.tables import STEP_MANUAL, STEP_MANUAL_RULE
-from enron_case.report import quality, record
+from enron_case.report import departures, quality, record
 from enron_case.report.markdown import bullets, format_value, table
 
 PLACEHOLDER = re.compile(r"\{\{([a-z0-9_]+)\}\}")
@@ -168,6 +168,8 @@ class ReleaseTables:
     artifact_checks: pl.DataFrame
     exploratory: pl.DataFrame
     record_profile: pl.DataFrame
+    departures: pl.DataFrame
+    departure_tests: pl.DataFrame
     community_groups: pl.DataFrame
 
     @classmethod
@@ -181,6 +183,8 @@ class ReleaseTables:
             artifact_checks=ctx.read("artifact_checks"),
             exploratory=ctx.read("exploratory"),
             record_profile=ctx.read("record_profile"),
+            departures=ctx.read("departures"),
+            departure_tests=ctx.read("departure_tests"),
             community_groups=ctx.read("community_groups"),
         )
 
@@ -658,6 +662,7 @@ def render_report(tables: ReleaseTables, config: Config) -> str:
         f"is typed by hand. Minimum group size k = {config.k_min}; seed {config.seed}.",
         quality.quality_section(tables.data_quality, tables.header_fields),
         record.record_section(tables.record_profile, tables.exploratory),
+        departures.departure_section(tables.departures, tables.departure_tests, config),
         finding_section(tables.hypotheses, tables.artifact_checks),
         hypotheses_section(tables.hypotheses),
         exploratory_section(tables.exploratory),
@@ -759,6 +764,11 @@ def document_values(tables: ReleaseTables, config: Config) -> dict[str, str]:
             "record_chart": record.record_chart(tables.record_profile),
             "record_summary": record.record_summary(tables.record_profile, tables.exploratory),
             "replication_statement": record.replication_statement(tables.exploratory),
+            "departure_statement": departures.departure_statement(
+                tables.departures, tables.departure_tests, config
+            ),
+            "departure_summary": departures.departure_summary(tables.departure_tests),
+            "departure_table": departures.periods_table(tables.departures),
             "headline_chart": headline_chart(tables),
             "artifact_table": artifact_section(tables.artifact_checks).split("\n\n", 2)[2],
             "quality_table": quality.funnel_table(tables.data_quality),

@@ -238,3 +238,183 @@ after-hours share of the custodians' weekday sent mail lies far lower in every c
 in any reference month, and falls step by step from late spring to late summer 2001. The placebo
 windows (January–April 2000 and 2001) both lie
 before that change, so a passing placebo cannot clear any H5–H25 result of it.
+
+---
+
+# Post-hoc question O1 (= H26): did custodians leave during the crisis?
+
+**Status: post hoc. Stated and committed on 2026-11-14, after every result of H1–H25 and the
+record profile were known, and before anything below was computed.** No departure, exit or
+silence of any custodian has been counted before this commit. What was already seen: the
+published tables (`release/*.csv`), in particular `record_profile.csv`, whose monthly
+`custodians_sending` counts mix entries, exits and coverage and say nothing about departures.
+
+The question comes from the brief: *one finding about how the organization changed during
+2001*. Every behavioural hypothesis failed, so this asks about **structure**: did people leave
+the organization's core during the crisis? The only people whose activity the record follows
+from both sides are the custodians (their own mailbox holds what they sent and received), so
+the question is asked about them.
+
+## Why this design and not another
+
+- **Communities fitted per period and tracked over time** (births, deaths, merges, splits) were
+  considered and rejected. The observed network is the union of about 150 mailboxes' ego
+  networks: a community "dies" when the mailboxes that saw it stop holding mail or when inbox
+  retention changes, and received mail kept grows up to about 3.5× in the crisis. Its shape
+  follows coverage, not the organization, and a placebo cannot separate the two.
+- **Core concentration** (share of internal mail through the top-k senders) is close to H1
+  (in-degree Gini, not supported) and H13/H21 (top-three shares, not supported).
+- **Custodian departure** is a property of one person over time, can be read from sent mail
+  alone at week resolution (insensitive to the hour convention), and the mailbox's own inbox can
+  show whether the record still covers that person. That last property lets the design separate
+  "stopped sending" from "mailbox not collected", which is the main artifact.
+
+## Definitions
+
+Weeks are Monday-start UTC weeks of `ts_hour`; events with a timestamp outside
+`plausible_start .. plausible_end` are left out. Units are custodians (`entities_p.is_custodian`).
+
+- **Sent week** of custodian X: a week with at least one event whose sender is X (any recipient,
+  any flag: a departure is the end of all sending).
+- **Mailbox-only week** of X: a week with a message addressed to X whose sender is not a
+  custodian and which has no other custodian among its recipients. Such a message can survive
+  only in X's own mailbox, so a mailbox-only week shows that X's mailbox was collected that week.
+- **Silence**: S consecutive weeks without a sent week, all inside the record horizon (up to
+  `plausible_end`). Its **start** is the week after the last sent week before it.
+- **Live silence**: a silence with mailbox-only mail in at least L of its S weeks: mail kept
+  arriving, nothing went out.
+- **At risk at the start of window W**: in the 16 weeks before W, X has at least A sent weeks
+  and at least A mailbox-only weeks (both sides of the mailbox are covered), and no silence
+  starts in those 16 weeks (X has not already gone quiet).
+- **Departure in W**: an at-risk custodian whose live silence starts in a week whose Monday lies
+  in W. A silence that is not live is a **record end** (the mailbox stops holding mail too: a
+  collection end or a closed account) and is reported, but is not a departure.
+- **Hazard** h(W) = departures / at risk.
+
+Primary parameters: S = 16 weeks, L = 4 weeks, A = 4 weeks.
+
+## Windows
+
+Those of H5–H25, fixed by public dates: crisis W1 (2001-08-14 to 2001-12-02) against reference
+W0 (same weeks of 2000); placebo P1 (2001-01-01 to 2001-04-30) against P0 (same weeks of 2000).
+**Rolling placebo**: every window of W1's length starting on a Monday from 2000-01-03 whose end
+lies before W1's start, kept if at least 20 custodians are at risk. These windows include the
+months of the record change (May–August 2001), so an exit wave caused by the change of mail
+system would show there. Descriptive: the hazard for each calendar month from 2000-01 to
+2001-12 (the public events of `config.PUBLIC_EVENTS` are marked next to it in the report).
+
+## Test
+
+- **Primary**: one-sided Fisher exact test that the departure share in W1 is greater than in W0.
+- **Placebo**: the same test for P1 against P0.
+- **Rolling**: h(W1) is compared with every rolling placebo window's hazard.
+- **Leave one custodian out**: each custodian removed in turn from everything; the primary test
+  and the rolling comparison are recomputed.
+- **Within the same people**: a paired test is not used, because being at risk in W1 requires
+  not having left in W0 (survivorship would bias a pairing towards W1). The composition control
+  is the cohort variant below.
+
+## Robustness variants (each recomputes W1, W0, P1, P0 and the rolling windows)
+
+| Variant | Change from the primary | Threat it addresses |
+|---------|-------------------------|---------------------|
+| silence 8 / silence 26 | S = 8 or 26 weeks | arbitrary silence length |
+| live 1 / live 8 | L = 1 or 8 weeks | inbox retention grows in the crisis, which makes "live" easier to show |
+| active 2 / active 8 | A = 2 or 8 weeks | arbitrary activity threshold |
+| custodian-visible | a sent week counts only mail from X to another custodian | X's own sent folder stopped being collected (that mail survives in the other custodian's inbox) |
+| same cohort | at risk in W1 (P1) only if also at risk at W0's (P0's) start | the mix of mailboxes changes between the years |
+| no successor | departures with a successor-like pseudonym are dropped, with them their custodians from the at-risk set | an address change not merged by identity resolution (likelier with a change of mail system) |
+| any silence | every silence counts, live or not | reported only: it mixes in collection ends |
+
+**Successor-like pseudonym** of a departure: an internal person P ≠ X who sent nothing in the 26
+weeks before X's silence start, sent in the S weeks after it, and whose recipients in those S
+weeks include at least half of X's distinct recipients from the 16 weeks before (and at least
+three of them).
+
+## Decision rule (fixed now)
+
+The candidate finding: *during the crisis, custodians stopped sending while their mailboxes kept
+receiving mail, at a higher rate than in the same weeks of 2000 and than in any comparable
+earlier window.*
+
+Necessary for any claim:
+
+1. at least k = 5 departures in W1 (otherwise nothing can be published about them);
+2. primary p < 0.05;
+3. h(W1) is above every rolling placebo window's hazard;
+4. the placebo P1 against P0 has p ≥ 0.05.
+
+**High** confidence if also: 5. primary p < 0.05 / 26 (a Bonferroni bound over H1–H26, because
+this question comes after twenty-five others); 6. every leave-one-out keeps 2 and 3; 7. every
+variant except *any silence* keeps p < 0.05 and h(W1) > h(W0).
+
+**Moderate** if 1–4 and 6 hold and every variant except *any silence* keeps h(W1) > h(W0), but 5
+or a variant's p fails. **Low** (a lead, not a finding) if 1–4 hold and anything else fails.
+If any of 1–4 fails, the result is: **no departure wave can be established**, with the reasons.
+
+## Known limits, stated before computing
+
+- Custodians are about 150 mostly senior people; a departure among them is not a layoff count.
+- A live silence is also produced by leave, a role without email, an assistant sending on X's
+  behalf, or an unmerged address change (the successor variant only partly covers it).
+- A message addressed to X can sit in another custodian's mailbox through an invisible Bcc; it
+  would then look like mailbox-only mail. Rare, not corrected.
+- Departures right after the Chapter 11 filing (the layoffs of December 2001) fall after W1 and
+  are not part of the test; the monthly hazard shows them descriptively. Their silence reaches
+  into 2002, when the record thins, so they are likelier to be record ends.
+- Power is limited: tens of custodians at risk, a handful of events per window.
+- Publication: counts of at-risk custodians, departures and record ends below k = 5 are
+  suppressed, and with them any hazard derived from them; a p-value is published only when
+  every count it is computed from reaches k, otherwise only its band (below 0.05/26, below 0.05,
+  0.05 or above).
+
+## Amendment before computing (2026-11-14, still nothing computed)
+
+Two publication details changed while designing the release table, before any number existed:
+
+- **No monthly hazard is published.** Monthly departure counts overlap the window counts, so a
+  published window total minus published months would reveal a month below k. Instead the
+  crisis departures are split at the third-quarter loss announcement (2001-10-16, the middle
+  event of `config.PUBLIC_EVENTS`): before it and from it on. Both parts are published only if
+  both reach k. Descriptive; not part of the rule.
+- **Variants publish no counts.** Their at-risk sets and departures are nested in the primary's
+  (a variant's count minus the primary's could describe fewer than k custodians), so each variant
+  publishes only whether h(W1) > h(W0), its p band, its placebo's p band and whether it clears
+  the rolling windows. The primary publishes its counts under the k rule stated above.
+
+## O1 (H26) result (written after it was computed)
+
+First computed by the pipeline at commit 9a6c4c0, which was committed before the first real-data
+run. The computation of the outcome was not changed after the result; later commits changed
+report wording, documents, the release suppression and added the power columns below (the run
+manifest names the commit of the committed release). The numbers live in `release/departures.csv`, `release/departure_tests.csv` and the
+report's H26 section; they are not repeated here, so they cannot go stale.
+
+**Outcome: not established.** No departure wave in the crisis window can be claimed. The first
+necessary condition already fails: fewer than k = 5 of the custodians at risk in the crisis
+window stopped sending while their mailbox kept receiving mail (so the count is suppressed).
+The other necessary conditions fail too: the crisis share is not above the reference share
+(one-sided p at or above 0.05) and not above every earlier window of the same length.
+Leave-one-out does not apply once the test itself fails. The placebo passes, but with 9
+custodians at risk before it, it could hardly fail. No published variant in the rule reaches p
+below 0.05 (one variant, `active 8`, has a window with fewer than k custodians at risk and
+publishes nothing). Record ends in the crisis and reference windows and both parts of the
+split at the third-quarter loss announcement are suppressed.
+
+**Power (added after the data-science review, post hoc).** At these numbers at risk the test
+could only see a large wave: even with no departure a year earlier, the crisis window needed the
+number of departures published as `detectable_departures` (`release/departure_tests.csv`) for p
+below 0.05. A null here rules out a large wave, not a modest rise.
+
+Read plainly: among the custodians whose record covers both what they sent and what they
+received, the headers show no departure wave in the crisis window: departures there are too
+few to publish, and their share is not higher than a year earlier. This does not say nobody left Enron; it says the collected mailboxes do not record a
+departure wave among their owners in those weeks. Departures after the bankruptcy filing
+(December 2001 onwards) fall outside the stated window, and their silences run into the months
+when collection ends, where they cannot be told from record ends.
+
+**Deviations from the statement, found in review (after the result).** The successor rule
+counts only X's recipients who are internal persons, where the statement says "X's distinct
+recipients". Leave-one-out removes each custodian from the units counted, not from the record
+(their mail still marks others' mailbox-only weeks and successor candidates). Neither can
+change the outcome: the primary test fails before either matters.

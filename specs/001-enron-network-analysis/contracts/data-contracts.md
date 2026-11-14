@@ -1,4 +1,4 @@
-# Contract: Stage Tables (v1.6)
+# Contract: Stage Tables (v1.7)
 
 These schemas are the interfaces between stages. They are implemented once in
 `src/enron_case/contracts/schemas.py` (`TABLES`, `conform`, `validate`, `CONTRACT_VERSION`), the
@@ -21,6 +21,7 @@ anything else stops the affected packages until fixtures are regenerated.
 | 1.3 | `exploratory_results` (restricted) and `exploratory` (release): hypotheses H5–H24 with volume-equalised columns; in the release, outcome and placebo and leave-one-out flags are nullable and suppressed with their comparison | The exploratory families (`docs/hypotheses-exploratory.md`) became pipeline output |
 | 1.4 | `retention_median`, `retention_ci_low`, `retention_ci_high`, `retention_passes` on both exploratory tables | The data-science review showed H16 could be produced by inbox retention |
 | 1.5 | `data_quality.precision_ci_low` / `precision_ci_high`, funnel detail rows (rejected reasons, dedupe split, message flags, messages without a timestamp, events in the network), per-rule manual-check rows; `exploratory.equalised_p_holm` | Data-science review findings F3, F7, F10 |
+| 1.7 | `departure_results` / `departure_test_results` (restricted) and `departures` / `departure_tests` (release): H26, custodian departures in the crisis window | The brief asks for one finding about how the organization changed; every behavioural hypothesis had failed, so a structural question was stated post hoc (O1 in `docs/hypotheses-exploratory.md`) |
 | 1.6 | `exploratory_results` / `exploratory` gain row H25 and family `post hoc`; `profile_results` (restricted) and `record_profile` (release): the custodians' mail by month and the after-hours share of their weekday sent mail; attacker `A3` in `risk_results` / `risk` | Final review against prior work: a replication test (H25), evidence for the change of the timestamp convention in 2001, and the realistic insider who knows every custodian (A3) |
 
 Two release changes came from reviews without a version bump, because they narrowed what is
@@ -252,6 +253,40 @@ over the custodians who are internal persons.
 | `after_hours_share` | float nullable | share of their weekday sent messages stamped outside 07:00–19:00 local (the H5 definition); null without weekday mail |
 | `custodians_receiving`, `received_messages` | int | custodians who received a message that month, and the messages |
 
+### `departure_results` — written by `finding` (WP-F). Sort: `order` (1.7)
+
+H26 (`finding/departures.py`; O1 in `docs/hypotheses-exploratory.md`), primary definition. One
+row per period: the four windows `crisis`, `reference`, `placebo after`, `placebo before`, then
+the crisis window cut at `config.CRISIS_SPLIT` (`crisis before the split`, `crisis from the
+split`; a week belongs to the part holding its Monday).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `order` | int | sort key |
+| `period` | enum | `schemas.DEPARTURE_PERIODS` |
+| `period_start`, `period_end` | date | the window |
+| `at_risk` | int | custodians sending and receiving mailbox-only mail in at least `departure_active_weeks` of the `departure_lookback_weeks` weeks before the window, and not already silent |
+| `departures` | int | of them, custodians whose silence of `departure_silence_weeks` weeks starts in the window while their mailbox receives mailbox-only mail in at least `departure_live_weeks` of its weeks |
+| `record_ends` | int nullable | silences starting in the window without that mail (the mailbox stops too); null on the two split rows |
+| `hazard` | float nullable | `departures / at_risk`; null without custodians at risk |
+
+### `departure_test_results` — written by `finding` (WP-F). Sort: `order` (1.7)
+
+One row per variant (`primary`, then the robustness variants of O1).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `order`, `variant`, `in_rule` | int, str, bool | `in_rule` is false for `any silence`, which is reported only |
+| `crisis_above_reference` | bool nullable | crisis share above the reference share |
+| `p`, `p_band` | float nullable, enum | one-sided Fisher exact p, crisis against reference; band `schemas.P_BANDS` (below `alpha / HYPOTHESES_STATED`, below `alpha`, at or above, not computable) |
+| `placebo_p`, `placebo_p_band` | float nullable, enum | the same, placebo after against placebo before |
+| `rolling_windows` | int | earlier windows of the crisis length with at least `departure_rolling_min_at_risk` custodians at risk (a count of windows, not persons) |
+| `above_rolling` | bool nullable | crisis share above every one of them |
+| `loo_stable` | bool nullable | primary only: p below `alpha` and above every rolling window with each custodian left out in turn |
+| `outcome` | enum nullable | primary only: `high`, `moderate`, `low`, `not established` (the decision rule of O1) |
+| `detectable_departures`, `placebo_detectable_departures` | int nullable | power at these sizes (post hoc, after the data-science review): the fewest crisis (placebo after) departures that reach p below `alpha` with none in the earlier window; null if none can |
+| `smallest_at_risk`, `smallest_cell`, `placebo_smallest_cell` | int | restricted only: the counts the release needs to decide what it may publish |
+
 ### `risk_results` — written by `risk` (WP-G). Sort: `release_variant, attacker`
 
 | Column | Type | Notes |
@@ -302,6 +337,7 @@ every value of the person-count metric `active_persons`. `kanon.check` aborts th
 | `risk` | `n_targets` |
 | `exploratory` | `custodians`, `placebo_custodians` |
 | `record_profile` | `custodians_sending`, `custodians_receiving` |
+| `departures` | `at_risk`, `departures`, `record_ends` |
 
 | File | Content |
 |------|---------|
@@ -312,10 +348,12 @@ every value of the person-count metric `active_persons`. `kanon.check` aborts th
 | `release/artifact_checks.csv` | `artifact_results`; `n_units` of `within_custodian` is suppressed when below k |
 | `release/record_profile.csv` | `profile_results` (1.6). A month whose sending side has fewer than k custodians is published without its sending columns (`custodians_sending`, `sent_messages`, `after_hours_share`); the same for the receiving side |
 | `release/exploratory.csv` | `exploratory_results` (H5–H25). Where `custodians` is below k, the crisis comparison is suppressed with everything derived from it: its statistics, the equalised and retention columns, `outcome` and `loo_stable`. Where `placebo_custodians` is below k, the placebo statistics and `placebo_passes` are suppressed. These columns are therefore nullable in the release only. `equalised_p_holm` (1.5) is the equalised p times the family size, capped at 1 (a Bonferroni bound) |
+| `release/departures.csv` | `departure_results` (1.7). `at_risk` below k takes every count of its row; `departures` is suppressed with `hazard` below k and where at risk minus departures is below k; `record_ends` is suppressed below k, where at risk minus record ends is below k, and where at risk minus departures minus record ends (the custodians who stayed) is below k (zero included). `kanon.check` refuses any published complement below k. The two split rows are published only if both reach k, so the crisis total minus one part cannot reveal the other. Only the primary definition is published |
+| `release/departure_tests.csv` | `departure_test_results` (1.7) without its three restricted columns. `p` and `placebo_p` are published only on the primary row and only when every cell of their two-by-two table reaches k; otherwise the band alone. Variants publish no counts and no p-values (their counts are nested in the primary's). The direction, the bands and the rolling comparison are published even when a cell is below k, as stated before computing: they are inequalities over at least k custodians at risk, not counts (unlike `exploratory`, where a comparison over fewer than k custodians is hidden whole). A variant with a window of fewer than k custodians at risk publishes none of its comparisons; the power columns are published for the primary only |
 | `release/risk.csv` | `risk_results` |
 | `release/degree_distribution.csv` | period (half-year, `2000H1`), degree bucket (`1`, `2-4`, `5-9`, `10+` from `Config.degree_bucket_floors`; degree = number of distinct contacts in either direction), persons (≥ k or suppressed). When a period hides only one cell with a true value above zero, or only one cell at all, its smallest published cell is suppressed too: a hidden true zero does not protect a small count |
 | `release/community_graph.csv` | week, src_group, dst_group, weight, n_messages; plus `community_groups.csv`: group, n_persons. Groups are baseline communities with ≥ k persons, labelled `G01…` in an order unrelated to pseudonyms; smaller communities, and internal persons with no tie in the baseline period (people first seen in 2001–2002; the large majority of the bucket), are merged into `other`, which is published only if it reaches k. `other` is a leftover bucket, not a community. A weekly tie is dropped when it has fewer than k distinct senders in `src_group` (the number of distinct recipients is not limited). `weight` and `n_messages` sum the person-pair edges between the two groups, so `n_messages` counts per-pair messages: one message from a sender to three members of the other group counts three |
-| `release/report.md` | the report: quality, the record profile, finding, hypotheses H1–H25, risk, limits (stage `report`) |
+| `release/report.md` | the report: quality, the record profile, H26 custodian departures, finding, hypotheses H1–H25, risk, limits (stage `report`) |
 | `release/run_manifest.json` | code version, sample flag, seed, every `Config` parameter, key fingerprint, `corpus_sha256` (the archive checksum verified by `fetch`; the synthetic archive's on sample runs), fingerprint per table and counts file, stages run with the code version that ran each; no wall-clock time and no durations, so two identical runs write identical bytes. Durations go to the git-ignored run log `data/logs/stage_timings.json` (`data/sample/logs/` on sample runs; `{"stages": [{"stage", "seconds"}]}`; a partial run replaces the stages it ran and keeps the others, which come first) |
 | `ui/public/data/release.json` | written by stage `ui-data` from the release tables above and the manifest's run block, and nothing else; same content, one file, for the explorer UI (format in `uiexport/export.py`) |
 

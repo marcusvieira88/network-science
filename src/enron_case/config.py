@@ -128,6 +128,11 @@ REFERENCE_WINDOW: tuple[date, date] = (date(2000, 8, 14), date(2000, 12, 2))
 # The pre-crisis placebo: the same comparison, a year apart, before any public crisis event.
 PLACEBO_AFTER_WINDOW: tuple[date, date] = (date(2001, 1, 1), date(2001, 4, 30))
 PLACEBO_BEFORE_WINDOW: tuple[date, date] = (date(2000, 1, 1), date(2000, 4, 30))
+# H26 (O1): crisis departures are split, descriptively, at the middle public event, the
+# third-quarter loss announcement (fixed before computing; docs/hypotheses-exploratory.md).
+CRISIS_SPLIT: date = PUBLIC_EVENTS[1][0]
+# H26 is the twenty-sixth hypothesis stated; its high-confidence bound is alpha over this many.
+HYPOTHESES_STATED = 26
 
 
 @dataclass(frozen=True)
@@ -175,6 +180,21 @@ class Config:
     # Subsamples per custodian when equalising mail volume between two windows (a check added
     # after E12 was computed: more mail kept means more chances to observe a reply).
     exploratory_equalise_reps: int = 40
+    # H26 (O1, docs/hypotheses-exploratory.md): custodian departures. Weeks of a silence, live
+    # weeks it needs (mail arriving), active weeks in the look-back (sent and received), the
+    # look-back itself; the robustness variants' alternative values; the fewest custodians at
+    # risk for a rolling placebo window to count; the successor-like pseudonym rule.
+    departure_silence_weeks: int = 16
+    departure_live_weeks: int = 4
+    departure_active_weeks: int = 4
+    departure_lookback_weeks: int = 16
+    departure_silence_variants: tuple[int, ...] = field(default=(8, 26))
+    departure_live_variants: tuple[int, ...] = field(default=(1, 8))
+    departure_active_variants: tuple[int, ...] = field(default=(2, 8))
+    departure_rolling_min_at_risk: int = 20
+    successor_quiet_weeks: int = 26
+    successor_overlap: float = 0.5
+    successor_min_shared: int = 3
     # Release mitigations. Lowest degree (distinct contacts) of each published degree bucket;
     # scale of the Laplace noise in release R2 (a sketch, not a calibrated privacy budget; R12).
     degree_bucket_floors: tuple[int, ...] = field(default=(1, 2, 5, 10))

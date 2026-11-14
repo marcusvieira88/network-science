@@ -32,6 +32,14 @@ of them the download; the pipeline itself takes about 2.5.
   reference months: the `Date` convention changed (most likely the mail system) between the
   windows every comparison sets against each other. Confidence: high that the record changed;
   its cause is not established.
+- **Structure:** no structural change is established either. H26 (post hoc, stated before
+  computing) asks whether custodians left during the crisis: a custodian who stops sending
+  while their own mailbox keeps receiving mail, so a mailbox that was no longer collected does
+  not count. Fewer than five of the 66 custodians at risk did so in the crisis window, not a
+  higher share than in the same weeks a year earlier nor above every earlier window, and no
+  published robustness variant reaches significance. Limits: with this few custodians only a
+  large wave was detectable, and departures after the bankruptcy filing fall where collection
+  ends.
 - **Behaviour:** no hypothesis among H1–H25 is held true. H2/H3 passed their tests but are
   explained by artifacts (stale baseline groups; a changing mailbox mix); H16 fails its retention
   check; H25, a post-hoc replication of the published "denser network in the crisis", does not
