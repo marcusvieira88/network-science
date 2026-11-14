@@ -122,7 +122,7 @@ def write_stage_timings(path: Path, seconds: dict[str, float], merge: bool = Fal
         stages = [s for s in _previous_timings(path) if s["stage"] not in seconds]
     stages += [{"stage": name, "seconds": round(value, 2)} for name, value in seconds.items()]
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"stages": stages}, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps({"stages": stages}, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def _previous_timings(path: Path) -> list[JsonObject]:
