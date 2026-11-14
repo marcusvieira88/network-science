@@ -17,7 +17,7 @@ import { SummaryView } from "@/components/SummaryView";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { driftCheckPasses } from "@/lib/clusters";
 import { type LoadResult, type ReleaseData, loadRelease } from "@/lib/data";
-import { STATED, allHypotheses, countByKind } from "@/lib/hypotheses";
+import { STATED, countByKind, releaseHypotheses } from "@/lib/hypotheses";
 import { minimumGroupSize } from "@/lib/privacy";
 import { analysisWeeks, baselinePeriod, headline } from "@/lib/series";
 import { LANDING_VIEW, type ViewId } from "@/lib/views";
@@ -81,7 +81,7 @@ export function View({ view, data, onSelect }: ViewProps) {
       );
     }
     case "hypotheses": {
-      const entries = allHypotheses(tables.hypotheses, tables.exploratory, tables.artifact_checks);
+      const entries = releaseHypotheses(data);
       const counts = countByKind(entries);
       return (
         <div className="space-y-6">
@@ -101,8 +101,9 @@ export function View({ view, data, onSelect }: ViewProps) {
           <AnalystDetails>
             <div className="space-y-2 text-sm text-muted-foreground">
               <span className="block">
-                One list, ordered by number. {counts.preregistered} were stated {STATED.preregistered} and{" "}
-                {counts.exploratory} {STATED.exploratory}; Holm&apos;s correction runs within each of those two sets
+                One list, ordered by number. {counts.preregistered} were stated {STATED.preregistered},{" "}
+                {counts.exploratory} {STATED.exploratory} and {counts.departure} {STATED.departure}; Holm&apos;s
+                correction runs within each of the first two sets, and the last is tested on its own
                 <Explain term="p (Holm)" />.
                 Each hypothesis stated {STATED.exploratory} compares every custodian with themselves, crisis window
                 against the same weeks a year earlier.

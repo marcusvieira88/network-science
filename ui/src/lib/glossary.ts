@@ -50,6 +50,16 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
     meaning: "A person whose mailbox is in the archive. Mail of everyone else is seen only when it reached a custodian.",
   },
   {
+    term: "Departure and record end",
+    meaning:
+      "A custodian departs when they stop sending for months while their own mailbox keeps receiving mail: they went quiet, but the record still covers them. If the incoming mail stops too, it is a record end: the archive stopped collecting that mailbox, which says nothing about whether the person left.",
+  },
+  {
+    term: "Post hoc",
+    meaning:
+      "Stated after other results were known, though still before its own result was computed. Such a question may have been prompted by what was already seen, so it carries less weight than one fixed beforehand.",
+  },
+  {
     term: "Group",
     meaning:
       "A cluster of people who mostly email each other, found in the baseline period. Only groups of at least a minimum size are shown, never a single person.",

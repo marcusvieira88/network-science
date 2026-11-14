@@ -252,7 +252,7 @@ flowchart LR
         V2["Metrics<br/>metric / scope / variant selectors<br/>(only the default variant is published),<br/>change point, public events, baseline band"]
         V3[Network<br/>plain-language week summary; Sigma.js WebGL<br/>graph of groups, ForceAtlas2, zoom, fullscreen,<br/>search, hover, week slider; Individuals and<br/>Overlap modes; SVG fallback]
         V4[Clusters<br/>chord diagram of group-to-group weight,<br/>per-group table]
-        V5[Hypotheses<br/>plain-language verdicts; one list H1–H25,<br/>artifact and retention checks]
+        V5[Hypotheses<br/>plain-language verdicts; one list H1–H26,<br/>artifact and retention checks,<br/>H26 counts, tests and power]
         V6[Data quality<br/>cleaning funnel, header rulings,<br/>manual merge check]
         V7[Privacy and risk<br/>R0 / R1 / R2 by attacker A1–A3]
         V8[Limits]

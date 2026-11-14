@@ -135,13 +135,16 @@ describe("HypothesesTable", () => {
     expect(h5.getAllByText("—").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("is the Hypotheses view's only table, introduced with counts read from the data", () => {
+  it("is the Hypotheses view's only table besides H26's own evidence, introduced with counts read from the data", () => {
     const data = sampleData();
     const rows = handBuilt();
     const tables = { ...data.tables, hypotheses: rows.hypotheses, exploratory: rows.exploratory, artifact_checks: rows.checks };
     const { container } = render(<View view="hypotheses" data={{ ...data, tables }} onSelect={() => undefined} />);
-    expect(screen.getAllByRole("table")).toHaveLength(1);
-    expect(container).toHaveTextContent("4 were stated before any data and 20 before being computed");
-    expect(mainRows()).toHaveLength(24);
+    const outsideDeparture = screen.getAllByRole("table").filter((table) => !table.closest("[data-testid='departure-details']"));
+    expect(outsideDeparture).toHaveLength(1);
+    expect(container).toHaveTextContent(
+      "4 were stated before any data, 20 before being computed and 1 post hoc, after every other result and before being computed",
+    );
+    expect(mainRows()).toHaveLength(25);
   });
 });

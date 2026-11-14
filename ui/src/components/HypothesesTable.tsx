@@ -4,12 +4,14 @@ import { ConfidenceBadge } from "@/components/FindingCard";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ArtifactCheckRow, ExploratoryRow, HypothesisRow } from "@/lib/data";
+import { type Departure, isSignificant, pText, periodRow, ruledVariants, shareText } from "@/lib/departures";
 import { formatFloat, formatInterval, formatNumber, formatP, metricLabel } from "@/lib/format";
 import { type HypothesisEntry, STATED, equalisedEstimate, formatEstimate, retentionCheck } from "@/lib/hypotheses";
 import { cn } from "@/lib/utils";
 
 const SUPPORT_VARIANT = { yes: "default", no: "outline", inconclusive: "secondary" } as const;
 const OUTCOME_VARIANT = { confident: "default", inconclusive: "secondary", "not supported": "outline" } as const;
+const DEPARTURE_OUTCOME_VARIANT = { high: "default", moderate: "default", low: "secondary", "not established": "outline" } as const;
 const DIRECTION_ARROW = { up: "↑", down: "↓" } as const;
 const COLUMN_COUNT = 8;
 
@@ -114,6 +116,46 @@ function ExploratoryCells({ row, heldTrue }: { row: ExploratoryRow; heldTrue: bo
   );
 }
 
+/** H26: departures of the custodians at risk, crisis against the same weeks a year earlier. */
+function DepartureCells({ departure }: { departure: Departure }) {
+  const { primary, settings } = departure;
+  const ruled = ruledVariants(departure);
+  const significant = ruled.filter((row) => isSignificant(row.p_band)).length;
+  return (
+    <>
+      <TableCell className="max-w-xs">
+        <div>custodians who stopped sending while their mailbox kept receiving mail (departures)</div>
+        <Muted>post hoc; one-sided Fisher exact test, no Holm correction</Muted>
+      </TableCell>
+      <TableCell>
+        <span aria-hidden>{DIRECTION_ARROW.up} </span>
+        <span>up</span>
+      </TableCell>
+      <TableCell className="text-sm">
+        <div>crisis {shareText(periodRow(departure, "crisis"), settings.k)}</div>
+        <Muted>a year earlier {shareText(periodRow(departure, "reference"), settings.k)}</Muted>
+      </TableCell>
+      <TableCell className="text-right text-sm">{pText(primary.p, primary.p_band, settings)}</TableCell>
+      <TableCell className="text-sm">
+        <div>placebo {pText(primary.placebo_p, primary.placebo_p_band, settings)}</div>
+        <div>above every earlier window {flag(primary.above_rolling, "yes", "no")}</div>
+        <div>
+          variants significant {significant}/{ruled.length}
+        </div>
+      </TableCell>
+      <TableCell>
+        {primary.outcome === null ? (
+          <span className="text-muted-foreground">{SUPPRESSED}</span>
+        ) : (
+          <Badge variant={DEPARTURE_OUTCOME_VARIANT[primary.outcome]} className="whitespace-nowrap">
+            {primary.outcome}
+          </Badge>
+        )}
+      </TableCell>
+    </>
+  );
+}
+
 /** The artifact check of a hypothesis stated before any data, as a detail line under its row. */
 function CheckDetail({ check, heldTrue }: { check: ArtifactCheckRow; heldTrue: boolean }) {
   return (
@@ -136,11 +178,9 @@ function EntryRow({ entry }: { entry: HypothesisEntry }) {
         <span>{entry.id}</span>
         {heldTrue && <Badge className="ml-2 whitespace-nowrap px-1.5 py-0 text-[10px]">{HELD_TRUE}</Badge>}
       </TableCell>
-      {entry.kind === "preregistered" ? (
-        <PreregisteredCells row={entry.row} />
-      ) : (
-        <ExploratoryCells row={entry.row} heldTrue={heldTrue} />
-      )}
+      {entry.kind === "preregistered" && <PreregisteredCells row={entry.row} />}
+      {entry.kind === "exploratory" && <ExploratoryCells row={entry.row} heldTrue={heldTrue} />}
+      {entry.kind === "departure" && <DepartureCells departure={entry.departure} />}
       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">{STATED[entry.kind]}</TableCell>
     </TableRow>
   );

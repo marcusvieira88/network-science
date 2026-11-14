@@ -3,6 +3,7 @@
  * (src/enron_case/uiexport/export.py documents the shape). Column guards below are the single
  * source of both the TypeScript row types and the runtime validation.
  */
+import { DEPARTURE_OUTCOMES, DEPARTURE_PARAMETERS, DEPARTURE_PERIODS, DEPARTURE_PRIMARY, P_BANDS } from "@/lib/departureVocab";
 import { assertReleasePrivacy } from "@/lib/privacy";
 
 const FORMAT_VERSION = 2;
@@ -161,6 +162,33 @@ export const TABLE_COLUMNS = {
     n_messages: nullable(isInt),
   },
   community_groups: { group: isString, n_persons: isInt },
+  // H26 (contract 1.7): counts below k, or whose complement is below k, are null.
+  departures: {
+    order: isInt,
+    period: oneOf(DEPARTURE_PERIODS),
+    period_start: isIsoDate,
+    period_end: isIsoDate,
+    at_risk: nullable(isInt),
+    departures: nullable(isInt),
+    record_ends: nullable(isInt),
+    hazard: isFloat,
+  },
+  departure_tests: {
+    order: isInt,
+    variant: isString,
+    in_rule: isBoolean,
+    crisis_above_reference: nullable(isBoolean),
+    p: isFloat,
+    p_band: nullable(oneOf(P_BANDS)),
+    placebo_p: isFloat,
+    placebo_p_band: nullable(oneOf(P_BANDS)),
+    rolling_windows: isInt,
+    above_rolling: nullable(isBoolean),
+    loo_stable: nullable(isBoolean),
+    outcome: nullable(oneOf(DEPARTURE_OUTCOMES)),
+    detectable_departures: nullable(isInt),
+    placebo_detectable_departures: nullable(isInt),
+  },
 } as const;
 
 export type TableName = keyof typeof TABLE_COLUMNS;
@@ -178,6 +206,10 @@ export type RiskRow = Row<"risk">;
 export type DegreeRow = Row<"degree_distribution">;
 export type CommunityEdgeRow = Row<"community_graph">;
 export type CommunityGroupRow = Row<"community_groups">;
+export type DeparturePeriodRow = Row<"departures">;
+export type DepartureTestRow = Row<"departure_tests">;
+export type DeparturePeriod = DeparturePeriodRow["period"];
+export type PBand = (typeof P_BANDS)[number];
 
 export interface PublicEvent {
   date: string;
@@ -291,6 +323,19 @@ function checkGraphGroups(tables: ReleaseData["tables"]): void {
   if (unknown.length) throw new DataError(`community_graph has ${unknown.length} ties to unpublished groups`);
 }
 
+/** H26 is read from one primary row with an outcome, one row per period and its run parameters. */
+function checkDepartures(tables: ReleaseData["tables"], parameters: Record<string, unknown>): void {
+  const absent = DEPARTURE_PARAMETERS.filter((name) => !isNumber(parameters[name]));
+  if (absent.length) throw new DataError(`run parameters lack ${absent.join(", ")}`);
+  const primaries = tables.departure_tests.filter((row) => row.variant === DEPARTURE_PRIMARY);
+  if (primaries.length !== 1 || primaries[0]?.outcome === null) {
+    throw new DataError("departure_tests needs exactly one primary row with an outcome");
+  }
+  const periods = tables.departures.map((row) => row.period);
+  const missing = DEPARTURE_PERIODS.filter((period) => periods.filter((name) => name === period).length !== 1);
+  if (missing.length) throw new DataError(`departures needs one row for each of: ${missing.join(", ")}`);
+}
+
 /** Validate an untrusted JSON value as a release document; throws DataError. */
 export function parseRelease(value: unknown): ReleaseData {
   const doc = requireRecord(value, "release data");
@@ -306,10 +351,12 @@ export function parseRelease(value: unknown): ReleaseData {
     names.map((name) => [name, parseRows(name, rawTables[name])]),
   ) as ReleaseData["tables"];
   checkGraphGroups(tables);
+  const run = parseRun(doc.run);
+  checkDepartures(tables, run.parameters);
   const data: ReleaseData = {
     format_version: FORMAT_VERSION,
     contract_version: doc.contract_version,
-    run: parseRun(doc.run),
+    run,
     events: parseEvents(doc.events),
     windows: parseWindows(doc.windows),
     tables,

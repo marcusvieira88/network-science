@@ -21,7 +21,7 @@ describe("SummaryView", () => {
       expect(within(article).getByRole("heading", { level: 2 })).toHaveTextContent(card.title);
       for (const point of card.points) expect(within(article).getByText(point)).toBeInTheDocument();
     }
-    expect(screen.getByRole("heading", { level: 2, name: "1 of 25 hypotheses held up: H1." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "2 of 26 hypotheses held up: H1, H26." })).toBeInTheDocument();
   });
 
   it("leads from each card to its evidence view", async () => {
