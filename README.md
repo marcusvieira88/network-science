@@ -37,8 +37,8 @@ of them the download; the pipeline itself takes about 2.5.
   establish it within custodians.
 - **Risk:** person-level pseudonymized edges are re-identifiable: an outsider (A1) matches about
   a quarter of people, an insider knowing a few custodians (A2) more than half, one knowing all of
-  them (A3; the corpus names them) about as many. So only aggregates are published, every group
-  at least five people, leaving no person-level record to match.
+  them (A3; the corpus names them) about as many. So only aggregates of at least five people
+  are published.
 
 ## Architecture and data flow
 
@@ -86,7 +86,7 @@ flowchart TB
     H["ingest: read each header<br/>stop at the first blank line<br/>Subject, body, attachments never read"]
     C["clean: normalize, dedupe"]
     I["identity: resolve aliases, rules N1–N5"]
-    P["pseudo: keyed HMAC<br/>p_ person, o_ org, e_ event, m_ message"]
+    P["pseudo: keyed HMAC pseudonyms"]
     N["network: weekly snapshots,<br/>Louvain groups"]
     F["finding: H1–H25,<br/>record profile"]
     R["risk: attackers A1–A3"]
@@ -110,13 +110,39 @@ flowchart TB
     J -->|"fetched by the browser"| V
 ```
 
+## Pseudonymization
+
+Stage `pseudo` crosses from ingest to restricted: addresses in, pseudonyms out, no mapping kept.
+Identity resolution runs first, so an entity of any type (person, role, list, system, unknown)
+gets one pseudonym however many addresses it used.
+
+| ID | HMAC input | Subkey label |
+|----|------------|--------------|
+| `p_` | the entity's canonical address | `person-v1` |
+| `o_` | its registered domain | `org-v1` |
+| `m_` | message key | `event-v1` |
+| `e_` | message key and recipient address | `event-v1` |
+
+Each ID is HMAC-SHA256 under a subkey (the label's HMAC under the master key), base32, cut to 16
+characters after the prefix. Same key, same IDs, so runs compare; another key shares none
+(quickstart V4). Unlike a plain hash, a guessed address cannot be confirmed without the key.
+Collision odds for 84,759 entities at 80 bits: n²/2⁸¹ ≈ 3 × 10⁻¹⁵; the stage aborts on one.
+
+The key lives in `~/.config/enron-case/key`, outside the repository, mode 600, made by `make` if
+absent. Real runs refuse the published sample key; the manifest keeps an 8-character
+fingerprint. With customer data it stays in their KMS (`GenerateMac`, never exported); rotation
+changes every pseudonym.
+
+Limits: key holders can test candidate addresses; a busy `o_` may betray a famous domain;
+structure still re-identifies (R0: 25–59 % in `release/risk.csv`), so the release holds only
+aggregates over at least five people, never pseudonyms.
+
 ## Decision record
 
 | Trade-off | Gained | Paid |
 |-----------|--------|------|
 | Strict content line, including `Subject` | no content fingerprint, not even hashed | no threads or reply times; dedupe without content |
 | Rule-based identity resolution | deterministic, explainable, precise | missed aliases |
-| Keyed HMAC pseudonyms | stable, not confirmable by hashing guesses | key holders can test candidates; structure still re-identifies |
 | Aggregates-only release | nothing person-level published | no person-level analysis for readers |
 
 **With real customer data:** metadata-only scopes where the provider has one (Gmail, Outlook), so
