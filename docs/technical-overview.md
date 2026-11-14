@@ -356,9 +356,10 @@ flowchart LR
 - **Interval.** Moving-block bootstrap, blocks of 4 weeks, 1000 replicates; baseline and after
   period resampled separately with the change week fixed; 95 % percentile interval.
 - **Null model (degree-preserving).** Within each week, recipients are permuted among events of
-  equal weight and equal `in_network` flag. Each sender keeps its out-weight and each recipient
-  its in-weight (inside and outside the network); only who is tied to whom changes. The series is
-  recomputed on 20 rewired copies, the effect taken at the same change week, and
+  equal weight, equal `in_network` flag and the same kind of sender (type, internal flag). Each
+  sender keeps its out-weight and each recipient its in-weight from each kind of sender; only
+  who is tied to whom changes. The series is recomputed on 20 rewired copies, each replicate's
+  effect taken at its own CUSUM-searched change week (as the observed effect is), and
   z = (effect − mean null) / sd null. Passes when d · z > 1.645 (one-sided): the change is not a
   volume or degree change.
 - **Leave-one-mailbox-out.** Each custodian in turn: drop every event touching them, recompute,

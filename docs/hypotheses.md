@@ -70,10 +70,12 @@ undefined estimate and the 20 null replicates were added in the same commit. His
 
 ## Robustness checks
 
-- **Null model (c)**: within each week, recipients are shuffled among events of equal weight
-  and equal `in_network` flag, which preserves every sender's out-weight and every recipient's
-  in-weight in that week. The metric series is recomputed on each of 20 (`config.null_replicates`) rewired networks and the
-  effect taken at the same change week. `null_z = (effect − mean null effect) / sd null effect`.
+- **Null model (c)**: within each week, recipients are shuffled among events of equal weight,
+  equal `in_network` flag and the same kind of sender (type and internal flag), which preserves
+  every sender's out-weight and every recipient's in-weight from each kind of sender in that
+  week. The metric series is recomputed on each of 20 (`config.null_replicates`) rewired
+  networks and each replicate's effect taken at its own searched change week (amended; see
+  below). `null_z = (effect − mean null effect) / sd null effect`.
   Passes when `d · null_z > z_{1−α}` (one-sided, 1.645). A change that the volume-preserving
   null reproduces is a volume or degree change, not a structural one.
 - **Leave-one-mailbox-out (d)**: the series is recomputed without each custodian in turn and the
