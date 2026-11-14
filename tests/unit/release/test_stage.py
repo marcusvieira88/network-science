@@ -88,5 +88,11 @@ def test_nothing_written_contains_an_identifier(ran: StageContext) -> None:
 def test_missing_counts_fail_loudly(synth: SynthOutput, tmp_path: Path) -> None:
     ctx = ctx_with_fixtures("release", synth, tmp_path, tables=INPUTS)
     (ctx.paths.dir(Zone.COUNTS) / "clean_counts.json").unlink()
-    with pytest.raises(ContractViolation):
+    with pytest.raises(ContractViolation, match="'clean_counts' have not been produced"):
         stage.run(ctx)
+
+
+def test_manual_review_counts_are_optional(ran: StageContext) -> None:
+    # The fixtures hold no manual review, and the release stage ran without it.
+    assert ran.read_optional_counts("identity_manual") is None
+    assert "data_quality" in ran.outputs

@@ -88,9 +88,17 @@ class StageContext:
         self.count_outputs[name] = fingerprint_json(counts)
 
     def read_counts(self, name: str) -> dict[str, Any]:
+        """A counts side output; a missing one is an error naming it, never an empty mapping."""
+        counts = self.read_optional_counts(name)
+        if counts is None:
+            raise ContractViolation(f"counts '{name}' have not been produced; run its stage first")
+        return counts
+
+    def read_optional_counts(self, name: str) -> dict[str, Any] | None:
+        """A counts side output that only some runs produce (the manual merge review), or None."""
         path = zones.path_for(self.paths, self.package, Zone.COUNTS, f"{name}.json", "r")
         if not path.exists():
-            return {}
+            return None
         data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         return data
 

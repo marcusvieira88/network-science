@@ -24,7 +24,7 @@ def published_tables(ctx: StageContext) -> dict[str, pl.DataFrame]:
             ingest,
             ctx.read_counts("clean_counts"),
             ctx.read_counts("identity_counts"),
-            ctx.read_counts("identity_manual"),
+            ctx.read_optional_counts("identity_manual"),
         ),
         "header_fields": tables.header_fields(ingest),
         "hypotheses": ctx.read("hypothesis_results"),
