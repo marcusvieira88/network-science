@@ -1,0 +1,10 @@
+# Every text file checks out with LF endings on every OS, so a Windows checkout (core.autocrlf)
+# keeps the committed CSV/JSON/Markdown byte-identical to what the pipeline writes, and the
+# tests that compare them pass there too.
+* text=auto eol=lf
+# cmd.exe needs CRLF in batch files.
+*.cmd text eol=crlf
+*.gz binary
+*.parquet binary
+*.png binary
+*.woff2 binary

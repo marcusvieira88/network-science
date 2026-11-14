@@ -70,7 +70,9 @@ def generate(root: Path, spec: SynthSpec | None = None) -> SynthOutput:
     builder = FixtureBuilder(spec, org, messages, files)
     out.truth_path.parent.mkdir(parents=True, exist_ok=True)
     out.truth_path.write_text(
-        json.dumps(builder.truth(), indent=1, sort_keys=True), encoding="utf-8"
+        json.dumps(builder.truth(), indent=1, sort_keys=True),
+        encoding="utf-8",
+        newline="\n",
     )
 
     (out.fixtures / "counts").mkdir(parents=True, exist_ok=True)
@@ -83,6 +85,6 @@ def generate(root: Path, spec: SynthSpec | None = None) -> SynthOutput:
             df.write_parquet(target)
     for name, counts in builder.counts().items():
         (out.fixtures / "counts" / f"{name}.json").write_text(
-            json.dumps(counts, indent=2, sort_keys=True), encoding="utf-8"
+            json.dumps(counts, indent=2, sort_keys=True), encoding="utf-8", newline="\n"
         )
     return out
