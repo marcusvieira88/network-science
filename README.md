@@ -8,16 +8,19 @@ the published results.
 
 The corpus is public; the pipeline is built as if it were not.
 
-**Results in brief.**
+**Results in brief.** One list of 24 hypotheses (H1–H24), all defined by the project owner, in
+three batches, each committed before it was computed.
 
-- **Pre-registered (H1–H4):** two of four hypotheses passed every planned test, then failed
-  checks against known artifacts of the data (stale baseline groups; a change in which mailboxes
-  hold mail). **No pre-registered finding is claimed.**
-- **Exploratory (E1–E20):** two further families, each committed before it was computed and
-  corrected together. One result reached the confident standard: **communication became more
-  mutual in the crisis** (E12). Of the people a custodian wrote to, a larger share also wrote
-  back than in the same weeks a year earlier, and the effect holds with mail volume equalised. It
-  is presented as an exploratory lead, not a pre-registered finding.
+- **H1–H4** (committed before any real data was analysed): two of four passed every planned
+  test, then failed checks against known artifacts of the data (stale baseline groups; a change
+  in which mailboxes hold mail). **No finding from H1–H4 is claimed.**
+- **H5–H24** (H5–H14 committed after the H1–H4 results, H15–H24 after the H5–H14 results):
+  within-custodian paired comparisons, with Holm's correction across those twenty. One result,
+  and only one, is held to be true, at the confident standard:
+  **communication became more mutual in the crisis** (H16). Of the people a custodian wrote to, a
+  larger share also wrote back than in the same weeks a year earlier, and the effect holds with
+  mail volume equalised. It was stated after the H1–H4 results were known, which is worth
+  weighing; independent data would confirm it.
 - **Found along the way:** the reference-year timestamps in the corpus are shifted by several
   hours, and every Bcc line repeats the Cc line.
 
@@ -31,6 +34,10 @@ by the run.
 - [Quick start](#quick-start)
 - [Content never enters the system](#content-never-enters-the-system)
 - [From the download to the UI](#from-the-download-to-the-ui)
+  - [The whole flow](#the-whole-flow)
+  - [Stages](#stages)
+  - [How a person becomes a pseudonym](#how-a-person-becomes-a-pseudonym)
+  - [How the UI gets its data](#how-the-ui-gets-its-data): one JSON file, `ui/public/data/release.json`
 - [Network science methods](#network-science-methods)
 - [Libraries and why each is here](#libraries-and-why-each-is-here)
 - [How correctness is kept](#how-correctness-is-kept)
@@ -144,15 +151,18 @@ flowchart TB
     subgraph Z2["Zone 2 · restricted — pseudonyms only (git-ignored)"]
         PS["pseudo<br/>keyed HMAC per person"]
         N["network<br/>weekly snapshots,<br/>communities, 8 metrics"]
-        F["finding<br/>H1–H4 + artifact checks,<br/>exploratory E1–E20"]
+        F["finding<br/>H1–H24 + artifact checks"]
         RK["risk<br/>attack our own output"]
     end
     subgraph Z3["Zone 3 · release — aggregates, every group ≥ 5 (committed)"]
         RL["release<br/>k-threshold, tables"]
         RP["report<br/>report.md, decision record,<br/>slides, AI note"]
-        UX["ui-data<br/>one JSON file"]
+        UX["ui-data<br/>uiexport/export.py<br/>reads release/ only"]
     end
-    UI["Explorer UI<br/>React · shadcn/ui · dark"]
+    J[("ui/public/data/release.json<br/>one JSON file, aggregates only")]
+    subgraph FE["Frontend · static site in the browser"]
+        UI["Explorer UI<br/>React · shadcn/ui · dark<br/>validates the file on load<br/>(ui/src/lib/data.ts)"]
+    end
     KEY{{"key, outside the repo"}}
 
     DL --> P --> C --> I --> PS
@@ -164,8 +174,14 @@ flowchart TB
     F --> RL
     RK --> RL
     RL --> RP
-    RL --> UX --> UI
+    RL --> UX
+    UX -->|writes| J
+    J -->|"fetch: the UI's only request"| UI
 ```
+
+The frontend never touches the pipeline, the restricted zone or the key. Its single input is
+`ui/public/data/release.json`, which the `ui-data` stage writes from the release tables alone;
+there is no API, no database and no other request.
 
 Each arrow is a **versioned table contract**
 ([data-contracts.md](specs/001-enron-network-analysis/contracts/data-contracts.md)). Every write
@@ -216,7 +232,7 @@ sequenceDiagram
     participant M as make ui
     participant X as ui-data stage
     participant R as release/*.csv
-    participant J as release.json
+    participant J as ui/public/data/release.json
     participant B as Browser (static site)
     U->>M: make ui
     M->>X: export
@@ -225,19 +241,26 @@ sequenceDiagram
     X->>J: write one JSON file
     M->>B: vite build + preview
     B->>J: fetch (the only request it may make)
+    B->>B: validate format, tables, columns, privacy (ui/src/lib/data.ts)
     B-->>U: finding, metrics, 3D group network, clusters, hypotheses, risk, limits
 ```
 
-The UI is a static site. Its only input is a file built from the published release, so it cannot
-show anything the report could not. Its views:
+The UI is a static site with no API and no database. Its only input is
+`ui/public/data/release.json`, written by the `ui-data` stage
+([src/enron_case/uiexport/export.py](src/enron_case/uiexport/export.py)) from `release/`
+alone (the aggregate tables and the run manifest's parameters). The export refuses any identifier-shaped value or group below five; the browser checks the
+file again on load ([ui/src/lib/data.ts](ui/src/lib/data.ts)): format version, every table and
+column, and the privacy guard. A malformed file is shown as an error, never replaced. Only when no
+`release.json` exists does it fall back to the synthetic sample of the same shape that `make
+ui-sample` writes. So the UI cannot show anything the report could not. Its views:
 
 | View | Shows |
 |------|-------|
-| Overview | the finding, the artifact checks that ruled out H2 and H3, and the confident exploratory result |
+| Overview | the finding, the artifact checks that ruled out H2 and H3, and the confident within-custodian result (H16) |
 | Metrics | each weekly metric by scope, with the change point, public events and baseline marked |
 | Network | a rotatable **3D graph of groups** and their ties, week by week (2D fallback without WebGL) |
 | Clusters | a **chord diagram** of mail between and within groups for the baseline year, the crisis weeks or all weeks; each group's size, within-group share and top partner groups; and the group whose cross-group share changed most, with the stale-baseline caveat |
-| Hypotheses | H1–H4 with their artifact checks, and the exploratory families E1–E20 |
+| Hypotheses | H1–H4 with their artifact checks, and H5–H24 |
 | Data quality, Privacy and risk, Limits | the cleaning funnel, header rulings, the attacks before and after mitigation, and the limits |
 
 Every node, arc and segment is a **group of at least five people**, never an individual; group
@@ -280,7 +303,7 @@ The partition is then **frozen**: every week and every variant uses it. Re-fitti
 would make "crossing established groups" meaningless, since each week's partition is fitted to
 minimise its own crossing weight. Freezing has a cost that produced the H2 artifact: a partition
 fits its training period best, so out of sample the crossing share rises as groups drift, with or
-without any event. The pre-registered checks could not see this (the null model randomises ties
+without any event. The planned H1–H4 checks could not see this (the null model randomises ties
 in every week alike, so it tests degree, not staleness). The **baseline placebo** did: fitted on
 the first half of 2000 and measured on the calm second half, the share already jumps far beyond
 the 2.0 standard-deviation threshold ([release/artifact_checks.csv](release/artifact_checks.csv)).
@@ -341,12 +364,12 @@ flowchart LR
   point; median with a bootstrap interval over custodians; passes only if the interval lies
   below zero. A failed check, or one that could not run, caps confidence at low.
 
-### Exploratory families E1–E20 (`finding/exploratory.py`)
+### Within-custodian hypotheses H5–H24 (`finding/exploratory.py`)
 
 - **Unit and comparison.** Each custodian against themselves: d_i = m_i(crisis) − m_i(reference),
   with windows fixed by public dates (2001-08-14 to 2001-12-02 against the same weeks of 2000).
   Measures are ratios or per-active-week rates over all of a custodian's sent or received
-  messages (not only network ties); a custodian needs at least 20 messages in each window. E12
+  messages (not only network ties); a custodian needs at least 20 messages in each window. H16
   is ego-level reciprocity: the share of a custodian's sent-to contacts who wrote back in the
   same window.
 - **Test.** Wilcoxon signed-rank (two-sided) on d; median of d with a percentile bootstrap
@@ -386,9 +409,9 @@ half of the targets; on R1 and R2, nobody.
 
 | Family | Compared | Method | Decision rule |
 |--------|----------|--------|---------------|
-| H1–H4 (pre-registered) | weekly network series, after a searched change week vs 2000 | CUSUM + permutation p, standardised effect, block bootstrap, Holm over 4 | supported if p_holm < 0.05 and interval on the hypothesised side; confidence from null-model z, leave-one-mailbox-out, variants |
+| H1–H4 (committed before any data) | weekly network series, after a searched change week vs 2000 | CUSUM + permutation p, standardised effect, block bootstrap, Holm over 4 | supported if p_holm < 0.05 and interval on the hypothesised side; confidence from null-model z, leave-one-mailbox-out, variants |
 | Artifact checks (H2, H3) | placebo half-year in 2000; custodians against themselves | refit Louvain on half the baseline; within-custodian median change with bootstrap | failed or not run caps confidence at low; no headline |
-| E1–E20 (exploratory) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 20 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable and no caveat; volume-equalised result reported alongside |
+| H5–H24 (within-custodian) | each custodian, fixed crisis window vs same weeks a year earlier | paired differences, Wilcoxon signed-rank, median bootstrap, Holm over 20 | confident if p_holm < 0.05, interval on side, placebo passes, leave-one-out stable and no caveat; volume-equalised result reported alongside |
 | A1, A2 (risk) | release R0, R1, R2 against the public corpus | nearest-neighbour fingerprint matching; seeded propagation | share of targets re-identified (top-1), with interval |
 
 ---
@@ -402,7 +425,7 @@ half of the targets; on R1 and R2, nobody.
 | **Polars** | every stage table; Parquet in and out | Fast, typed columnar frames with list and struct columns, which recipients need. Lazy group-bys fit 1.3 M events comfortably on a laptop. |
 | **NetworkX** | baseline communities (Louvain); the only graph algorithm the pipeline calls a library for | The network is tens of thousands of nodes, well within reach. Readable, seeded algorithms matter more here than raw speed. Snapshots, metrics and the null model are Polars table operations. |
 | **NumPy** | bootstrap, permutation and attack arithmetic | Vectorised resampling with seeded generators. |
-| **SciPy** | the normal quantile behind the one-sided null-model threshold; the Wilcoxon signed-rank test of the exploratory families | Standard, tested implementations instead of a hand-typed critical value or a home-made rank test. |
+| **SciPy** | the normal quantile behind the one-sided null-model threshold; the Wilcoxon signed-rank test of H5–H24 | Standard, tested implementations instead of a hand-typed critical value or a home-made rank test. |
 | `tarfile`, `email.utils`, `hmac`, `hashlib` (standard library) | streaming the archive, parsing dates, keyed pseudonyms, fingerprints | No dependency needed, and easy to audit: the code that touches raw data stays small and standard. |
 | **uv** | environment and lockfile | Pinned, reproducible installs in seconds (`uv sync --locked`). |
 | **pytest** + **Hypothesis** | unit, contract, privacy and property tests | Property tests check that dedupe ignores input order, that the header reader never reads past the header, and that k-suppression never leaks. |
@@ -443,9 +466,9 @@ flowchart LR
 - **Ground truth no agent produced.** A synthetic corpus in the same layout as the real one, with
   known duplicates, aliases, noise, a planted change and canary markers. It has a reference answer
   for every table.
-- **Hypotheses before results.** H1–H4 were committed before any real data was analysed; each
-  exploratory family (E1–E10, E11–E20) was committed before it was computed, and Holm's
-  correction runs across all twenty, so adding hypotheses makes each one harder to pass. All
+- **Hypotheses before results.** H1–H4 were committed before any real data was analysed; H5–H14
+  were committed after the H1–H4 results and before being computed, H15–H24 after the H5–H14
+  results and before being computed, and Holm's correction runs across those twenty, so adding hypotheses makes each one harder to pass. All
   outcomes are published. Checks added after seeing a result (the artifact checks, mail-volume
   equalisation) are labelled as such.
 - **Identity checked by a person.** A seeded sample of real identity merges was judged in a
@@ -604,7 +627,8 @@ consumption per tenant.
 3. [docs/slides.md](docs/slides.md): the 15-minute presentation (Marp-compatible).
 4. [docs/ai-workflow.md](docs/ai-workflow.md): how AI agents built this and what kept them correct.
 5. [docs/hypotheses.md](docs/hypotheses.md), [docs/hypotheses-exploratory.md](docs/hypotheses-exploratory.md)
-   and [docs/metrics.md](docs/metrics.md): the pre-registered and exploratory hypotheses, the
+   and [docs/metrics.md](docs/metrics.md): hypotheses H1–H4 and H5–H24 (the second file is the
+   dated record of when each was stated and keeps their original numbers E1–E20 = H5–H24), the
    metric definitions and the decision rules.
 6. [docs/architecture.md](docs/architecture.md): every architecture diagram.
 7. [specs/001-enron-network-analysis/](specs/001-enron-network-analysis/): the specification, plan,
