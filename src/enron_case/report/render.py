@@ -337,7 +337,7 @@ def _span_of(exploratory: pl.DataFrame) -> str:
 
 
 def exploratory_statement(exploratory: pl.DataFrame) -> str:
-    """One sentence per hypothesis held true among H5–H24, or a sentence saying there is none.
+    """One sentence per hypothesis held true among H5–H25, or a sentence saying there is none.
     With none, each hypothesis that met every other part of its rule (placebo, leave-one-out)
     and failed only the retention check is named with that check's result."""
     rows = exploratory.filter(pl.col("outcome") == schemas.EXPLORATORY_CONFIDENT).rows(named=True)

@@ -144,7 +144,7 @@ def _profile_cols(nullable: bool) -> tuple[Col, ...]:
 
 
 def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
-    """H5–H24 results (E1–E20 in docs/hypotheses-exploratory.md); one row per hypothesis."""
+    """H5–H25 results (E1–E21 in docs/hypotheses-exploratory.md); one row per hypothesis."""
     return (
         Col("order", INT),
         Col("hypothesis", STR),

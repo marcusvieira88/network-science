@@ -29,6 +29,7 @@ UP, DOWN = 1, -1
 PLACEBO_FRACTION = 0.5
 WORK_START, WORK_END = 7, 19
 BROADCAST_SENT = 5
+LAST_WEEKDAY = 5  # Friday: weekday numbers run 1 = Monday ... 7 = Sunday
 BROADCAST_RECEIVED = 20
 TOP_RECIPIENTS = 3
 TOP_SENDERS = 3
@@ -404,18 +405,17 @@ def _weekday_share(condition: pl.Expr) -> WindowMeasure:
     share = _share(condition)
 
     def measure(df: pl.DataFrame) -> pl.DataFrame:
-        return share(df.filter(pl.col("weekday") <= 5))
+        return share(df.filter(pl.col("weekday") <= LAST_WEEKDAY))
 
     return measure
 
 
-LAST_WEEKDAY = 5  # Friday: weekday numbers run 1 = Monday ... 7 = Sunday
 after_hours = (pl.col("weekday") <= LAST_WEEKDAY) & (
     (pl.col("hour") < WORK_START) | (pl.col("hour") >= WORK_END)
 )
 MEASURES: dict[str, Measure] = {
     "H5": _windowed("sent", _weekday_share(after_hours)),
-    "H6": _windowed("sent", _share(pl.col("weekday") >= 6)),
+    "H6": _windowed("sent", _share(pl.col("weekday") > LAST_WEEKDAY)),
     "H7": _windowed("sent", _share(pl.col("has_bcc"))),
     "H8": _windowed("sent", _share(pl.col("has_cc"))),
     "H9": _windowed("sent", _mean_recipients),

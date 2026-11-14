@@ -118,7 +118,7 @@ class Config:
     # within-person comparison with at least this many sent events in each period.
     placebo_max_effect: float = 2.0
     min_unit_events: int = 30
-    # Hypotheses H5–H24 (E1–E20 in docs/hypotheses-exploratory.md, fixed before computing).
+    # Hypotheses H5–H25 (E1–E21 in docs/hypotheses-exploratory.md; H25 post hoc).
     exploratory_min_messages: int = 20
     exploratory_bootstrap_reps: int = 2000
     # Subsamples per custodian when equalising mail volume between two windows (a check added
