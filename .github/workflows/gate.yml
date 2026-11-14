@@ -1,8 +1,9 @@
 name: gate
 
+# Push only: a branch with an open PR would otherwise run every job twice (push and
+# pull_request). The PR shows the push run's checks for its head commit.
 on:
   push:
-  pull_request:
 
 # The gate only reads the repository; no job needs to write anything back.
 permissions:
