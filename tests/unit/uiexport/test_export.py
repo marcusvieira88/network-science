@@ -317,6 +317,9 @@ def test_jsonable_maps_non_finite_to_none() -> None:
     ]
 
 
+CONTEXT_BYTES = 120
+
+
 def test_committed_ui_sample_matches_release_fixtures(synth: SynthOutput, tmp_path: Path) -> None:
     """The UI's bundled sample is this export of the release fixtures. Regenerate it with
     UPDATE_UI_SAMPLE=1 uv run pytest tests/unit/uiexport -k committed_ui_sample."""
@@ -325,4 +328,19 @@ def test_committed_ui_sample_matches_release_fixtures(synth: SynthOutput, tmp_pa
     produced = ui_file(ctx).read_bytes()
     if os.environ.get("UPDATE_UI_SAMPLE") == "1":
         UI_SAMPLE.write_bytes(produced)
-    assert UI_SAMPLE.read_bytes() == produced
+    committed = UI_SAMPLE.read_bytes()
+    assert committed == produced, _first_difference(committed, produced)
+
+
+def _first_difference(committed: bytes, produced: bytes) -> str:
+    """Where the two files part, with context, so a platform difference is visible in CI."""
+    index = next(
+        (i for i, (a, b) in enumerate(zip(committed, produced, strict=False)) if a != b),
+        min(len(committed), len(produced)),
+    )
+    start = max(index - CONTEXT_BYTES, 0)
+    end = index + CONTEXT_BYTES
+    return (
+        f"first difference at byte {index}: committed {committed[start:end]!r} "
+        f"produced {produced[start:end]!r}"
+    )
