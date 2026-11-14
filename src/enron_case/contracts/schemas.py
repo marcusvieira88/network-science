@@ -112,6 +112,14 @@ def _artifact_cols(n_units_nullable: bool) -> tuple[Col, ...]:
 
 
 EXPLORATORY_OUTCOMES = ("confident", "inconclusive", "not supported")
+EXPLORATORY_CONFIDENT, EXPLORATORY_INCONCLUSIVE, EXPLORATORY_NOT_SUPPORTED = EXPLORATORY_OUTCOMES
+EXPLORATORY_FAMILIES = ("first", "second")
+# Why a hypothesis cannot be confident whatever its numbers (docs/hypotheses-exploratory.md).
+EXPLORATORY_CAVEATS = {
+    "E1": "invalid: timestamps in the reference year of the corpus are shifted by several hours",
+    "E3": "untestable: every Bcc line in the corpus repeats the Cc line",
+    "E15": "retention-sensitive: the 26-week look-back depends on how much older mail was kept",
+}
 
 
 def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
@@ -119,7 +127,7 @@ def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
     return (
         Col("order", INT),
         Col("hypothesis", STR),
-        Col("family", STR, enum=("first", "second")),
+        Col("family", STR, enum=EXPLORATORY_FAMILIES),
         Col("measure", STR),
         Col("direction", STR, enum=("up", "down")),
         Col("custodians", INT, nullable=counts_nullable),
@@ -132,9 +140,9 @@ def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
         Col("placebo_median", FLOAT, nullable=True),
         Col("placebo_ci_low", FLOAT, nullable=True),
         Col("placebo_ci_high", FLOAT, nullable=True),
-        Col("placebo_passes", BOOL),
-        Col("loo_stable", BOOL),
-        Col("outcome", STR, enum=EXPLORATORY_OUTCOMES),
+        Col("placebo_passes", BOOL, nullable=counts_nullable),
+        Col("loo_stable", BOOL, nullable=counts_nullable),
+        Col("outcome", STR, nullable=counts_nullable, enum=EXPLORATORY_OUTCOMES),
         Col("caveat", STR),
         Col("equalised_median", FLOAT, nullable=True),
         Col("equalised_ci_low", FLOAT, nullable=True),

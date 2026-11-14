@@ -113,7 +113,8 @@ function Loading3D() {
 export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, webgl }: CommunityGraphProps) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [use3D] = useState(() => webgl ?? supportsWebGL());
+  // Starts from WebGL support; turns false if the 3D view fails, so legend and wording follow.
+  const [use3D, setUse3D] = useState(() => webgl ?? supportsWebGL());
   const placed = useMemo(() => layoutGroups(groups, edges, WIDTH, HEIGHT), [groups, edges]);
   const nodes = useMemo(() => graphNodes(groups), [groups]);
   const allTies = useMemo(() => layoutLinks(groups, edges), [groups, edges]);
@@ -144,7 +145,7 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, web
       <CardContent className="space-y-6">
         {use3D ? (
           <div className="space-y-2">
-            <RenderFallback fallback={flat}>
+            <RenderFallback fallback={flat} onFailure={() => setUse3D(false)}>
               <Suspense fallback={<Loading3D />}>
                 <CommunityGraph3D nodes={nodes} links={links} layout={allTies} week={week} />
               </Suspense>

@@ -118,9 +118,10 @@ export const TABLE_COLUMNS = {
     placebo_median: isFloat,
     placebo_ci_low: isFloat,
     placebo_ci_high: isFloat,
-    placebo_passes: isBoolean,
-    loo_stable: isBoolean,
-    outcome: oneOf(EXPLORATORY_OUTCOMES),
+    // Null when the comparison covers fewer than k custodians and is suppressed in the release.
+    placebo_passes: nullable(isBoolean),
+    loo_stable: nullable(isBoolean),
+    outcome: nullable(oneOf(EXPLORATORY_OUTCOMES)),
     caveat: isString,
     equalised_median: isFloat,
     equalised_ci_low: isFloat,

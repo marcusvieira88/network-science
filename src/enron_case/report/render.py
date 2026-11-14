@@ -15,7 +15,7 @@ import polars as pl
 
 from enron_case.config import Config
 from enron_case.context import StageContext
-from enron_case.contracts import vocab
+from enron_case.contracts import schemas, vocab
 from enron_case.contracts.vocab import DEFAULT_VARIANT
 from enron_case.errors import ContractViolation, PrivacyViolation
 from enron_case.release.tables import STEP_MANUAL
@@ -297,9 +297,12 @@ def artifact_section(checks: pl.DataFrame) -> str:
     )
 
 
+SUPPRESSED = "suppressed (fewer than k custodians)"
+
+
 def exploratory_statement(exploratory: pl.DataFrame) -> str:
     """One sentence per confident exploratory hypothesis, or a sentence saying there is none."""
-    rows = exploratory.filter(pl.col("outcome") == "confident").rows(named=True)
+    rows = exploratory.filter(pl.col("outcome") == schemas.EXPLORATORY_CONFIDENT).rows(named=True)
     if not rows:
         return "Exploratory families E1–E20: no hypothesis reached the confident standard."
     parts = []
@@ -335,9 +338,9 @@ def exploratory_section(exploratory: pl.DataFrame) -> str:
             format_value(r["median_change"]),
             f"{format_value(r['ci_low'])} to {format_value(r['ci_high'])}",
             format_value(r["p_holm"]),
-            "passes" if r["placebo_passes"] else "fails",
-            "stable" if r["loo_stable"] else "unstable",
-            r["outcome"],
+            {True: "passes", False: "fails", None: SUPPRESSED}[r["placebo_passes"]],
+            {True: "stable", False: "unstable", None: SUPPRESSED}[r["loo_stable"]],
+            r["outcome"] or SUPPRESSED,
             r["caveat"] or "—",
         ]
         for r in exploratory.iter_rows(named=True)

@@ -99,7 +99,7 @@ export default function CommunityGraph3D({ nodes, links, layout, week }: Communi
           linkOpacity={LINK_OPACITY}
           linkVisibility={frozen}
           enableNodeDrag={false}
-          warmupTicks={LAYOUT_TICKS}
+          warmupTicks={frozen ? 0 : LAYOUT_TICKS}
           cooldownTicks={0}
           onEngineStop={onEngineStop}
         />

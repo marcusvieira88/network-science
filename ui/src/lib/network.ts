@@ -82,6 +82,12 @@ type LayoutLink = SimulationLinkDatum<LayoutNode> & { strength: number };
  * the week changes. d3-force's initial placement and jitter are deterministic, so the same data
  * gives the same picture.
  */
+/** Ties in one week (or all weeks when `week` is null) between published groups only. */
+export function publishedTies(edges: CommunityEdgeRow[], week: string | null, groupIds: Iterable<string>): WeekGraph["ties"] {
+  const known = new Set(groupIds);
+  return weekGraph(edges, week).ties.filter((tie) => known.has(tie.a) && known.has(tie.b));
+}
+
 export function layoutGroups(
   groups: CommunityGroupRow[],
   edges: CommunityEdgeRow[],
@@ -91,8 +97,7 @@ export function layoutGroups(
   const nodes: LayoutNode[] = [...groups]
     .sort((x, y) => x.group.localeCompare(y.group))
     .map((g) => ({ group: g.group, nPersons: g.n_persons, radius: groupRadius(g.n_persons) }));
-  const known = new Set(nodes.map((n) => n.group));
-  const all = weekGraph(edges, null).ties.filter((t) => known.has(t.a) && known.has(t.b));
+  const all = publishedTies(edges, null, nodes.map((n) => n.group));
   const maxTotal = Math.max(1, ...all.map((t) => t.total));
   const links: LayoutLink[] = all.map((t) => ({
     source: t.a,

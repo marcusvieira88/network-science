@@ -3,7 +3,7 @@
  * the force graph draws. Nothing here imports the 3D library, so it stays out of the main bundle.
  */
 import type { CommunityEdgeRow, CommunityGroupRow } from "@/lib/data";
-import { weekGraph } from "@/lib/network";
+import { publishedTies } from "@/lib/network";
 
 /** Accent hue and saturation (--primary in index.css: 213 76% 56%). */
 const ACCENT_HUE = 213;
@@ -77,10 +77,7 @@ function link(a: string, b: string, weight: number, maxTie: number): GraphLink {
  * brighter line always means a heavier tie. Ties to an unpublished group are dropped.
  */
 export function weekLinks(edges: CommunityEdgeRow[], week: string | null, maxTie: number, groupIds: string[]): GraphLink[] {
-  const known = new Set(groupIds);
-  return weekGraph(edges, week)
-    .ties.filter((tie) => known.has(tie.a) && known.has(tie.b))
-    .map((tie) => link(tie.a, tie.b, tie.total, maxTie));
+  return publishedTies(edges, week, groupIds).map((tie) => link(tie.a, tie.b, tie.total, maxTie));
 }
 
 /** Ties summed over all weeks: what the one-off layout is computed on. */

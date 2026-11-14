@@ -60,9 +60,26 @@ describe("ExploratoryTable", () => {
   it("writes suppressed custodian counts and missing numbers as such", () => {
     const [first] = sampleData().tables.exploratory;
     if (!first) throw new Error("sample has no exploratory rows");
-    render(<ExploratoryTable rows={[{ ...first, custodians: null, median_change: null, p_holm: null }]} />);
+    render(
+      <ExploratoryTable
+        rows={[
+          {
+            ...first,
+            custodians: null,
+            median_change: null,
+            p_holm: null,
+            outcome: null,
+            loo_stable: null,
+            placebo_passes: null,
+          },
+        ]}
+      />,
+    );
     const e1 = within(rowFor("E1"));
-    expect(e1.getByText("suppressed")).toBeInTheDocument();
+    // count, placebo, leave-one-out and outcome are all suppressed, never shown as "fails"
+    expect(e1.getAllByText("suppressed").length).toBeGreaterThanOrEqual(4);
+    expect(e1.queryByText("fails")).toBeNull();
+    expect(e1.queryByText("unstable")).toBeNull();
     expect(e1.getAllByText("—").length).toBeGreaterThanOrEqual(2);
   });
 });

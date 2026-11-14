@@ -38,11 +38,10 @@ DST_UTC: tuple[tuple[datetime, datetime], ...] = tuple(
         (2002, 4, 7, 10, 27),
     )
 )
-CAVEATS = {
-    "E1": "invalid: timestamps in the reference year of the corpus are shifted by several hours",
-    "E3": "untestable: every Bcc line in the corpus repeats the Cc line",
-    "E15": "retention-sensitive: the 26-week look-back depends on how much older mail was kept",
-}
+CAVEATS = schemas.EXPLORATORY_CAVEATS
+# Measures that read rows outside their window; volume equalisation (which keeps only in-window
+# rows) cannot be applied to them.
+LOOKBACK_MEASURES = frozenset({"E15"})
 
 Window = tuple[date, date]
 CRISIS: Window = (date(2001, 8, 14), date(2001, 12, 2))
@@ -51,7 +50,8 @@ PLACEBO_AFTER: Window = (date(2001, 1, 1), date(2001, 4, 30))
 PLACEBO_BEFORE: Window = (date(2000, 1, 1), date(2000, 4, 30))
 
 _, CC, BCC = vocab.RECIPIENT_ROLES
-CONFIDENT, INCONCLUSIVE, NOT_SUPPORTED = "confident", "inconclusive", "not supported"
+CONFIDENT, INCONCLUSIVE, NOT_SUPPORTED = schemas.EXPLORATORY_OUTCOMES
+FIRST_FAMILY, SECOND_FAMILY = schemas.EXPLORATORY_FAMILIES
 
 WindowMeasure = Callable[[pl.DataFrame], pl.DataFrame]  # rows of one window -> pid, value, n
 # A measure sees the full message tables and the window, because some measures (E12, E15) need
@@ -393,9 +393,11 @@ EQUALISED_STREAM = 200
 
 
 def _subsample(df: pl.DataFrame, caps: pl.DataFrame, cap: str, seed: int) -> pl.DataFrame:
-    """At most `cap` rows per custodian, chosen with a seeded shuffle (rows arrive sorted)."""
+    """At most `cap` rows per custodian, chosen with a seeded shuffle. Rows are sorted after the
+    join (which keeps no order) so the same seed picks the same messages on every run."""
     return (
         df.join(caps.select("pid", pl.col(cap).alias("_cap")), on="pid")
+        .sort("pid", "msg_pid")
         .with_columns(pl.int_range(pl.len()).shuffle(seed=seed).over("pid").alias("_k"))
         .filter(pl.col("_k") < pl.col("_cap"))
         .drop("_cap", "_k")
@@ -446,7 +448,11 @@ def volume_equalised(
             )
         )
     per_custodian = pl.concat(draws).group_by("pid").agg(pl.col("d").mean()).sort("pid")
-    return compare(per_custodian.get_column("d").to_numpy().astype(float), config, stream)
+    d = per_custodian.get_column("d").to_numpy().astype(float)
+    if len(d) < config.k_min:
+        # Too few custodians survive equalisation to publish; reported as not computed.
+        return Comparison(len(d), float("nan"), float("nan"), float("nan"), 1.0)
+    return compare(d, config, stream)
 
 
 def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -> pl.DataFrame:
@@ -484,14 +490,14 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
             volume_equalised(
                 tables, MEASURES[hyp.id], CRISIS, REFERENCE, config, EQUALISED_STREAM + order
             )
-            if outcome != NOT_SUPPORTED and valid
+            if outcome != NOT_SUPPORTED and valid and hyp.id not in LOOKBACK_MEASURES
             else None
         )
         out.append(
             {
                 "order": order + 1,
                 "hypothesis": hyp.id,
-                "family": "first" if order + 1 < SECOND_FAMILY_FROM else "second",
+                "family": FIRST_FAMILY if order + 1 < SECOND_FAMILY_FROM else SECOND_FAMILY,
                 "measure": hyp.description,
                 "direction": "up" if hyp.direction == UP else "down",
                 "custodians": crisis.n,

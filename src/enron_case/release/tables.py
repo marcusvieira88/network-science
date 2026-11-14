@@ -180,9 +180,13 @@ def exploratory(results: pl.DataFrame, k_min: int) -> pl.DataFrame:
         "equalised_p",
     )
     placebo = ("placebo_custodians", "placebo_median", "placebo_ci_low", "placebo_ci_high")
+    # The outcome and the leave-one-out flag are derived from the crisis comparison, and the
+    # placebo flag from the placebo comparison: below k they would reveal its sign and strength.
+    crisis_derived = (*crisis, "outcome", "loo_stable")
+    placebo_derived = (*placebo, "placebo_passes")
     small_crisis = pl.col("custodians") < k_min
     small_placebo = pl.col("placebo_custodians") < k_min
     return results.with_columns(
-        *[pl.when(small_crisis).then(None).otherwise(pl.col(c)).alias(c) for c in crisis],
-        *[pl.when(small_placebo).then(None).otherwise(pl.col(c)).alias(c) for c in placebo],
+        *[pl.when(small_crisis).then(None).otherwise(pl.col(c)).alias(c) for c in crisis_derived],
+        *[pl.when(small_placebo).then(None).otherwise(pl.col(c)).alias(c) for c in placebo_derived],
     )

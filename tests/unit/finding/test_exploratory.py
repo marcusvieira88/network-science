@@ -220,3 +220,27 @@ def test_family_finds_a_planted_change_and_nothing_else() -> None:
 
 def test_caveated_hypotheses_are_never_confident() -> None:
     assert set(ex.CAVEATS) == {"E1", "E3", "E15"}
+
+
+def test_subsample_caps_each_custodian_and_ignores_row_order() -> None:
+    rows = pl.DataFrame({"pid": [A] * 6 + [B] * 4, "msg_pid": [f"m{i}" for i in range(10)]})
+    caps = pl.DataFrame({"pid": [A, B], "cap": [2, 3]})
+    first = ex._subsample(rows, caps, "cap", seed=11)
+    again = ex._subsample(rows.sample(fraction=1.0, shuffle=True, seed=5), caps, "cap", seed=11)
+    assert first.group_by("pid").len().sort("pid").get_column("len").to_list() == [2, 3]
+    assert first.sort("msg_pid").equals(again.sort("msg_pid"))
+
+
+def test_volume_equalised_with_too_few_custodians_is_not_computed() -> None:
+    events = _family_events(planted=True).filter(
+        pl.col("sender_pid").is_in([f"p_{chr(97 + i) * 16}" for i in range(3)])
+    )
+    tables = ex.Tables(
+        ex.sent_messages(events, events.get_column("sender_pid").unique()),
+        ex.received_messages(events, events.get_column("sender_pid").unique()),
+    )
+    result = ex.volume_equalised(
+        tables, ex.MEASURES["E11"], ex.CRISIS, ex.REFERENCE, Config(), stream=0
+    )
+    assert result.n < Config().k_min
+    assert np.isnan(result.median)

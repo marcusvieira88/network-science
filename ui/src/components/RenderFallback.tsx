@@ -3,6 +3,8 @@ import { Component, type ReactNode } from "react";
 interface RenderFallbackProps {
   fallback: ReactNode;
   children: ReactNode;
+  /** Called once when the children fail, so the parent can switch its own state (labels, legend). */
+  onFailure?: () => void;
 }
 
 /**
@@ -18,6 +20,7 @@ export class RenderFallback extends Component<RenderFallbackProps, { failed: boo
 
   override componentDidCatch(error: Error): void {
     console.error("3D view failed; showing the 2D network instead:", error);
+    this.props.onFailure?.();
   }
 
   override render(): ReactNode {

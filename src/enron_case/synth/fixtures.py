@@ -497,13 +497,7 @@ class FixtureBuilder:
     def exploratory_results_table(self) -> pl.DataFrame:
         """Reference shape only: twenty rows, E12 confident with its volume-equalised check,
         E16 inconclusive, the caveated three marked, the rest not supported."""
-        caveats = {
-            "E1": "invalid: timestamps in the reference year of the corpus are shifted by "
-            "several hours",
-            "E3": "untestable: every Bcc line in the corpus repeats the Cc line",
-            "E15": "retention-sensitive: the 26-week look-back depends on how much older mail "
-            "was kept",
-        }
+        caveats = schemas.EXPLORATORY_CAVEATS
         rows = []
         for i in range(1, 21):
             hid = f"E{i}"
@@ -513,7 +507,7 @@ class FixtureBuilder:
                 {
                     "order": i,
                     "hypothesis": hid,
-                    "family": "first" if i < 11 else "second",
+                    "family": schemas.EXPLORATORY_FAMILIES[0 if i < 11 else 1],
                     "measure": f"measure {hid}",
                     "direction": "down" if i in (7, 15, 18, 20) else "up",
                     "custodians": 32,

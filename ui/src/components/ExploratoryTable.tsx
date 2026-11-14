@@ -10,6 +10,13 @@ const DIRECTION_ARROW = { up: "↑", down: "↓" } as const;
 
 export const EXPLORATORY_TITLE = "Exploratory hypotheses E1–E20 (stated before computing; Holm across all twenty)";
 
+/** Shown where a comparison covers fewer than k custodians and the release suppresses it. */
+const SUPPRESSED = "suppressed";
+
+function flag(value: boolean | null, yes: string, no: string): string {
+  return value === null ? SUPPRESSED : value ? yes : no;
+}
+
 function ExploratoryRowView({ row }: { row: ExploratoryRow }) {
   const confident = row.outcome === "confident";
   return (
@@ -39,16 +46,20 @@ function ExploratoryRowView({ row }: { row: ExploratoryRow }) {
       <TableCell className="font-mono tabular-nums">{formatEstimate(row.median_change, row.ci_low, row.ci_high)}</TableCell>
       <TableCell className="text-right font-mono tabular-nums">{formatP(row.p_holm)}</TableCell>
       <TableCell>
-        <div>{row.placebo_passes ? "passes" : "fails"}</div>
+        <div>{flag(row.placebo_passes, "passes", "fails")}</div>
         <div className="font-mono text-xs tabular-nums text-muted-foreground">
           {formatEstimate(row.placebo_median, row.placebo_ci_low, row.placebo_ci_high)}
         </div>
       </TableCell>
-      <TableCell>{row.loo_stable ? "stable" : "unstable"}</TableCell>
+      <TableCell>{flag(row.loo_stable, "stable", "unstable")}</TableCell>
       <TableCell>
-        <Badge variant={OUTCOME_VARIANT[row.outcome]} className="whitespace-nowrap">
-          {row.outcome}
-        </Badge>
+        {row.outcome === null ? (
+          <span className="text-muted-foreground">{SUPPRESSED}</span>
+        ) : (
+          <Badge variant={OUTCOME_VARIANT[row.outcome]} className="whitespace-nowrap">
+            {row.outcome}
+          </Badge>
+        )}
       </TableCell>
     </TableRow>
   );
