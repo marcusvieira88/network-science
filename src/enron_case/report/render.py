@@ -42,8 +42,9 @@ CONFIDENCE_WORDS = {
 RELEASE_VARIANTS = {
     "R0": "pseudonymized person-level weekly edge list (the naive output; never published)",
     "R1": "aggregates only, every cell meeting the minimum group size, bucketed degrees, "
-    "weekly resolution, pseudonyms re-keyed per release",
-    "R2": "R1 plus calibrated noise on counts (a sketch, not a formal privacy budget)",
+    "weekly resolution; it contains no pseudonyms, and groups carry size-ordered labels",
+    "R2": "R1 plus seeded Laplace noise of a fixed scale on degree counts and group tie weights; "
+    "the noise is not calibrated to any privacy budget (a sketch, not differential privacy)",
 }
 ATTACKERS = {
     "A1": "outsider who holds the public corpus and matches per-address activity features",

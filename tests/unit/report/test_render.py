@@ -311,3 +311,11 @@ def test_headline_statement_ignores_unsupported_hypothesis_with_failed_check(
 def test_confidence_words_match_the_rule_in_docs_hypotheses() -> None:
     assert "exactly one" in render.CONFIDENCE_WORDS["moderate"]
     assert "two or more" in render.CONFIDENCE_WORDS["low"]
+
+
+def test_release_descriptions_do_not_overclaim() -> None:
+    assert "re-keyed" not in render.RELEASE_VARIANTS["R1"]
+    assert "no pseudonyms" in render.RELEASE_VARIANTS["R1"]
+    r2 = render.RELEASE_VARIANTS["R2"]
+    assert "not calibrated" in r2
+    assert "calibrated noise" not in r2
