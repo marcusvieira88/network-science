@@ -301,7 +301,9 @@ SUPPRESSED = "suppressed (fewer than k custodians)"
 
 
 def exploratory_statement(exploratory: pl.DataFrame) -> str:
-    """One sentence per hypothesis held true among H5–H24, or a sentence saying there is none."""
+    """One sentence per hypothesis held true among H5–H24, or a sentence saying there is none.
+    With none, each hypothesis that met every other part of its rule (placebo, leave-one-out)
+    and failed only the retention check is named with that check's result."""
     rows = exploratory.filter(pl.col("outcome") == schemas.EXPLORATORY_CONFIDENT).rows(named=True)
     if not rows:
         return "Among H5–H24, no hypothesis reached the standard to be held true." + "".join(
@@ -310,8 +312,13 @@ def exploratory_statement(exploratory: pl.DataFrame) -> str:
             f"{format_value(r['ci_high'])}) but {r['caveat']}: there the change is "
             f"{format_value(r['retention_median'])} (interval "
             f"{format_value(r['retention_ci_low'])} to {format_value(r['retention_ci_high'])}). "
-            "It remains the strongest lead, largely explained by how much inbox mail was kept."
-            for r in exploratory.filter(pl.col("retention_passes").eq(False)).rows(named=True)
+            "It remains the strongest lead, but it is not established once how much inbox mail "
+            "was kept is held fixed."
+            for r in exploratory.filter(
+                pl.col("retention_passes").eq(False)
+                & pl.col("placebo_passes").eq(True)
+                & pl.col("loo_stable").eq(True)
+            ).rows(named=True)
         )
     parts = []
     for r in rows:
