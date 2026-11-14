@@ -7,11 +7,12 @@ from collections import Counter, defaultdict
 
 import polars as pl
 
+from enron_case.clean.pairs import pairwise_scores
 from enron_case.config import Config
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.contracts.counts import IdentityCounts
-from enron_case.identity import classify, evaluate, rules
+from enron_case.identity import classify, rules
 from enron_case.identity.resolve import Resolution, resolve
 
 
@@ -96,4 +97,4 @@ def _scores(ctx: StageContext, amap: pl.DataFrame) -> tuple[float | None, float 
     if not ctx.has_truth():
         return None, None
     entity_of = dict(amap.select("addr", "entity_id").iter_rows())
-    return evaluate.pairwise_scores(entity_of, ctx.read_truth()["address_to_truth"])
+    return pairwise_scores(entity_of, ctx.read_truth()["address_to_truth"])

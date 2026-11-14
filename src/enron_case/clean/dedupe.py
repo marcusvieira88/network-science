@@ -11,10 +11,10 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from math import comb
 
 import polars as pl
 
+from enron_case.clean import pairs
 from enron_case.clean.addresses import normalize_address, resolve_recipients, strongest_role
 from enron_case.contracts import vocab as v
 
@@ -180,21 +180,13 @@ def pairwise_scores(
 ) -> tuple[float | None, float | None]:
     """Pairwise precision and recall of "same message" against ground truth.
 
-    Both are None when there is no pair to score (no predicted or no true duplicate).
+    Every predicted file must have a truth label (KeyError otherwise). Both are None when there
+    is no pair to score (no predicted or no true duplicate).
     """
-    clusters = list(predicted)
-    joint: dict[tuple[int, str], int] = defaultdict(int)
-    true_sizes: dict[str, int] = defaultdict(int)
-    for index, cluster in enumerate(clusters):
-        for file_id in cluster:
-            joint[(index, truth[file_id])] += 1
-            true_sizes[truth[file_id]] += 1
-    agreed = sum(comb(n, 2) for n in joint.values())
-    predicted_pairs = sum(comb(len(c), 2) for c in clusters)
-    true_pairs = sum(comb(n, 2) for n in true_sizes.values())
-    precision = agreed / predicted_pairs if predicted_pairs else None
-    recall = agreed / true_pairs if true_pairs else None
-    return precision, recall
+    message_of = {
+        file_id: str(index) for index, cluster in enumerate(predicted) for file_id in cluster
+    }
+    return pairs.pairwise_scores(message_of, {file_id: truth[file_id] for file_id in message_of})
 
 
 def _order(group: Group) -> tuple[str, list[str]]:

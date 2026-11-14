@@ -1,8 +1,5 @@
-"""Identity evaluation (T036): pairwise precision/recall and the manual-review sampler.
-
-Pairwise scores treat "same entity" as a relation on address pairs. Only addresses present in
-both the prediction and the ground truth are scored. A score is None when its denominator is
-zero (no predicted pairs, or no true pairs).
+"""Identity evaluation (T036): the manual-review sampler and its counts. Pairwise scores
+against the ground truth come from `clean.pairs`.
 
 The sampler draws merges for a manual review that happens inside the ingest zone (T046). Only
 the counts (`manual_counts`) leave it.
@@ -10,28 +7,9 @@ the counts (`manual_counts`) leave it.
 
 from __future__ import annotations
 
-from collections import Counter
-from collections.abc import Mapping, Sequence
-from math import comb
+from collections.abc import Sequence
 
 import polars as pl
-
-
-def pairwise_scores(
-    entity_of: Mapping[str, str], truth_of: Mapping[str, str]
-) -> tuple[float | None, float | None]:
-    """(precision, recall) of predicted same-entity pairs against true same-entity pairs."""
-    scored = sorted(set(entity_of) & set(truth_of))
-    predicted = _pairs(Counter(entity_of[a] for a in scored))
-    actual = _pairs(Counter(truth_of[a] for a in scored))
-    correct = _pairs(Counter((entity_of[a], truth_of[a]) for a in scored))
-    precision = correct / predicted if predicted else None
-    recall = correct / actual if actual else None
-    return precision, recall
-
-
-def _pairs(cluster_sizes: Counter[object]) -> int:
-    return sum(comb(n, 2) for n in cluster_sizes.values())
 
 
 def sample_merges(address_map: pl.DataFrame, n: int, seed: int) -> pl.DataFrame:

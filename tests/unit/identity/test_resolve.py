@@ -11,6 +11,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from enron_case.clean.pairs import pairwise_scores
 from enron_case.contracts import schemas
 from enron_case.contracts.counts import JsonObject
 from enron_case.identity import evaluate, rules, stage
@@ -125,7 +126,7 @@ def test_output_matches_reference_fixture(ran: Resolved, synth: SynthOutput) -> 
 
 def test_precision_on_ground_truth(ran: Resolved, synth: SynthOutput) -> None:
     entity_of = dict(ran.address_map.select("addr", "entity_id").iter_rows())
-    precision, recall = evaluate.pairwise_scores(entity_of, synth.truth()["address_to_truth"])
+    precision, recall = pairwise_scores(entity_of, synth.truth()["address_to_truth"])
     assert precision is not None and precision >= 0.95
     assert recall is not None and recall > 0
     assert ran.counts["precision"] == precision
@@ -173,19 +174,6 @@ def test_stage_logs_counts_only(synth: SynthOutput, tmp_path: Path) -> None:
 
 
 # ---- evaluation -----------------------------------------------------------------------------
-def test_pairwise_scores_on_hand_computed_case() -> None:
-    truth = {"a": "T1", "b": "T1", "c": "T1", "d": "T2"}
-    predicted = {"a": "a", "b": "a", "c": "c", "d": "a"}
-    # predicted pairs ab, ad, bd; true pairs ab, ac, bc; correct ab only
-    assert evaluate.pairwise_scores(predicted, truth) == (1 / 3, 1 / 3)
-    assert evaluate.pairwise_scores({"a": "a", "d": "d"}, truth) == (None, None)
-
-
-def test_pairwise_scores_ignore_addresses_without_truth() -> None:
-    truth = {"a": "T1", "b": "T1"}
-    assert evaluate.pairwise_scores({"a": "a", "b": "a", "z": "a"}, truth) == (1.0, 1.0)
-
-
 def test_sampler_is_seeded_and_returns_merges_only(ran: Resolved) -> None:
     amap = ran.address_map
     first = evaluate.sample_merges(amap, 5, seed=1)
