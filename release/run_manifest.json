@@ -1,5 +1,5 @@
 {
-  "code_version": "75b2dff",
+  "code_version": "60f01c2",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -62,8 +62,8 @@
     "entities": "397cac15e1bc104b4ae5b770c130007ff9757175e22b764f828978dede8a45d2",
     "entities_p": "807c6b92ddaebacd9f2df97adc2067267380da3ebb0fadbe5a1238b76709e357",
     "events": "b77a33ef0dc912cf14817e6f64f69acd0cc38bcde6b30f9e8342b5e7d20966bf",
-    "exploratory": "6fa99588051207194c08f1986c50ea8d4df1d5ff2940c119e5e74e652e7b2eed",
-    "exploratory_results": "6fa99588051207194c08f1986c50ea8d4df1d5ff2940c119e5e74e652e7b2eed",
+    "exploratory": "f74a1f47dcb985c91191bd11f4a0eb7b9e74aa8f7cfe934528e6e99365522b03",
+    "exploratory_results": "f74a1f47dcb985c91191bd11f4a0eb7b9e74aa8f7cfe934528e6e99365522b03",
     "header_fields": "abe77c7a00f3a9f98aa0375ff3add6e1e7d4f68f643f825b08b0e6c22f1640e3",
     "header_records": "b49d34453c50a23d81d245db2c25b83a31b3ab893988578af8064b1d6f16126b",
     "hypotheses": "e2af4910b67e9efc3a2dadab46547aad43ab92e88e8685691f128222eb977e87",
@@ -86,35 +86,35 @@
   "stages": [
     {
       "stage": "fetch",
-      "seconds": 0.18
+      "seconds": 0.45
     },
     {
       "stage": "parse",
-      "seconds": 29.27
+      "seconds": 44.49
     },
     {
       "stage": "clean",
-      "seconds": 25.02
+      "seconds": 28.52
     },
     {
       "stage": "identity",
-      "seconds": 4.37
+      "seconds": 5.41
     },
     {
       "stage": "pseudo",
-      "seconds": 17.07
+      "seconds": 19.56
     },
     {
       "stage": "network",
-      "seconds": 0.86
+      "seconds": 0.71
     },
     {
       "stage": "finding",
-      "seconds": 23.33
+      "seconds": 25.15
     },
     {
       "stage": "risk",
-      "seconds": 46.51
+      "seconds": 42.49
     },
     {
       "stage": "release",
@@ -122,11 +122,7 @@
     },
     {
       "stage": "report",
-      "seconds": 0.01
-    },
-    {
-      "stage": "ui-data",
-      "seconds": 0.05
+      "seconds": 0.02
     }
   ]
 }
