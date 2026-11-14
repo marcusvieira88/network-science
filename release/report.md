@@ -70,34 +70,34 @@ Written down before the analysis ran on the real corpus. Every outcome is shown,
 | H3 | the organization turned inward | `external_share` | observed | 2001-05-21 | -1.46 | -2.65 to -0.944 | 0.000999 | 0.004 | -4.74 | -1.64 to -1.06 | 2 of 2 | yes | low | no |
 | H4 | working relationships were rewired faster | `tie_turnover` | core | — | -0.195 | -0.938 to 0.335 | 0.752 | 1 | -0.47 | -0.649 to 0.285 | 0 of 2 | no | low | no |
 
-## Exploratory hypotheses E1–E20
+## Hypotheses H5–H24
 
-Two exploratory families, each stated and committed before it was computed (docs/hypotheses-exploratory.md). Every comparison is a custodian against themselves between fixed windows (the crisis weeks against the same weeks a year earlier), with a pre-crisis placebo, leave-one-out and Holm's correction across all twenty. Mail-volume equalisation was added after the first confident result and is labelled as such.
+Twenty further hypotheses, stated by the project owner in two groups of ten, each committed before it was computed (recorded under their original numbers E1–E20 in docs/hypotheses-exploratory.md). Every comparison is a custodian against themselves between fixed windows (the crisis weeks against the same weeks a year earlier), with a pre-crisis placebo, leave-one-out and Holm's correction across all twenty. A hypothesis is held true only if all of these pass. Mail-volume equalisation was added after the first such result and is labelled as such.
 
-Exploratory, not pre-registered: E12 (share of sent-to contacts who also wrote back, predicted up) is confident: median within-custodian change 0.267 (interval 0.144 to 0.386, Holm-adjusted p = 0.00000243, 32 custodians); with mail volume equalised, 0.122 (interval 0.0725 to 0.188). A lead for confirmation on independent data, not a finding of the same standing.
+Among H5–H24, no hypothesis reached the standard to be held true. H16 (share of sent-to contacts who also wrote back) met its stated rule (median change 0.267, interval 0.144 to 0.386) but fails the retention check: among custodian-to-custodian contacts, whose replies are visible whatever an inbox kept, the change is not established: there the change is 0.111 (interval -0.111 to 0.3). It remains the strongest lead, largely explained by how much inbox mail was kept.
 
 | ID | Measure | Predicted | Custodians | Median change | Interval | Holm p | Placebo | Leave-one-out | Outcome | Caveat |
 |---|---|---|---|---|---|---|---|---|---|---|
-| E1 | after-hours share of sent messages (weekdays) | up | 32 | -0.44 | -0.512 to -0.372 | 0.00000000885 | passes | unstable | not supported | invalid: timestamps in the reference year of the corpus are shifted by several hours |
-| E2 | weekend share of sent messages | up | 32 | 0 | 0 to 0 | 1 | passes | unstable | not supported | — |
-| E3 | share of sent messages with a Bcc recipient | up | 32 | 0 | 0 to 0 | 1 | passes | unstable | not supported | untestable: every Bcc line in the corpus repeats the Cc line |
-| E4 | share of sent messages with a Cc recipient | up | 32 | 0 | -0.0179 to 0.0336 | 1 | passes | unstable | not supported | — |
-| E5 | mean recipients per sent message | up | 32 | 0.0294 | -0.192 to 0.104 | 1 | passes | stable | not supported | — |
-| E6 | share of sent messages with five or more recipients | up | 32 | 0.00205 | -0.0105 to 0.0182 | 1 | passes | unstable | not supported | — |
-| E7 | distinct internal contacts per active week | down | 32 | 1.03 | -0.608 to 2.93 | 1 | passes | unstable | not supported | — |
-| E8 | sent messages per active week | up | 32 | 1.82 | -1.26 to 5.3 | 1 | fails | stable | not supported | — |
-| E9 | share of sent messages to the top three recipients | up | 32 | -0.00636 | -0.0466 to 0.0349 | 1 | passes | unstable | not supported | — |
-| E10 | share of received messages sent to 20 or more | up | 75 | -0.168 | -0.272 to -0.102 | 0.00000169 | passes | unstable | not supported | — |
-| E11 | share of sent messages with one recipient (derived from E10) | up | 32 | -0.00136 | -0.0403 to 0.0286 | 1 | passes | unstable | not supported | — |
-| E12 | share of sent-to contacts who also wrote back | up | 32 | 0.267 | 0.144 to 0.386 | 0.00000243 | passes | stable | confident | — |
-| E13 | share of sent messages to another custodian | up | 32 | 0.0216 | -0.0101 to 0.0564 | 0.877 | fails | stable | not supported | — |
-| E14 | share of received messages from another custodian | up | 75 | 0.0167 | -0.00811 to 0.0401 | 1 | passes | stable | not supported | — |
-| E15 | share of contacts new against the prior 26 weeks | down | 27 | -0.0261 | -0.0988 to 0.0582 | 1 | fails | stable | not supported | retention-sensitive: the 26-week look-back depends on how much older mail was kept |
-| E16 | distinct senders per active week | up | 75 | 5.85 | 5.05 to 7.74 | 0.000000000496 | fails | stable | inconclusive | — |
-| E17 | share of received messages from the top three senders | up | 75 | -0.148 | -0.191 to -0.106 | 0.00000245 | passes | unstable | not supported | — |
-| E18 | share of received messages from external senders | down | 75 | 0.0578 | 0.0405 to 0.0908 | 0.0000248 | passes | unstable | not supported | — |
-| E19 | share of weeks with at least one sent message | up | 32 | 0 | -0.1 to 0.0667 | 1 | passes | unstable | not supported | — |
-| E20 | share of sent messages to a list, role or system address | down | 32 | 0 | -0.0161 to 0.027 | 1 | passes | unstable | not supported | — |
+| H5 | after-hours share of sent messages (weekdays) | up | 32 | -0.44 | -0.512 to -0.372 | 0.00000000885 | passes | unstable | not supported | invalid: timestamps in the reference year of the corpus are shifted by several hours |
+| H6 | weekend share of sent messages | up | 32 | 0 | 0 to 0 | 1 | passes | unstable | not supported | — |
+| H7 | share of sent messages with a Bcc recipient | up | 32 | 0 | 0 to 0 | 1 | passes | unstable | not supported | untestable: every Bcc line in the corpus repeats the Cc line |
+| H8 | share of sent messages with a Cc recipient | up | 32 | 0 | -0.0179 to 0.0336 | 1 | passes | unstable | not supported | — |
+| H9 | mean recipients per sent message | up | 32 | 0.0294 | -0.192 to 0.104 | 1 | passes | stable | not supported | — |
+| H10 | share of sent messages with five or more recipients | up | 32 | 0.00205 | -0.0105 to 0.0182 | 1 | passes | unstable | not supported | — |
+| H11 | distinct internal contacts per active week | down | 32 | 1.03 | -0.608 to 2.93 | 1 | passes | unstable | not supported | — |
+| H12 | sent messages per active week | up | 32 | 1.82 | -1.26 to 5.3 | 1 | fails | stable | not supported | — |
+| H13 | share of sent messages to the top three recipients | up | 32 | -0.00636 | -0.0466 to 0.0349 | 1 | passes | unstable | not supported | — |
+| H14 | share of received messages sent to 20 or more | up | 75 | -0.168 | -0.272 to -0.102 | 0.00000169 | passes | unstable | not supported | — |
+| H15 | share of sent messages with one recipient (derived from H14) | up | 32 | -0.00136 | -0.0403 to 0.0286 | 1 | passes | unstable | not supported | — |
+| H16 | share of sent-to contacts who also wrote back | up | 32 | 0.267 | 0.144 to 0.386 | 0.00000243 | passes | stable | inconclusive | fails the retention check: among custodian-to-custodian contacts, whose replies are visible whatever an inbox kept, the change is not established |
+| H17 | share of sent messages to another custodian | up | 32 | 0.0216 | -0.0101 to 0.0564 | 0.877 | fails | stable | not supported | — |
+| H18 | share of received messages from another custodian | up | 75 | 0.0167 | -0.00811 to 0.0401 | 1 | passes | stable | not supported | — |
+| H19 | share of contacts new against the prior 26 weeks | down | 27 | -0.0261 | -0.0988 to 0.0582 | 1 | fails | stable | not supported | retention-sensitive: the 26-week look-back depends on how much older mail was kept |
+| H20 | distinct senders per active week | up | 75 | 5.85 | 5.05 to 7.74 | 0.000000000496 | fails | stable | inconclusive | — |
+| H21 | share of received messages from the top three senders | up | 75 | -0.148 | -0.191 to -0.106 | 0.00000245 | passes | unstable | not supported | — |
+| H22 | share of received messages from external senders | down | 75 | 0.0578 | 0.0405 to 0.0908 | 0.0000248 | passes | unstable | not supported | — |
+| H23 | share of weeks with at least one sent message | up | 32 | 0 | -0.1 to 0.0667 | 1 | passes | unstable | not supported | — |
+| H24 | share of sent messages to a list, role or system address | down | 32 | 0 | -0.0161 to 0.027 | 1 | passes | unstable | not supported | — |
 
 ## Privacy and re-identification risk
 
