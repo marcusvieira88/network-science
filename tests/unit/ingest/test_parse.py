@@ -11,6 +11,7 @@ import pytest
 
 from enron_case.config import Config
 from enron_case.contracts import vocab
+from enron_case.errors import CorpusError
 from enron_case.ingest.parse import member_location, parse_archive, parse_member
 from enron_case.ingest.stage import parse
 from enron_case.manifest import fingerprint
@@ -178,3 +179,42 @@ def test_date_beyond_datetime_range_is_flagged_not_a_crash() -> None:
     record = _member("Date: Fri, 31 Dec 9999 23:00:00 -0200\nFrom: a@x.org\n\nbody\n")
     assert record["ts_utc"] is None
     assert record["parse_flags"] == ["bad_date"]
+
+
+def test_date_with_unknown_zone_is_read_as_utc() -> None:
+    # RFC 5322: "-0000" says the time is UTC and the sender's local zone is unknown, so the
+    # wall-clock time is the UTC instant: 16:39 on 14 May 2001.
+    record = _member("Date: Mon, 14 May 2001 16:39:00 -0000\n\n")
+    assert record["ts_utc"] == datetime(2001, 5, 14, 16, 39, tzinfo=UTC)
+    assert record["date_raw_ok"] is True
+
+
+BATCH_MEMBERS = tuple(
+    (
+        f"maildir/a-ann/inbox/{n}.",
+        f"Date: Mon, {n + 10} May 2001 0{n}:00:00 +0000\nTo: r{n}@x.invalid\n\n".encode(),
+    )
+    for n in range(1, 6)
+)
+
+
+@pytest.mark.parametrize("batch_rows", [1, 2, 5])
+def test_small_batches_give_the_same_rows_as_one_batch(tmp_path: Path, batch_rows: int) -> None:
+    """Five members: batches of 1 and 2 flush mid-stream (2 leaves one row for the end, 1 and
+    5 leave an empty final batch); the table and counts equal those of a single batch."""
+    archive = _archive(tmp_path / "a.tar.gz", BATCH_MEMBERS)
+    single, single_counts = parse_archive(archive, len(BATCH_MEMBERS) + 1)
+    batched, batched_counts = parse_archive(archive, batch_rows)
+    assert batched.equals(single)
+    assert batched_counts == single_counts
+    assert batched_counts["files_parsed"] == 5
+    assert sorted(batched.get_column("ts_utc").to_list()) == [
+        datetime(2001, 5, n + 10, n, tzinfo=UTC) for n in range(1, 6)
+    ]
+
+
+def test_unreadable_archive_is_a_corpus_error(tmp_path: Path) -> None:
+    archive = tmp_path / "broken.tar.gz"
+    archive.write_bytes(b"not a gzip stream")
+    with pytest.raises(CorpusError, match="archive could not be read"):
+        parse_archive(archive, Config().batch_rows)
