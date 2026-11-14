@@ -61,6 +61,7 @@ STAGES: tuple[Stage, ...] = (
     Stage("report", "report", "run"),
     Stage("ui-data", "uiexport", "run"),
 )
+PARSE_STAGE = "parse"  # the stage that reads the archive; the manifest records its hash
 DEFAULT_LAST = "report"  # ui-data runs only when asked for
 KEEP_INGEST_WARNING = "warning: the ingest zone (addresses, names) stays on disk after this run"
 STAGE_NAMES = tuple(s.name for s in STAGES)
@@ -102,6 +103,13 @@ def ensure_sample_corpus(paths: Paths) -> None:
 
     if not (paths.dir(Zone.RAW) / "synthetic_maildir.tar.gz").exists():
         generate(paths.data_root)
+
+
+def archive_sha256(ctx: StageContext) -> str:
+    """SHA-256 of the archive the parse stage read; the manifest's record of the input."""
+    from enron_case.ingest.fetch import sha256_of  # noqa: PLC0415 - imported only when parsing
+
+    return sha256_of(ctx.archive)
 
 
 @dataclass
@@ -152,6 +160,8 @@ def run_pipeline(
             started = time.perf_counter()
             fn(ctx)
             seconds = time.perf_counter() - started
+            if stage.name == PARSE_STAGE:
+                manifest.corpus_sha256 = archive_sha256(ctx)
             manifest.tables.update(ctx.outputs)
             manifest.counts.update(ctx.count_outputs)
             manifest.record_stage(stage.name, seconds)
@@ -160,7 +170,7 @@ def run_pipeline(
     finally:
         if not keep_ingest:
             zones.purge_ingest(paths)
-    full_run = bool(stages) and stages[0].name in {"fetch", "parse"}
+    full_run = bool(stages) and stages[0].name in {"fetch", PARSE_STAGE}
     target = zones.path_for(paths, "cli", Zone.RELEASE, "run_manifest.json", "w")
     manifest.write(target, merge=not full_run)
     return RunResult(manifest, ran, skipped)

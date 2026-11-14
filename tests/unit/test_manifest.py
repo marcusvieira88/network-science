@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
+from enron_case.config import SAMPLE_ARCHIVE
 from enron_case.manifest import RunManifest
+from enron_case.zones import Zone
+from helpers import run_sample
 
 
 def manifest() -> RunManifest:
@@ -25,3 +29,12 @@ def test_same_manifest_writes_identical_bytes(tmp_path: Path) -> None:
     manifest().write(first)
     manifest().write(second)
     assert first.read_bytes() == second.read_bytes()
+
+
+def test_manifest_records_the_hash_of_the_archive_parsed(tmp_path: Path) -> None:
+    run = run_sample(tmp_path, last="parse")
+    archive = run.paths.dir(Zone.RAW) / SAMPLE_ARCHIVE
+    expected = hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert run.result.manifest.corpus_sha256 == expected
+    written = json.loads((run.paths.release_root / "run_manifest.json").read_text())
+    assert written["corpus_sha256"] == expected
