@@ -15,7 +15,13 @@ import numpy as np
 import polars as pl
 from scipy.stats import wilcoxon
 
-from enron_case.config import CRISIS_WINDOW, REFERENCE_WINDOW, Config
+from enron_case.config import (
+    CRISIS_WINDOW,
+    PLACEBO_AFTER_WINDOW,
+    PLACEBO_BEFORE_WINDOW,
+    REFERENCE_WINDOW,
+    Config,
+)
 from enron_case.contracts import schemas, vocab
 from enron_case.finding import stats
 
@@ -44,8 +50,6 @@ CAVEATS = schemas.EXPLORATORY_CAVEATS
 LOOKBACK_MEASURES = frozenset({"E15"})
 
 Window = tuple[date, date]
-PLACEBO_AFTER: Window = (date(2001, 1, 1), date(2001, 4, 30))
-PLACEBO_BEFORE: Window = (date(2000, 1, 1), date(2000, 4, 30))
 
 _, CC, BCC = vocab.RECIPIENT_ROLES
 CONFIDENT, INCONCLUSIVE, NOT_SUPPORTED = schemas.EXPLORATORY_OUTCOMES
@@ -465,7 +469,9 @@ def run_family(events: pl.DataFrame, entities_p: pl.DataFrame, config: Config) -
         d = paired_differences(tables, measure, CRISIS_WINDOW, REFERENCE_WINDOW, minimum)
         crisis = compare(d, config, index)
         placebo = compare(
-            paired_differences(tables, measure, PLACEBO_AFTER, PLACEBO_BEFORE, minimum),
+            paired_differences(
+                tables, measure, PLACEBO_AFTER_WINDOW, PLACEBO_BEFORE_WINDOW, minimum
+            ),
             config,
             50 + index,
         )

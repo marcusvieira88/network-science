@@ -72,6 +72,9 @@ PUBLIC_EVENTS: tuple[tuple[date, str], ...] = (
 # earlier. The exploratory analysis and the UI export both read them from here.
 CRISIS_WINDOW: tuple[date, date] = (date(2001, 8, 14), date(2001, 12, 2))
 REFERENCE_WINDOW: tuple[date, date] = (date(2000, 8, 14), date(2000, 12, 2))
+# The pre-crisis placebo: the same comparison, a year apart, before any public crisis event.
+PLACEBO_AFTER_WINDOW: tuple[date, date] = (date(2001, 1, 1), date(2001, 4, 30))
+PLACEBO_BEFORE_WINDOW: tuple[date, date] = (date(2000, 1, 1), date(2000, 4, 30))
 
 
 @dataclass(frozen=True)

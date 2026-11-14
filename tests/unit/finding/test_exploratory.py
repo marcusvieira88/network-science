@@ -7,7 +7,13 @@ from datetime import UTC, date, datetime, timedelta
 import numpy as np
 import polars as pl
 
-from enron_case.config import CRISIS_WINDOW, REFERENCE_WINDOW, Config
+from enron_case.config import (
+    CRISIS_WINDOW,
+    PLACEBO_AFTER_WINDOW,
+    PLACEBO_BEFORE_WINDOW,
+    REFERENCE_WINDOW,
+    Config,
+)
 from enron_case.finding import exploratory as ex
 
 A, B, C, D = "p_aaaaaaaaaaaaaaaa", "p_bbbbbbbbbbbbbbbb", "p_cccccccccccccccc", "p_dddddddddddddddd"
@@ -170,8 +176,8 @@ def _family_events(planted: bool) -> pl.DataFrame:
     windows = {
         "crisis": CRISIS_WINDOW,
         "reference": REFERENCE_WINDOW,
-        "p1": ex.PLACEBO_AFTER,
-        "p0": ex.PLACEBO_BEFORE,
+        "p1": PLACEBO_AFTER_WINDOW,
+        "p0": PLACEBO_BEFORE_WINDOW,
     }
     for name, (start, _end) in windows.items():
         direct = 18 if (planted and name == "crisis") else 6
