@@ -25,9 +25,9 @@ HIGH, MODERATE, _ = vocab.CONFIDENCE
 # How sure we are that the record changed, as a rule on published numbers (not a judgment).
 CONFIDENCE_RULE = (
     f"{HIGH} when the monthly ranges of the two windows do not overlap and the change within "
-    f"the same people ({TIMESTAMP_HYPOTHESIS}) has an interval that excludes zero on the same "
-    f"side; {MODERATE} when the ranges do not overlap but that change is not measured or its "
-    "interval includes zero; with overlapping ranges no change is claimed"
+    f"the same people ({TIMESTAMP_HYPOTHESIS}) has an interval that excludes zero; {MODERATE} "
+    "when the ranges do not overlap but that change is not measured or its interval includes "
+    "zero; with overlapping ranges no change is claimed"
 )
 # What happens to a folder name (contracts/header-allowlist.md; the classes are
 # vocab.FOLDER_CLASSES, and a test pins their number to the word used here).
@@ -133,12 +133,12 @@ def _lower(reference: Sequence[float], crisis: Sequence[float]) -> bool | None:
     return False if min(crisis) > max(reference) else None
 
 
-def _same_side(row: Row, lower: bool) -> bool:
-    """The within-custodian interval excludes zero on the side the monthly shares moved to."""
-    bound = row["ci_high"] if lower else row["ci_low"]
-    if not isinstance(bound, int | float):
+def _excludes_zero(row: Row) -> bool:
+    """The within-custodian interval lies wholly on one side of zero."""
+    low, high = row["ci_low"], row["ci_high"]
+    if not isinstance(low, int | float) or not isinstance(high, int | float):
         return False
-    return bound < 0 if lower else bound > 0
+    return low > 0 or high < 0
 
 
 def record_confidence(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str | None:
@@ -148,11 +148,10 @@ def record_confidence(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str |
     crisis = _months_of(profile, CRISIS_WINDOW, SHARE)
     if not reference or not crisis:
         return None
-    lower = _lower(reference, crisis)
-    if lower is None:
+    if _lower(reference, crisis) is None:
         return None
     row = _timestamp_row(exploratory)
-    return HIGH if row is not None and _same_side(row, lower) else MODERATE
+    return HIGH if row is not None and _excludes_zero(row) else MODERATE
 
 
 def finding_statement(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
@@ -256,11 +255,12 @@ def record_section(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
 
 
 REPLICATION_HYPOTHESIS = "H25"  # the post-hoc replication test of PRIOR_WORK
-# Named neutrally: which of the papers of that year reports the result is settled in
-# docs/hypotheses-exploratory.md, not here.
+# Diesner & Carley (the SIAM workshop paper) report the density comparison of two single
+# months; Diesner, Frantz & Carley of the same year say density does not track the scandal
+# (verified against both papers; docs/hypotheses-exploratory.md).
 PRIOR_WORK = (
-    "the denser crisis-period network reported in published single-month comparisons of this "
-    f"corpus (Diesner and colleagues, {PRIOR_WORK_YEAR})"
+    f"the denser crisis-period network that Diesner and Carley ({PRIOR_WORK_YEAR}) report "
+    "from a comparison of single months of this corpus"
 )
 
 

@@ -3,8 +3,8 @@
 
 # How this was built with AI agents
 
-Distilled from `docs/ai-workflow-log.md`, which records the main delegations as they happened,
-not every one. Counts
+Distilled from `docs/ai-workflow-log.md`, which records the main delegations as they happened.
+Counts
 are written as words on purpose: every number in a generated document must trace to a release
 table.
 
@@ -161,7 +161,7 @@ its own worktree, removed `Any` from signatures and dead scaffolding. What the r
   written. A fresh clone did run the one command end to end, most of its time spent on the
   download.
 - The security review could not use its skill as written, because the skill reviews a diff. It
-  was run by hand, following the skill's method, on the whole repository before delivery: it
-  found nothing critical or high, and its fixes are listed in the task list. A whole-repository
+  was run by hand, following the skill's method, on the whole repository at `ce3efa3`: no
+  critical or high findings, and its fixes are listed in the task list. A whole-repository
   `/data-privacy-review` ran before delivery too and passed with findings, seven of them fixed.
   The log holds the dates and commits.

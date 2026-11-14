@@ -44,6 +44,7 @@ def test_no_document_overclaims(claim: str) -> None:
 # scope keeps bodies and attachments at the source, but `Subject`, which is content, still
 # arrives and is discarded at the allowlist. So "content never leaves the source" overclaims.
 TEMPLATES = sorted((REPO / "src" / "enron_case" / "report" / "templates").glob("*.md"))
+GENERATED = [REPO / "docs" / path.name for path in TEMPLATES]
 CONTENT_STAYS_AT_SOURCE = re.compile(r"content\s+never\s+leaves?\s+the\s+source", re.IGNORECASE)
 PRECISE_CLAIM = re.compile(
     r"bodies\s+and\s+attachments\s+never\s+leave\s+the\s+source", re.IGNORECASE
@@ -55,8 +56,8 @@ SUBJECT_ARRIVES = re.compile(
 
 def test_no_template_says_mail_content_never_leaves_the_source() -> None:
     offending = [
-        path.name
-        for path in TEMPLATES
+        str(path.relative_to(REPO))
+        for path in (*TEMPLATES, *GENERATED)
         if CONTENT_STAYS_AT_SOURCE.search(path.read_text(encoding="utf-8"))
     ]
     assert offending == []

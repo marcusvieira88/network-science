@@ -62,10 +62,9 @@ MESSAGE_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailin
 # Message flags that take a message out of the network (data-contracts.md, events.in_network);
 # `bad_address` is flagged but stays in.
 NETWORK_EXCLUSION_FLAGS = ("date_out_of_range", "no_recipients", "self_only", "mass_mailing")
-# The parser emits `bad_date` and `folded` on a parsed message; `no_header_end` is the reason a
-# file is rejected (ingest_counts), and `decode_error` is reserved: the reader decodes header
-# bytes leniently and never raises it.
-PARSE_FLAGS = ("no_header_end", "bad_date", "folded", "decode_error")
+# Flags the parser sets on a parsed message. A file without a clean header end is rejected,
+# not flagged (ingest/parse.py, REJECT_NO_HEADER_END).
+PARSE_FLAGS = ("bad_date", "folded")
 CORE_SCOPE = "core"
 OBSERVED_SCOPE = "observed"
 SCOPES = (CORE_SCOPE, OBSERVED_SCOPE)

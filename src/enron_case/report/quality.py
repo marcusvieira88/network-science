@@ -69,7 +69,7 @@ def _meaning(ruling: str, fields: list[str]) -> str:
     if ruling != IDENTIFIER or not not_retained:
         return RULING_MEANING[ruling]
     return (
-        f"{RULING_MEANING[ruling]}; {', '.join(not_retained)}: identifier, not retained "
+        f"{RULING_MEANING[ruling]}; {', '.join(not_retained)}: direct identifier, not retained "
         "(dropped by the parser, so it never enters the ingest zone)"
     )
 

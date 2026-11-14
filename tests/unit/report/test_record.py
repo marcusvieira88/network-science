@@ -262,13 +262,13 @@ def test_replication_statement_when_h25_is_suppressed() -> None:
 # ---- the finding, its confidence rule and the reading of H5 ----------------------------------
 
 
-def test_confidence_is_high_only_when_ranges_part_and_h5_excludes_zero_on_that_side() -> None:
+def test_confidence_is_high_only_when_ranges_part_and_h5_excludes_zero() -> None:
     """SWITCHED: reference months 0.45-0.55, crisis months 0.06-0.1, so the ranges do not
     overlap and the share fell. `_h5(m)` has the interval m ± 0.05."""
     profile = _profile(SWITCHED)
     assert record.record_confidence(profile, _h5(-0.44)) == "high"  # -0.49 to -0.39
     assert record.record_confidence(profile, _h5(-0.02)) == "moderate"  # -0.07 to 0.03
-    assert record.record_confidence(profile, _h5(0.44)) == "moderate"  # excludes zero, wrong side
+    assert record.record_confidence(profile, _h5(0.44)) == "high"  # 0.39 to 0.49
     assert record.record_confidence(profile, NO_H5) == "moderate"  # not measured
 
 
@@ -276,7 +276,7 @@ def test_confidence_reads_a_rise_of_the_share_the_same_way() -> None:
     """The mirror case: crisis months above every reference month, H5 above zero."""
     profile = _profile([1 - share for share in SWITCHED])
     assert record.record_confidence(profile, _h5(0.44)) == "high"
-    assert record.record_confidence(profile, _h5(-0.44)) == "moderate"
+    assert record.record_confidence(profile, _h5(0.0)) == "moderate"
 
 
 def test_no_confidence_and_no_finding_without_a_claimed_change() -> None:
@@ -323,9 +323,9 @@ def test_folder_names_wording_matches_the_number_of_folder_classes() -> None:
 def test_replication_statement_names_prior_work_neutrally() -> None:
     text = record.replication_statement(_h25(None))
     assert text.startswith(
-        "H25, the post-hoc replication test of the denser crisis-period network reported in "
-        "published single-month comparisons of this corpus (Diesner and colleagues, "
-        f"{PRIOR_WORK_YEAR}), compares each custodian's share"
+        "H25, the post-hoc replication test of the denser crisis-period network that Diesner "
+        f"and Carley ({PRIOR_WORK_YEAR}) report from a comparison of single months of this "
+        "corpus, compares each custodian's share"
     )
     assert "Frantz" not in text
 

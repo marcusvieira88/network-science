@@ -860,7 +860,7 @@ def test_ruling_legend_marks_identifiers_that_are_not_retained() -> None:
     fields = _fields({"From": "identifier", "X-FileName": "identifier", "X-Origin": "identifier"})
     assert quality.ruling_legend(fields) == (
         "- **identifier**: used inside the ingest zone only, then pseudonymized or discarded; "
-        "X-FileName, X-Origin: identifier, not retained (dropped by the parser, so it never "
+        "X-FileName, X-Origin: direct identifier, not retained (dropped by the parser, so it never "
         "enters the ingest zone)"
     )
     assert "not retained" not in quality.ruling_legend(_fields({"From": "identifier"}))
