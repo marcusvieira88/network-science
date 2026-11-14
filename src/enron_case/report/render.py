@@ -33,9 +33,11 @@ HYPOTHESIS_CLAIMS = {
     "H4": "working relationships were rewired faster",
 }
 CONFIDENCE_WORDS = {
-    "high": "high: the change passes every check we defined in advance",
-    "moderate": "moderate: the change is significant but fails at least one robustness check",
-    "low": "low: the evidence is weak or inconsistent across checks",
+    "high": "high: the change is supported and passes all three robustness checks",
+    "moderate": "moderate: the change is supported but exactly one of the three robustness "
+    "checks (null model, leave-one-mailbox-out, sensitivity variants) fails",
+    "low": "low: the change is not supported, two or more robustness checks fail, or its check "
+    "against a known artifact failed or could not run",
 }
 RELEASE_VARIANTS = {
     "R0": "pseudonymized person-level weekly edge list (the naive output; never published)",

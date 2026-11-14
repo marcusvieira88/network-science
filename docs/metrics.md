@@ -95,29 +95,38 @@ recipient is an excluded person before everything else.
 
 ## Evidence and confidence (research R11)
 
-For each hypothesis, with its metric and scope and the direction stated in `docs/hypotheses.md`,
-α = 0.05:
+The decision rule, the robustness checks and the confidence rule are defined in
+`docs/hypotheses.md`, which is authoritative; this section restates them and must agree with it
+and with `src/enron_case/finding/select.py`. For each hypothesis, with its metric, scope and
+direction `d` (+1 up, −1 down), α = 0.05:
 
 | Check | Passes when |
 |-------|-------------|
-| (a) change point | CUSUM permutation p-value `p_perm` < α |
-| (b) effect | the 95 % block-bootstrap interval (`ci_low`, `ci_high`) excludes 0 on the hypothesised side |
-| (c) null model | `null_z` ≥ 1.96 in the hypothesised direction (the change is not explained by volume alone) |
-| (d) leave-one-mailbox-out | `loo_min_effect` and `loo_max_effect` both have the hypothesised sign |
-| (e) variants | `robust_variants_passed = robust_variants_total`; a variant passes when its effect has the hypothesised sign and its interval excludes 0 |
+| (a) change point | CUSUM permutation p-value `p_perm` (enters (f); not a separate pass/fail check) |
+| (b) effect | the 95 % block-bootstrap interval (`ci_low`, `ci_high`) lies wholly on the hypothesised side (`d · ci_low > 0`) |
+| (c) null model | `d · null_z > 1.645` (one-sided `z_{1−α}`; the change is not explained by volume alone) |
+| (d) leave-one-mailbox-out | every leave-one-out effect has the hypothesised sign (`loo_min_effect`, `loo_max_effect` report the range) |
+| (e) variants | at least one non-default variant exists and every variant passes (`robust_variants_passed = robust_variants_total > 0`); a variant passes when its own `p_perm < α` and its own interval lies wholly on the hypothesised side |
 | (f) multiple testing | Holm-adjusted `p_holm` < α across H1–H4 |
 
-**Supported**
+**Supported**, decided in this order:
 
-- `yes`: (b) and (f) pass.
-- `no`: the interval excludes 0 on the opposite side, or the interval contains 0 and (f) fails.
-- `inconclusive`: otherwise (exactly one of (b) and (f) passes).
+- `inconclusive` if the effect cannot be computed;
+- `no` if the interval lies wholly on the opposite side (`d · ci_high < 0`);
+- `yes` if (b) and (f) pass;
+- `no` if neither (b) nor (f) passes;
+- `inconclusive` otherwise (exactly one of (b) and (f) passes).
 
-**Confidence**
+**Confidence** (robustness checks (c), (d), (e) only):
 
-- `high`: supported is `yes` and all of (a)–(f) pass.
-- `moderate`: supported is `yes` and at least one of (a), (c), (d), (e) fails.
-- `low`: supported is `no` or `inconclusive`.
+- `high`: supported is `yes` and (c), (d), (e) all pass;
+- `moderate`: supported is `yes` and exactly one of (c), (d), (e) fails;
+- `low`: supported is `yes` with two or more of them failing, or supported is `no` or
+  `inconclusive`.
+
+A hypothesis whose check against a known artifact fails or could not run is capped at `low`
+(`docs/hypotheses.md`, "Artifact checks"). The headline is the supported, high-confidence
+hypothesis with the largest effect in its direction, if any.
 
 ## Known limits
 

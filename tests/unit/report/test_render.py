@@ -306,3 +306,8 @@ def test_headline_statement_ignores_unsupported_hypothesis_with_failed_check(
     text = render.headline_statement(hypotheses, _checks(synth, {"H2": False, "H3": False}))
     assert "H3 passed" in text
     assert "H2" not in text
+
+
+def test_confidence_words_match_the_rule_in_docs_hypotheses() -> None:
+    assert "exactly one" in render.CONFIDENCE_WORDS["moderate"]
+    assert "two or more" in render.CONFIDENCE_WORDS["low"]
