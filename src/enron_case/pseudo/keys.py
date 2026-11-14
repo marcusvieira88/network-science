@@ -15,6 +15,7 @@ from enron_case.config import (
     DEFAULT_KEY_PATH,
     KEY_ENV,
     KEY_FILE_ENV,
+    KEY_FILE_FORBIDDEN_MODE,
     MIN_KEY_BYTES,
     SAMPLE_KEY_HEX,
 )
@@ -73,6 +74,8 @@ def _read_key_file(path: Path, source: str, repo_root: Path) -> bytes:
         raise KeyProblem(f"{source} lies inside the repository; move it outside")
     if not resolved.is_file():
         raise KeyProblem(f"no key found ({source} missing); run: make key")
+    if resolved.stat().st_mode & KEY_FILE_FORBIDDEN_MODE:
+        raise KeyProblem(f"{source} is open to group or other users; run: chmod 600 on it")
     return _parse_key(resolved.read_text(encoding="ascii", errors="replace"), source)
 
 

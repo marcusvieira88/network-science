@@ -7,6 +7,7 @@ import io
 from hypothesis import given
 from hypothesis import strategies as st
 
+from enron_case.config import MAX_HEADER_BYTES
 from enron_case.ingest.headers import MAX_HEADER_LINES, read_header
 
 KEEP_ALL = frozenset({"from", "to", "subject", "x-to"})
@@ -109,6 +110,24 @@ def test_line_cap_stops_reading() -> None:
     block = read_header(stream, KEEP_ALL)
     assert not block.ended
     assert len(block.names_seen) == MAX_HEADER_LINES
+
+
+def test_byte_cap_stops_a_line_without_end() -> None:
+    """A header line longer than the cap (a crafted member with no newline) is never read whole."""
+    raw = b"From: a@x.com\nX-Long: " + b"a" * (2 * MAX_HEADER_BYTES) + b"\n\nCANARYBODY"
+    stream = CountingStream(raw)
+    block = read_header(stream, KEEP_ALL)
+    assert not block.ended
+    assert stream.consumed <= MAX_HEADER_BYTES
+
+
+def test_byte_cap_bounds_folded_continuations() -> None:
+    line = b" " + b"b" * 1000 + b"\n"
+    raw = b"To: a@x.com\n" + line * (2 * MAX_HEADER_BYTES // len(line)) + b"\n"
+    stream = CountingStream(raw)
+    block = read_header(stream, KEEP_ALL)
+    assert not block.ended
+    assert stream.consumed <= MAX_HEADER_BYTES
 
 
 def test_line_whose_prefix_is_not_a_field_name_stops_reading() -> None:

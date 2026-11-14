@@ -20,6 +20,7 @@ from typing import IO
 
 import polars as pl
 
+from enron_case.config import MAX_HEADER_BYTES
 from enron_case.context import StageContext
 from enron_case.risk.features import EDGE_SCHEMA, clean_edges
 
@@ -66,10 +67,15 @@ def parse_archive(archive: Path) -> pl.DataFrame:
 def read_headers(stream: IO[bytes]) -> dict[str, str]:
     """The attacker's fields from one member, reading no further than the end of the header
     block: a blank or whitespace-only line, or the first line that is not a header line.
-    Folded continuation lines are joined; every other field is discarded unread."""
+    Folded continuation lines are joined; every other field is discarded unread. A member whose
+    header runs past MAX_HEADER_BYTES yields only the lines read before the cap."""
     fields: dict[str, str] = {}
     current: str | None = None
-    for raw in iter(stream.readline, b""):
+    budget = MAX_HEADER_BYTES
+    while budget and (raw := stream.readline(budget)):
+        budget -= len(raw)
+        if not budget and not raw.endswith(b"\n"):
+            break
         line = raw.decode(HEADER_ENCODING).rstrip("\r\n")
         if not line.strip():
             break

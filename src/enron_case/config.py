@@ -29,6 +29,12 @@ KEY_ENV = "ENRON_CASE_KEY"
 KEY_FILE_ENV = "ENRON_CASE_KEY_FILE"
 DEFAULT_KEY_PATH = Path(".config") / "enron-case" / "key"  # relative to the home directory
 MIN_KEY_BYTES = 32
+# Permission bits a key file must not have: any access for group or others (like ssh keys).
+KEY_FILE_FORBIDDEN_MODE = 0o077
+# Upper bound on the bytes read from one archive member's header block, by our parser and the
+# attacker's. Real headers average a few kilobytes; the cap keeps a crafted member (one endless
+# line, no newline) from being read into memory whole.
+MAX_HEADER_BYTES = 1 << 20
 
 # Percentile bootstrap interval (95%) of the risk scores, the utility effect and the
 # within-custodian artifact check. The finding's block bootstrap uses `Config.ci_level`.
