@@ -144,7 +144,7 @@ describe("SigmaNetwork, Overlap mode", () => {
   it("explains in the legend that an overlap is mail, not shared members", () => {
     render(<SigmaNetwork {...props} />);
     expect(screen.getByTestId("network-legend")).toHaveTextContent(
-      "Overlap = mail between two groups, not shared members — each person is in exactly one group.",
+      "Overlap = mail between two groups, not shared members — each grouped person is in exactly one group.",
     );
   });
 
@@ -238,8 +238,8 @@ describe("SigmaNetwork, Overlap mode", () => {
     expect(layerStub.binds).toHaveLength(0);
   });
 
-  it("leaves the Individuals mode without a contour layer", () => {
-    render(<SigmaNetwork {...props} mode="individuals" />);
+  it("leaves the group-size dots mode without a contour layer", () => {
+    render(<SigmaNetwork {...props} mode="dots" />);
     expect(layerStub.binds).toHaveLength(0);
     expect(loaded().getNodeAttribute(groupKey("G01"), "color")).toMatch(/^#[0-9a-f]{6}40$/);
   });

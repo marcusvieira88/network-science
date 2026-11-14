@@ -22,7 +22,7 @@ const LINK_TIE_STRENGTH = 0.5;
 const COLLIDE_PADDING = 12;
 /** Ties are drawn translucent so crossings stay readable, in the SVG and the WebGL network alike. */
 export const TIE_OPACITY = 0.55;
-/** In the Individuals mode a group's disc fades to a membrane around its anonymous points. */
+/** In the group-size dots mode a group's disc fades to a membrane around its anonymous points. */
 export const MEMBRANE_OPACITY = 0.25;
 /** Height of the WebGL network canvas and of its loading placeholder, in pixels. */
 export const NETWORK_HEIGHT = 460;

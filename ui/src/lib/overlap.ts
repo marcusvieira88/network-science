@@ -3,7 +3,7 @@
  * groups are drawn as intersecting contours instead of lines, and the group positions are relaxed so
  * each such pair overlaps by its depth while every other pair stays apart.
  *
- * An overlap means mail between two groups, never shared members: each person is in exactly one
+ * An overlap means mail between two groups, never shared members: each grouped person is in exactly one
  * group. Everything here is a group-level published count; nothing is drawn per person.
  */
 import type { CommunityEdgeRow } from "@/lib/data";

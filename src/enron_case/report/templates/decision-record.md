@@ -5,8 +5,8 @@
 
 **Context.** A headers-only analysis of the public Enron email corpus as an engineering case
 study: clean the header record, pseudonymize it, look for one change in the communication
-network, and measure whether people can be re-identified from what we publish. The corpus is
-public; the pipeline is built as if it were not.
+network, and measure how many people can be re-identified from person-level output, which we
+therefore do not publish. The corpus is public; the pipeline is built as if it were not.
 
 ## Architecture
 
@@ -21,16 +21,15 @@ flowchart LR
     Release --> Docs[report, this record, slides]
 ```
 
-The parser stops at the first blank line of each message, so it cannot reach a body. Every
-table crossing a zone is checked against a written contract. Numbers in the documents are
-injected from release tables; none is typed.
+The header reader stops at the first blank line of each message: body bytes pass through the
+decompressor and are skipped, never decoded, parsed, held, stored or logged. Every table
+crossing a zone is checked against a written contract.
 
 ## Trade-offs
 
 - **Strict content line, including `Subject`.** Content fields ({{fields_content}}) are never
-  stored. We lose threads and reply times and dedupe on sender, second and recipients alone:
-  {{dq_deduplicate_removed}} copies removed. Precision and recall are measured on synthetic
-  ground truth only.
+  stored: a `Subject` line is discarded as the header is scanned. We lose threads and reply times and dedupe on sender, second and recipients alone:
+  {{dq_deduplicate_removed}} copies removed.
 - **Rule-based identity resolution.** Deterministic, explainable rules weighted to precision,
   because a false merge invents a central person while a false split only dilutes one:
   {{dq_resolve_identities_count_in}} addresses to {{dq_resolve_identities_count_out}} entities.
@@ -41,21 +40,20 @@ injected from release tables; none is typed.
   re-identified a share of {{risk_r0_a1_reid_top1}} of targets for the outsider,
   {{risk_r0_a2_reid_top1}} for an insider who knows a few custodians and
   {{risk_r0_a3_reid_top1}} for one who knows them all, as anyone holding the corpus does.
-- **Aggregates-only release.** So nothing person-level is published. Every cell meets
-  k = {{k_min}}. On the aggregate release (R1) the shares fall to {{risk_r1_a1_reid_top1}},
-  {{risk_r1_a2_reid_top1}} and {{risk_r1_a3_reid_top1}}. {{utility_phrase}}
+- **Aggregates-only release.** Nothing person-level is published; every cell meets
+  k = {{k_min}}. {{aggregate_risk_phrase}} {{utility_phrase}}
 
-**Finding.** The change in the crisis year that the headers establish is in the record; no
-change in behaviour is established. {{record_summary}}
+**Finding.** {{finding_statement}} {{record_summary}}
 
-**Behaviour.** {{headline_statement}} {{replication_statement}} Details: the report.
+**Behaviour.** {{headline_statement}} {{replication_summary}}
 
 **Structure (H26, post hoc).** {{departure_summary}}
 
 ## What changes with real customer data
 
-- **Metadata-only connectors**: mail scopes that return headers only, so mail content never
-  leaves the source; Teams and Slack have no such scope, so their text is dropped in memory.
+- **Metadata-only connectors**: mail scopes return headers only, so bodies and attachments
+  never leave the source; `Subject` still arrives and is discarded at the allowlist. Teams and
+  Slack have no such scope: their text is dropped in memory.
 - **Customer-side key custody and an entity registry**, so pseudonyms survive changes in
   identity resolution.
 - **Retention schedule, data residency, works council review** of the questions, the minimum
@@ -65,10 +63,9 @@ change in behaviour is established. {{record_summary}}
 
 ## Not done, and why
 
-- **No behavioural or structural finding.** The apparent crisis-year signals failed
-  checks against known artifacts (stale groups, mailbox mix, inbox retention); those checks,
-  the record profile and the replication and departure tests came after results (post hoc).
+- **No behavioural or structural finding.** {{not_established_summary}} Those checks, the
+  record profile and the replication and departure tests are post hoc.
 - **Dropped for time**: the dedupe-rule sensitivity variant.
 - **A sketch, not a guarantee**: the noise release (R2) has no formal privacy budget.
-- **Identity precision on real data** rests on a manual sample judged by a person, not on ground
-  truth. The report lists every limit.
+- **Identity quality on real data.** {{identity_quality_phrase}} The report lists every
+  limit.

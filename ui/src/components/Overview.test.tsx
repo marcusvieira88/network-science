@@ -52,11 +52,11 @@ describe("Overview", () => {
     render(<Overview data={{ ...data, tables: { ...data.tables, risk } }} />);
     expect(
       screen.getByText(
-        "On person-level pseudonymised data the strongest attack re-identifies 50% of people; on the published " +
-          "release, 4%.",
+        "On person-level pseudonymised data, which is never published, the strongest attack re-identifies 50% of " +
+          "people; on the published release, 4%.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("strongest attacker, person-level data vs published")).toBeInTheDocument();
+    expect(screen.getByText("strongest attacker, on R0, which is never published; 4% against the published release")).toBeInTheDocument();
   });
 
   it("says the published 0% re-identification holds by construction, not as a measured attack", () => {
@@ -71,12 +71,20 @@ describe("Overview", () => {
     render(<Overview data={{ ...data, tables: { ...data.tables, risk } }} />);
     expect(
       screen.getByText(
-        "On person-level pseudonymised data the strongest attack re-identifies 59.1% of people. The published " +
+        "On person-level pseudonymised data, which is never published, the strongest attack re-identifies 59.1% of people. The published " +
           "release holds only groups of at least 5 people, so that attack has no person to match there (0%, by " +
           "construction); no attack on the group tables was run.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("strongest attacker; the published tables hold no person to match")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "strongest attacker, on R0, which is never published; the published tables hold no person-level record, so " +
+          "the attack does not apply to them (0 by construction, not a measurement)",
+      ),
+    ).toBeInTheDocument();
+    // The card shows the one measured rate; no arrow suggests a measured drop to zero.
+    expect(screen.getByText("Re-identified from person-level data")).toBeInTheDocument();
+    expect(screen.queryByText(/→/)).not.toBeInTheDocument();
   });
 
   it("counts only real groups in the key numbers and names the outside bucket's size apart", () => {
@@ -89,7 +97,7 @@ describe("Overview", () => {
     render(<Overview data={{ ...data, tables: { ...data.tables, community_groups: groups } }} />);
     const header = screen.getByText("Groups in the network view").parentElement;
     expect(header).toHaveTextContent("Groups in the network view2");
-    expect(header?.nextElementSibling).toHaveTextContent("each at least 5 people; 25,838 more people are outside the 2000 groups");
+    expect(header?.nextElementSibling).toHaveTextContent("each at least 5 people; 25,838 more internal people are outside the 2000 groups");
   });
 
   it("leads to the plain-language hypotheses and to the network", async () => {

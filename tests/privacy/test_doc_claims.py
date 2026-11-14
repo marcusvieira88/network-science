@@ -46,3 +46,33 @@ def test_no_document_overclaims(claim: str) -> None:
         if pattern.search(path.read_text(encoding="utf-8"))
     ]
     assert offending == [], f"{claim}: {offending}"
+
+
+# Documents this repository generates (their templates): a mail connector with a metadata-only
+# scope keeps bodies and attachments at the source, but `Subject`, which is content, still
+# arrives and is discarded at the allowlist. So "content never leaves the source" overclaims.
+TEMPLATES = sorted((REPO / "src" / "enron_case" / "report" / "templates").glob("*.md"))
+GENERATED = [REPO / "docs" / path.name for path in TEMPLATES]
+CONTENT_STAYS_AT_SOURCE = re.compile(r"content\s+never\s+leaves?\s+the\s+source", re.IGNORECASE)
+PRECISE_CLAIM = re.compile(
+    r"bodies\s+and\s+attachments\s+never\s+leave\s+the\s+source", re.IGNORECASE
+)
+SUBJECT_ARRIVES = re.compile(
+    r"`Subject`\s+still\s+arrives\s+and\s+is\s+discarded\s+at\s+the\s+allowlist"
+)
+
+
+def test_no_template_says_mail_content_never_leaves_the_source() -> None:
+    offending = [
+        str(path.relative_to(REPO))
+        for path in (*TEMPLATES, *GENERATED)
+        if CONTENT_STAYS_AT_SOURCE.search(path.read_text(encoding="utf-8"))
+    ]
+    assert offending == []
+
+
+@pytest.mark.parametrize("name", ["decision-record.md", "slides.md"])
+def test_connector_claim_says_what_stays_and_what_still_arrives(name: str) -> None:
+    text = next(path for path in TEMPLATES if path.name == name).read_text(encoding="utf-8")
+    assert PRECISE_CLAIM.search(text), name
+    assert SUBJECT_ARRIVES.search(text), name

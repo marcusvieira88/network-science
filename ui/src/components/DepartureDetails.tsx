@@ -14,7 +14,7 @@ import {
   variantSentence,
 } from "@/lib/departures";
 import { formatFloat } from "@/lib/format";
-import { STATED } from "@/lib/hypotheses";
+import { TIMING_LABELS, TIMING_MEANINGS } from "@/lib/hypotheses";
 
 /** The candidate finding as stated in docs/hypotheses-exploratory.md (O1, "Decision rule"). */
 const CLAIM = `Prediction: ${HIGHER_RATE} in the same weeks a year earlier and than in any comparable earlier window.`;
@@ -56,7 +56,7 @@ export function DepartureDetails({ departure }: { departure: Departure }) {
   const power = powerSentence(departure);
   return (
     <div className="space-y-4 text-sm" data-testid="departure-details">
-      <p className="text-muted-foreground">Stated {STATED.departure}.</p>
+      <p className="text-muted-foreground">Stated {TIMING_LABELS.postHoc}: {TIMING_MEANINGS.postHoc}.</p>
       <div className="space-y-1">
         <h4 className="font-medium">Statement</h4>
         <p>{CLAIM}</p>

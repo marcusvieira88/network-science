@@ -135,11 +135,20 @@ export const TABLE_COLUMNS = {
     equalised_ci_high: isFloat,
     equalised_p: isFloat,
     equalised_p_holm: isFloat,
-    // Retention check (contract 1.4): the hypothesis on a measure inbox retention cannot move.
+    // Retention check (contract 1.4): the hypothesis on a measure that depends less on what one inbox kept.
     retention_median: isFloat,
     retention_ci_low: isFloat,
     retention_ci_high: isFloat,
     retention_passes: nullable(isBoolean),
+  },
+  // The monthly record profile: months with fewer than k custodians on a side are null.
+  record_profile: {
+    month: isIsoDate,
+    custodians_sending: nullable(isInt),
+    sent_messages: nullable(isInt),
+    after_hours_share: isFloat,
+    custodians_receiving: nullable(isInt),
+    received_messages: nullable(isInt),
   },
   risk: {
     release_variant: oneOf(RELEASE_VARIANTS),
@@ -202,6 +211,7 @@ export type WeeklyMetricRow = Row<"weekly_metrics">;
 export type HypothesisRow = Row<"hypotheses">;
 export type ArtifactCheckRow = Row<"artifact_checks">;
 export type ExploratoryRow = Row<"exploratory">;
+export type RecordProfileRow = Row<"record_profile">;
 export type RiskRow = Row<"risk">;
 export type DegreeRow = Row<"degree_distribution">;
 export type CommunityEdgeRow = Row<"community_graph">;

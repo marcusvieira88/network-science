@@ -12,7 +12,16 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   {
     term: "Hypothesis",
     meaning:
-      "A claim about how email behaviour changed, written down before the result was computed, so the data could not shape the question.",
+      "A claim about how email communication, or who took part in it, changed, written down before its own result was computed. When it was written down matters: see Pre-registered, Stated before computed and Post hoc.",
+  },
+  {
+    term: "Pre-registered",
+    meaning: "Stated before any real data was analysed, so no result could shape the question. Only the first hypotheses are.",
+  },
+  {
+    term: "Stated before computed, after earlier results",
+    meaning:
+      "Written down and committed before its own result was computed, but after the results of earlier hypotheses were known. Those results may have shaped the question, so it weighs less than a pre-registered one.",
   },
   {
     term: "Held up / Held true",
@@ -39,11 +48,12 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   {
     term: "Placebo",
     meaning:
-      "The same test run on a calm period where nothing should change. If it also 'finds' a change, the method is picking up something other than the event, such as noise or a drift of its own.",
+      "The same test run on a calm period before the crisis, where nothing should change. It passes when that period shows no change in the predicted direction. A calm-period change against the prediction therefore still passes; where the calm period already shows the crisis change, the result says so.",
   },
   {
     term: "Leave-one-out",
-    meaning: "The test repeated leaving out each mailbox in turn, to check that no single person drives the result.",
+    meaning:
+      "The test repeated leaving out each mailbox in turn. It is stable only if the result keeps the predicted direction every time, so 'unstable' covers both a result that single mailboxes carry and one that is not in the predicted direction to begin with.",
   },
   {
     term: "Custodian",
@@ -57,7 +67,7 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   {
     term: "Post hoc",
     meaning:
-      "Stated after other results were known, though still before its own result was computed. Such a question may have been prompted by what was already seen, so it carries less weight than one fixed beforehand.",
+      "Stated after every other result was known, though still before its own result was computed. Such a question may have been prompted by what was already seen, so it carries the least weight.",
   },
   {
     term: "Group",
@@ -67,7 +77,7 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   {
     term: "Outside the baseline groups",
     meaning:
-      "People with no tie in the baseline period (such as people who first appear later) or in clusters below the minimum size. They are counted together but are not a group, so the network does not draw them.",
+      "Internal people without a baseline group: no tie in the baseline period, or in a cluster below the minimum size. They are counted together but are not a group, so the network does not draw them.",
   },
   {
     term: "Tie weight",
@@ -75,12 +85,13 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   },
   {
     term: "Re-identification",
-    meaning: "The share of people an attacker with outside knowledge could single out in a released table. Lower is safer.",
+    meaning:
+      "The share of people an attacker with outside knowledge correctly singles out. It was measured on person-level data only (R0), which is never published.",
   },
   {
     term: "Confidence",
     meaning:
-      "How many robustness checks a supported result passed: high if all of them, moderate if all but one, low otherwise. A result that is not supported is always low.",
+      "How many robustness checks a supported result passed: high if all of them, moderate if all but one, low otherwise. A result that is not supported is always low, and a check against a known artifact that fails or cannot run caps it at low whatever else passed.",
   },
   {
     term: "Robustness variants",
@@ -89,7 +100,7 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   {
     term: "Retention check",
     meaning:
-      "The test repeated on mail that survives whatever an inbox kept, so that what people deleted or kept cannot create the change by itself.",
+      "The test repeated on mail that depends less on what one inbox kept, so that what people deleted or kept is less able to create the change by itself.",
   },
   {
     term: "Change point",
@@ -113,17 +124,17 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   {
     term: "Minimum group size (k)",
     meaning:
-      "The fewest people any published number may describe; anything smaller is hidden. This is the idea of k-anonymity: no published number singles out fewer than k people.",
+      "The fewest people any published number may describe; anything smaller is hidden. A minimum group size, in the spirit of k-anonymity, not a proof of it.",
   },
   {
     term: "Releases R0, R1, R2",
     meaning:
-      "The three versions of the output that were attacked. R0: person-level data under pseudonyms, never published. R1: group totals only, the published release. R2: R1 with random noise added, a sketch rather than a formal guarantee.",
+      "Three versions of the output. R0: person-level data under pseudonyms, never published, and the only one the attacks measure. R1: group totals only, the published release. R2: R1 with random noise added, a sketch rather than a formal guarantee. R1 and R2 hold no person-level record, so the person-level attacks have nothing to match there: their 0 is by construction, not a measurement.",
   },
   {
     term: "Attackers A1, A2, A3",
     meaning:
-      "Three simulated attackers. A1: an outsider holding the public archive. A2: an insider who knows a few people. A3: an insider who knows every mailbox owner, since the public archive names them all.",
+      "Three simulated attackers. A1: an outsider holding the public archive. A2: an insider who knows a few people. A3: anyone holding the public archive, which names every mailbox owner.",
   },
   {
     term: "Anonymity set and unique share",

@@ -1,5 +1,5 @@
 {
-  "code_version": "c17bb2d",
+  "code_version": "53c034d",
   "sample": false,
   "seed": 20011202,
   "parameters": {
@@ -110,47 +110,47 @@
   "stages": [
     {
       "stage": "fetch",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "parse",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "clean",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "identity",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "pseudo",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "network",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "finding",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "risk",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "release",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "report",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     },
     {
       "stage": "ui-data",
-      "code_version": "c17bb2d"
+      "code_version": "53c034d"
     }
   ]
 }

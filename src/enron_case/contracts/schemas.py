@@ -195,6 +195,8 @@ DEPARTURE_WINDOWS = ("crisis", "reference", "placebo after", "placebo before")
 DEPARTURE_SPLITS = ("crisis before the split", "crisis from the split")
 DEPARTURE_PERIODS = DEPARTURE_WINDOWS + DEPARTURE_SPLITS
 DEPARTURE_OUTCOMES = ("high", "moderate", "low", "not established")
+# The outcomes that are a finding; low is a lead, not a finding (docs/hypotheses-exploratory.md).
+DEPARTURE_FINDINGS = DEPARTURE_OUTCOMES[:2]
 # The variant holding the stated definition; the others are robustness variants.
 DEPARTURE_PRIMARY = "primary"
 # A p-value's band: below alpha over the hypotheses stated, below alpha, at or above it.

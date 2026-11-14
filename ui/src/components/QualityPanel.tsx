@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { DataQualityRow, DegreeRow, HeaderFieldRow } from "@/lib/data";
-import { funnelHeadline, headerHeadline } from "@/lib/executive";
+import { funnelHeadline, headerHeadline, headerNotes } from "@/lib/executive";
 import { formatNumber, formatShare } from "@/lib/format";
 
 const FUNNEL_CAPTION =
@@ -49,8 +49,11 @@ function FunnelStep({ step }: { step: DataQualityRow }) {
       </div>
       {(step.precision !== null || step.recall !== null) && (
         <div className="text-xs text-muted-foreground">
-          Precision {formatShare(step.precision)} · recall {formatShare(step.recall)} (measured on a labelled or
-          synthetic set)
+          Precision {formatShare(step.precision)} · recall {formatShare(step.recall)} (
+          {step.recall === null
+            ? "from a sample judged by a person; no recall"
+            : "against the known answers of the synthetic corpus"}
+          )
         </div>
       )}
     </li>
@@ -89,7 +92,9 @@ export function QualityPanel({ steps, headerFields, degrees }: QualityPanelProps
             <CardDescription className="space-y-1">
               <span className="block text-base font-medium text-foreground">{headerHeadline(headerFields)}</span>
               <span className="block">
-                Every header field seen, and what the parser does with it. Content fields are dropped unread.
+                Every header field seen, and what the parser does with it. Content fields are never decoded, parsed,
+                held, stored or logged: a Subject line is discarded as the header is scanned.{" "}
+                {headerNotes(headerFields).join(" ")}
               </span>
             </CardDescription>
           </CardHeader>

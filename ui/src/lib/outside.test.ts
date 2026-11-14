@@ -54,10 +54,10 @@ describe("outsidePeople and outsideExplanation", () => {
 
   it("says in one sentence who is in the bucket and that it is not a community", () => {
     expect(outsideExplanation(25838, 5, BASELINE_2000)).toBe(
-      "25,838 people with no tie in 2000 (such as people who first appear later) or in groups under 5 people; not a community.",
+      "25,838 internal people without a 2000 group: no tie in 2000, or in groups under 5 people; not a community.",
     );
     expect(outsideExplanation(7, 5, null)).toBe(
-      "7 people with no tie in the baseline period (such as people who first appear later) or in groups under 5 people; not a community.",
+      "7 internal people without a baseline group: no tie in the baseline period, or in groups under 5 people; not a community.",
     );
   });
 });

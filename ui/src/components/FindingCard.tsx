@@ -14,9 +14,12 @@ export function ConfidenceBadge({ confidence }: { confidence: HypothesisRow["con
 export function FindingCard({
   hypotheses,
   artifactChecks,
+  recordFinding = null,
 }: {
   hypotheses: HypothesisRow[];
   artifactChecks: ArtifactCheckRow[];
+  /** The finding about the record, with what is not claimed about behaviour (recordFindingLine), stated first. */
+  recordFinding?: string | null;
 }) {
   const finding = headline(hypotheses);
   if (!finding) {
@@ -24,10 +27,11 @@ export function FindingCard({
     return (
       <Card>
         <CardHeader>
-          <CardDescription>Headline finding</CardDescription>
+          <CardDescription>Headline among the pre-registered hypotheses</CardDescription>
           <CardTitle className="text-xl">{title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
+          {recordFinding !== null && <p className="text-foreground">{recordFinding}</p>}
           {body.map((sentence) => (
             <p key={sentence}>{sentence}</p>
           ))}
@@ -80,6 +84,7 @@ export function FindingCard({
             </dd>
           </div>
         </dl>
+        {recordFinding !== null && <p className="mt-4 text-sm">{recordFinding}</p>}
         <p className="mt-4 text-sm text-muted-foreground">
           Leaving out any single mailbox moves the effect between {formatFloat(finding.loo_min_effect)} and{" "}
           {formatFloat(finding.loo_max_effect)}.

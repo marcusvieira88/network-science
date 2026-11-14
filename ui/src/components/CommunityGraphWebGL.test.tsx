@@ -48,17 +48,17 @@ describe("CommunityGraph with WebGL (Sigma.js)", () => {
     expect(screen.getByText(/Hover a group, or search for its label/)).toBeInTheDocument();
   });
 
-  it("switches between Groups and anonymous Individuals, explaining the points with k from the data", async () => {
+  it("switches between Groups and Group sizes (dots), explaining the points with k from the data", async () => {
     const user = userEvent.setup();
     const { container } = renderGraph(7);
     const view = await screen.findByTestId("sigma-view");
     expect(view).toHaveAttribute("data-mode", "groups");
     expect(container).not.toHaveTextContent("Each point stands for one person");
-    await user.click(screen.getByRole("tab", { name: "Individuals (anonymous)" }));
-    expect(view).toHaveAttribute("data-mode", "individuals");
+    await user.click(screen.getByRole("tab", { name: "Group sizes (dots)" }));
+    expect(view).toHaveAttribute("data-mode", "dots");
     expect(container).toHaveTextContent(
-      "Each point stands for one person in a group of at least 7; points are anonymous and their positions and " +
-        "links are illustrative, not individual data. Ties are measured between groups only.",
+      "The dots only show how many people each group of at least 7 has: one dot per person counted. They are not real " +
+        "individuals or ties; their positions are random and carry no data. Ties are measured between groups only.",
     );
     await user.click(screen.getByRole("tab", { name: "Groups" }));
     expect(view).toHaveAttribute("data-mode", "groups");
@@ -112,7 +112,7 @@ describe("CommunityGraph with WebGL (Sigma.js)", () => {
     await user.click(screen.getByRole("tab", { name: "Overlap" }));
     expect(view).toHaveAttribute("data-mode", "overlap");
     expect(container).toHaveTextContent(
-      "Overlap = mail between two groups, not shared members — each person is in exactly one group.",
+      "Overlap = mail between two groups, not shared members — each grouped person is in exactly one group.",
     );
   });
 });

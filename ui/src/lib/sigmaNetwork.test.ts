@@ -181,7 +181,7 @@ describe("networkGraph", () => {
     expect(graphFor("2000-01-17").size).toBe(0);
   });
 
-  it("in the Individuals mode adds bare anonymous points inside a translucent disc, and no tie to them", () => {
+  it("in the group-size dots mode adds bare anonymous points inside a translucent disc, and no tie to them", () => {
     const points = new Map<string, [number, number][]>([
       ["G01", [[1, 1], [-1, 0]]],
       ["G02", [[0, 2]]],

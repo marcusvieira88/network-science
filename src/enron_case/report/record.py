@@ -8,18 +8,29 @@ second, within the same people, is a change in how `Date` was recorded, not in b
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 
 import polars as pl
 
-from enron_case.config import CRISIS_WINDOW, REFERENCE_WINDOW
+from enron_case.config import CRISIS_WINDOW, PRIOR_WORK_YEAR, REFERENCE_WINDOW
+from enron_case.contracts import vocab
 from enron_case.report.markdown import format_value, table
+from enron_case.report.quality import FOLDER_NAME_RULE
 
 SHARE = "after_hours_share"
 TIMESTAMP_HYPOTHESIS = (
     "H5"  # the within-custodian after-hours share (docs/hypotheses-exploratory.md)
 )
+HIGH, MODERATE, _ = vocab.CONFIDENCE
+# How sure we are that the record changed, as a rule on published numbers (not a judgment).
+CONFIDENCE_RULE = (
+    f"{HIGH} when the monthly ranges of the two windows do not overlap and the change within "
+    f"the same people ({TIMESTAMP_HYPOTHESIS}) has an interval that excludes zero; {MODERATE} "
+    "when the ranges do not overlap but that change is not measured or its interval includes "
+    "zero; with overlapping ranges no change is claimed"
+)
+FOLDER_NAMES = f"each is {FOLDER_NAME_RULE}"
 PROFILE_HEADERS = (
     "Month",
     "Custodians sending",
@@ -87,16 +98,79 @@ def _volume_sentence(profile: pl.DataFrame) -> str:
     return " Mail kept: " + "; ".join(parts) + "."
 
 
-def _within_custodian(exploratory: pl.DataFrame) -> str:
+Row = Mapping[str, object]
+
+
+def _timestamp_row(exploratory: pl.DataFrame) -> Row | None:
+    """The published within-custodian change of the after-hours share, or None when it was not
+    run or is suppressed."""
     rows = exploratory.filter(pl.col("hypothesis") == TIMESTAMP_HYPOTHESIS).rows(named=True)
     if not rows or rows[0]["median_change"] is None:
+        return None
+    return rows[0]
+
+
+def _excludes_zero(row: Row) -> bool:
+    """The within-custodian interval lies wholly on one side of zero."""
+    low, high = row["ci_low"], row["ci_high"]
+    if not isinstance(low, int | float) or not isinstance(high, int | float):
+        return False
+    return low > 0 or high < 0
+
+
+def _within_custodian(exploratory: pl.DataFrame) -> str:
+    """The change within the same people, read by what its interval allows: only an interval
+    that excludes zero rules out a change in who is in the data."""
+    row = _timestamp_row(exploratory)
+    if row is None:
         return ""
-    row = rows[0]
-    return (
+    measured = (
         f" Within the same people ({TIMESTAMP_HYPOTHESIS}, {format_value(row['custodians'])} "
         f"custodians) the share changes by a median of {format_value(row['median_change'])} "
-        f"(interval {format_value(row['ci_low'])} to {format_value(row['ci_high'])}), so it is "
-        "not a change in who is in the data."
+        f"(interval {format_value(row['ci_low'])} to {format_value(row['ci_high'])})"
+    )
+    if not _excludes_zero(row):
+        return (
+            f"{measured}: the interval includes zero, so a change in who is in the data is not "
+            "ruled out."
+        )
+    return (
+        f"{measured}, so it is not a change in who is in the data. As a hypothesis about "
+        f"behaviour, {TIMESTAMP_HYPOTHESIS} could not be tested, because the convention "
+        "changed under it; the same number is read here as a measurement of the record, not "
+        "of behaviour."
+    )
+
+
+def _lower(reference: Sequence[float], crisis: Sequence[float]) -> bool | None:
+    """True when every crisis month lies below every reference month, False when above; None
+    when the two ranges overlap, so no change is claimed."""
+    if max(crisis) < min(reference):
+        return True
+    return False if min(crisis) > max(reference) else None
+
+
+def record_confidence(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str | None:
+    """Confidence that the record changed between the windows, by CONFIDENCE_RULE; None when
+    no change is claimed (overlapping ranges, or too few published months)."""
+    reference = _months_of(profile, REFERENCE_WINDOW, SHARE)
+    crisis = _months_of(profile, CRISIS_WINDOW, SHARE)
+    if not reference or not crisis:
+        return None
+    if _lower(reference, crisis) is None:
+        return None
+    row = _timestamp_row(exploratory)
+    return HIGH if row is not None and _excludes_zero(row) else MODERATE
+
+
+def finding_statement(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
+    """The finding in one sentence, or "" when no change of the record is claimed."""
+    confidence = record_confidence(profile, exploratory)
+    if confidence is None:
+        return ""
+    return (
+        f"The finding: the record changed ({confidence} confidence that it changed; cause not "
+        "established)."
     )
 
 
@@ -109,8 +183,8 @@ def record_statement(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
         f"The share of the custodians' weekday sent mail stamped outside working hours is "
         f"{_span(reference)} in the reference months and {_span(crisis)} in the crisis months"
     )
-    lower = max(crisis) < min(reference)
-    if not lower and min(crisis) <= max(reference):
+    lower = _lower(reference, crisis)
+    if lower is None:
         return (
             f"{ranges}: the ranges overlap, so no change of the timestamp convention is claimed."
             + _volume_sentence(profile)
@@ -129,40 +203,44 @@ def record_statement(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
         "a window after it against a window before it; H1–H4 compare the weeks after their change "
         "week with the baseline year, so they span it too. The pre-crisis placebo compares two "
         "windows before it, so it cannot detect an artifact of that change. Confidence that "
-        "the record changed: high. Its cause, most likely a change of mail system, is not "
-        "established: folder names would show it, and we do not read them."
-        + _volume_sentence(profile)
+        f"the record changed: {record_confidence(profile, exploratory)} (the rule: "
+        f"{CONFIDENCE_RULE}). Its cause, most likely a change of mail system, is not "
+        f"established: folder names would show it, and {FOLDER_NAMES}." + _volume_sentence(profile)
     )
 
 
 def record_summary(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
-    """The record statement in two sentences, for the one-page decision record."""
+    """The evidence behind `finding_statement` in two sentences, for the one-page decision
+    record, which states the confidence once, in that statement."""
     reference = _months_of(profile, REFERENCE_WINDOW, SHARE)
     crisis = _months_of(profile, CRISIS_WINDOW, SHARE)
     if not reference or not crisis:
         return "Too few months are published to compare the record between the two windows."
-    lower = max(crisis) < min(reference)
-    if not lower and min(crisis) <= max(reference):
+    lower = _lower(reference, crisis)
+    if lower is None:
         return "No change of the timestamp convention between the two windows is claimed."
     switch = _switch_month(profile, lower)
     since = f" from {format_value(switch)}" if switch is not None else ""
     return (
         f"The share of weekday sent mail stamped outside working hours is {_span(reference)} "
         f"in the reference months and {_span(crisis)} in the crisis months; the `Date` "
-        f"convention changed in between{since}, within the same people "
-        f"({_within_custodian_short(exploratory)}). Every within-custodian comparison crosses "
-        "that change; confidence that it happened: high, its cause not established."
+        f"convention changed in between{since} ({_within_custodian_short(exploratory)}). "
+        "Every within-custodian comparison crosses that change."
     )
 
 
 def _within_custodian_short(exploratory: pl.DataFrame) -> str:
-    rows = exploratory.filter(pl.col("hypothesis") == TIMESTAMP_HYPOTHESIS).rows(named=True)
-    if not rows or rows[0]["median_change"] is None:
-        return "not measured"
-    row = rows[0]
-    return (
+    row = _timestamp_row(exploratory)
+    if row is None:
+        return "the change within the same people is not measured"
+    estimate = (
         f"{TIMESTAMP_HYPOTHESIS}: median change {format_value(row['median_change'])}, interval "
         f"{format_value(row['ci_low'])} to {format_value(row['ci_high'])}"
+    )
+    if not _excludes_zero(row):
+        return f"within the same people it is not established; {estimate}"
+    return (
+        f"within the same people; {estimate}, read as a measurement of the record, not of behaviour"
     )
 
 
@@ -180,14 +258,22 @@ def record_section(profile: pl.DataFrame, exploratory: pl.DataFrame) -> str:
             "earlier, so it inherits any change in how the record was kept between them. Per "
             "month, over the custodians: how many sent and received mail, how much, and the "
             "share of their weekday sent mail stamped outside working hours in Houston time "
-            "(the H5 definition). Months with fewer than k custodians on a side are suppressed.",
+            f"(the {TIMESTAMP_HYPOTHESIS} definition). Months with fewer than k custodians on a "
+            "side are suppressed.",
             record_statement(profile, exploratory),
             profile_table(profile),
         )
     )
 
 
-REPLICATION_HYPOTHESIS = "H25"  # post-hoc test of Diesner, Frantz & Carley (2005)
+REPLICATION_HYPOTHESIS = "H25"  # the post-hoc replication test of PRIOR_WORK
+# Diesner & Carley (the SIAM workshop paper) report the density comparison of two single
+# months; Diesner, Frantz & Carley of the same year say density does not track the scandal
+# (verified against both papers; docs/hypotheses-exploratory.md).
+PRIOR_WORK = (
+    f"the denser crisis-period network that Diesner and Carley ({PRIOR_WORK_YEAR}) report "
+    "from a comparison of single months of this corpus"
+)
 
 
 def replication_statement(exploratory: pl.DataFrame) -> str:
@@ -202,9 +288,9 @@ def replication_statement(exploratory: pl.DataFrame) -> str:
             "fewer than k custodians could be compared."
         )
     text = (
-        f"{REPLICATION_HYPOTHESIS}, the post-hoc replication test of the denser network that "
-        "Diesner, Frantz and Carley describe, compares each custodian's share of the other "
-        f"custodians they exchanged mail with: a median change of "
+        f"{REPLICATION_HYPOTHESIS}, the post-hoc replication test of {PRIOR_WORK}, compares "
+        "each custodian's share of the other custodians they exchanged mail with: a median "
+        "change of "
         f"{format_value(row['median_change'])} (interval {format_value(row['ci_low'])} to "
         f"{format_value(row['ci_high'])}, Holm-adjusted p = {format_value(row['p_holm'])}, "
         f"{format_value(row['custodians'])} custodians); outcome: {row['outcome']}"
@@ -218,6 +304,19 @@ def replication_statement(exploratory: pl.DataFrame) -> str:
             f"{'passes' if row['retention_passes'] else 'fails'}"
         )
     return text + "."
+
+
+def replication_summary(exploratory: pl.DataFrame) -> str:
+    """H25's outcome in a few words, for the one-page decision record."""
+    rows = exploratory.filter(pl.col("hypothesis") == REPLICATION_HYPOTHESIS).rows(named=True)
+    if not rows or rows[0]["median_change"] is None:
+        return replication_statement(exploratory)
+    row = rows[0]
+    return (
+        f"{REPLICATION_HYPOTHESIS} (post-hoc replication test of prior work): median change "
+        f"{format_value(row['median_change'])} (interval {format_value(row['ci_low'])} to "
+        f"{format_value(row['ci_high'])}); outcome: {row['outcome']}."
+    )
 
 
 def record_chart(profile: pl.DataFrame) -> str:

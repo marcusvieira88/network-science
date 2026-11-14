@@ -45,3 +45,9 @@ const METRIC_LABELS: Record<string, string> = {
 export function metricLabel(metric: string): string {
   return METRIC_LABELS[metric] ?? metric;
 }
+
+/** "A", "A and B", "A, B and C". */
+export function joinList(items: readonly string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}

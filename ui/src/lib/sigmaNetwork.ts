@@ -178,7 +178,7 @@ function discColor(color: string, points: boolean, overlap: boolean): string {
 
 /**
  * The graph for one week: a disc per published group, the week's ties between groups and, in the
- * Individuals mode, the group's anonymous points inside a translucent disc. Ties join groups only.
+ * group-size dots mode, the group's anonymous points inside a translucent disc. Ties join groups only.
  * In the Overlap mode discs are transparent (the contour layer draws the groups) and each
  * overlapping pair has a hidden edge instead of a line.
  */

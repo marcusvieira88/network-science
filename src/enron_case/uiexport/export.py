@@ -16,7 +16,9 @@ The tables are `RELEASE_TABLES`, among them `artifact_checks` (hypothesis, check
 ci_low, ci_high, n_units, passes, note; `passes` is null when the check could not run) and
 `exploratory` (H5–H25, recorded as E1–E21 in docs/hypotheses-exploratory.md: the columns of
 `contracts/schemas.py` `_exploratory_cols`; `caveat` is "" when there is none and the
-`equalised_*` and `retention_*` cells are null unless computed), and `departures` and
+`equalised_*` and `retention_*` cells are null unless computed), `record_profile` (the monthly
+record profile, from which the explorer derives how sure it is that the record changed, by the
+rule of `report/record.py`; months below k are null), and `departures` and
 `departure_tests` (H26, contract 1.7: the columns of `contracts/schemas.py`; counts below k,
 counts whose complement is below k, and the p-values and shares derived from them are null).
 New tables leave the document's shape alone, so they do not change `format_version`; the
@@ -52,6 +54,7 @@ RELEASE_TABLES = (
     "hypotheses",
     "artifact_checks",
     "exploratory",
+    "record_profile",
     "risk",
     "degree_distribution",
     "community_graph",

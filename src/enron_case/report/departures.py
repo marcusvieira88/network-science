@@ -15,6 +15,8 @@ from enron_case.errors import ContractViolation
 from enron_case.report.markdown import bullets, format_value, table
 
 Row = Mapping[str, object]
+# H26 was stated after every other hypothesis, so its number is their count.
+HYPOTHESIS = f"H{HYPOTHESES_STATED}"
 CRISIS, REFERENCE, PLACEBO_AFTER, PLACEBO_BEFORE = schemas.DEPARTURE_WINDOWS
 SPLIT_BEFORE, SPLIT_FROM = schemas.DEPARTURE_SPLITS
 HIGH, MODERATE, LOW, NOT_ESTABLISHED = schemas.DEPARTURE_OUTCOMES
@@ -260,7 +262,7 @@ def tests_table(tests: pl.DataFrame, alpha: float) -> str:
 def departure_section(periods: pl.DataFrame, tests: pl.DataFrame, config: Config) -> str:
     return "\n\n".join(
         (
-            "## Did custodians leave during the crisis? (H26, post hoc)",
+            f"## Did custodians leave during the crisis? ({HYPOTHESIS}, post hoc)",
             "Stated in docs/hypotheses-exploratory.md (O1) after every other result and before "
             "it was computed. A custodian at risk at a window's start (sending and receiving in "
             f"at least {config.departure_active_weeks} of the {config.departure_lookback_weeks} "

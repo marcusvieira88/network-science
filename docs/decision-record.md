@@ -5,8 +5,8 @@
 
 **Context.** A headers-only analysis of the public Enron email corpus as an engineering case
 study: clean the header record, pseudonymize it, look for one change in the communication
-network, and measure whether people can be re-identified from what we publish. The corpus is
-public; the pipeline is built as if it were not.
+network, and measure how many people can be re-identified from person-level output, which we
+therefore do not publish. The corpus is public; the pipeline is built as if it were not.
 
 ## Architecture
 
@@ -21,16 +21,15 @@ flowchart LR
     Release --> Docs[report, this record, slides]
 ```
 
-The parser stops at the first blank line of each message, so it cannot reach a body. Every
-table crossing a zone is checked against a written contract. Numbers in the documents are
-injected from release tables; none is typed.
+The header reader stops at the first blank line of each message: body bytes pass through the
+decompressor and are skipped, never decoded, parsed, held, stored or logged. Every table
+crossing a zone is checked against a written contract.
 
 ## Trade-offs
 
 - **Strict content line, including `Subject`.** Content fields (Subject, X-Folder) are never
-  stored. We lose threads and reply times and dedupe on sender, second and recipients alone:
-  266827 copies removed. Precision and recall are measured on synthetic
-  ground truth only.
+  stored: a `Subject` line is discarded as the header is scanned. We lose threads and reply times and dedupe on sender, second and recipients alone:
+  266827 copies removed.
 - **Rule-based identity resolution.** Deterministic, explainable rules weighted to precision,
   because a false merge invents a central person while a false split only dilutes one:
   85388 addresses to 84759 entities.
@@ -41,21 +40,20 @@ injected from release tables; none is typed.
   re-identified a share of 0.251 of targets for the outsider,
   0.591 for an insider who knows a few custodians and
   0.574 for one who knows them all, as anyone holding the corpus does.
-- **Aggregates-only release.** So nothing person-level is published. Every cell meets
-  k = 5. On the aggregate release (R1) the shares fall to 0,
-  0 and 0. With no finding claimed, there is no effect whose loss to measure.
+- **Aggregates-only release.** Nothing person-level is published; every cell meets
+  k = 5. The aggregate release (R1) holds no person-level record for these attacks to match: their rate there is 0 by construction, not a measurement. With no behavioural finding claimed, there is no headline effect whose loss to measure.
 
-**Finding.** The change in the crisis year that the headers establish is in the record; no
-change in behaviour is established. The share of weekday sent mail stamped outside working hours is between 0.426 and 0.538 in the reference months and between 0.0399 and 0.0643 in the crisis months; the `Date` convention changed in between from 2001-05-01, within the same people (H5: median change -0.44, interval -0.512 to -0.372). Every within-custodian comparison crosses that change; confidence that it happened: high, its cause not established.
+**Finding.** The finding: the record changed (high confidence that it changed; cause not established). The share of weekday sent mail stamped outside working hours is between 0.426 and 0.538 in the reference months and between 0.0399 and 0.0643 in the crisis months; the `Date` convention changed in between from 2001-05-01 (within the same people; H5: median change -0.44, interval -0.512 to -0.372, read as a measurement of the record, not of behaviour). Every within-custodian comparison crosses that change.
 
-**Behaviour.** No finding about the crisis year is claimed. H2, H3 passed the pre-registered statistical tests but failed its check against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report. H25, the post-hoc replication test of the denser network that Diesner, Frantz and Carley describe, compares each custodian's share of the other custodians they exchanged mail with: a median change of 0.00826 (interval 0 to 0.0331, Holm-adjusted p = 0.239, 31 custodians); outcome: not supported. Details: the report.
+**Behaviour.** No behavioural finding about the crisis year is claimed. H2 and H3 passed the pre-registered statistical tests but failed their checks against a known artifact of the data (release/artifact_checks.csv): the apparent change is explained by how the data was collected and analysed, not by a detectable change in how people communicated. Every outcome is listed in the report. H25 (post-hoc replication test of prior work): median change 0.00826 (interval 0 to 0.0331); outcome: not supported.
 
 **Structure (H26, post hoc).** No wave of custodian departures in the crisis can be established.
 
 ## What changes with real customer data
 
-- **Metadata-only connectors**: mail scopes that return headers only, so mail content never
-  leaves the source; Teams and Slack have no such scope, so their text is dropped in memory.
+- **Metadata-only connectors**: mail scopes return headers only, so bodies and attachments
+  never leave the source; `Subject` still arrives and is discarded at the allowlist. Teams and
+  Slack have no such scope: their text is dropped in memory.
 - **Customer-side key custody and an entity registry**, so pseudonyms survive changes in
   identity resolution.
 - **Retention schedule, data residency, works council review** of the questions, the minimum
@@ -65,10 +63,9 @@ change in behaviour is established. The share of weekday sent mail stamped outsi
 
 ## Not done, and why
 
-- **No behavioural or structural finding.** The apparent crisis-year signals failed
-  checks against known artifacts (stale groups, mailbox mix, inbox retention); those checks,
-  the record profile and the replication and departure tests came after results (post hoc).
+- **No behavioural or structural finding.** H2 and H3 failed their checks against a known artifact of the data; H16 is not established once inbox retention is accounted for. Those checks, the
+  record profile and the replication and departure tests are post hoc.
 - **Dropped for time**: the dedupe-rule sensitivity variant.
 - **A sketch, not a guarantee**: the noise release (R2) has no formal privacy budget.
-- **Identity precision on real data** rests on a manual sample judged by a person, not on ground
-  truth. The report lists every limit.
+- **Identity quality on real data.** A manual check of 50 sampled merges, judged by a person, found 0 wrong (precision interval 0.929 to 1); it gives no recall, and precision and recall are measured on the synthetic corpus only. The report lists every
+  limit.

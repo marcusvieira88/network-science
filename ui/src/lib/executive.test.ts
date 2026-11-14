@@ -6,6 +6,7 @@ import {
   foundCard,
   funnelHeadline,
   headerHeadline,
+  headerNotes,
   joinList,
   metricCaption,
   metricHeadline,
@@ -86,9 +87,9 @@ describe("summary cards on the sample", () => {
       eyebrow: "What was studied",
       title: "Who emailed whom, and when, never what was written",
       points: [
-        "2,721 distinct messages from the synthetic sample corpus, over 118 weeks (weeks of 1999-12-27 to 2002-03-25).",
-        "Only each message's envelope was analysed: sender, recipients and time. Subject and X-Folder count as content and were never stored. Bodies and attachments were never parsed or stored.",
-        "26 hypotheses about how communication changed around 5 public events (2001-08-14 to 2001-12-02), each written down before its result was computed.",
+        "2,721 distinct messages from the synthetic sample corpus. The weekly network series has 118 weeks, beginning on the Mondays 1999-12-27 to 2002-03-25; the first week is partial.",
+        "Only each message's envelope was analysed: sender, recipients and time. Subject and X-Folder count as content and were never stored. Bodies and attachments were never decoded, parsed or stored.",
+        "26 hypotheses about how communication, and who took part in it, changed around 5 public events (2001-08-14 to 2001-12-02). Each was written down before its own result was computed: 4 pre-registered, 20 stated before computed, after earlier results, 2 post hoc.",
       ],
       view: "quality",
       linkLabel: "How the data was cleaned",
@@ -98,7 +99,7 @@ describe("summary cards on the sample", () => {
   it("starts the bodies sentence with a capital when no field is ruled content", () => {
     const header_fields = data.tables.header_fields.filter((row) => row.ruling !== "content");
     expect(studiedCard({ ...data, tables: { ...data.tables, header_fields } }).points[1]).toBe(
-      "Only each message's envelope was analysed: sender, recipients and time. Bodies and attachments were never parsed or stored.",
+      "Only each message's envelope was analysed: sender, recipients and time. Bodies and attachments were never decoded, parsed or stored.",
     );
   });
 
@@ -119,6 +120,8 @@ describe("summary cards on the sample", () => {
     const card = recordCard(data);
     expect(card.title).toBe("Some results reflect how the data was kept");
     expect(card.points).toEqual([
+      // The sample's monthly ranges part, but its H5 interval holds zero: moderate, by the rule.
+      "The finding: the record changed (moderate confidence that it changed; cause not established).",
       "H5: Measure H5 could not be tested with this data: the hour convention of the timestamps changes by several hours between the reference and crisis windows.",
       "H7: Measure H7 could not be tested with this data: every Bcc line in the corpus repeats the Cc line.",
     ]);
@@ -127,7 +130,7 @@ describe("summary cards on the sample", () => {
   it("says how sure we are", () => {
     expect(confidenceCard(data).points).toEqual([
       "To hold up, a result had to survive a correction for testing many hypotheses at once, repeats that leave out one mailbox at a time, and checks against known quirks of the data.",
-      "Confidence of the 4 hypotheses stated before any data: 1 high, 1 moderate, 2 low.",
+      "Confidence of the 4 pre-registered hypotheses: 1 high, 1 moderate, 2 low.",
       "H16, measure H16, rose by a median of 0.25 (interval 0.12 to 0.38), but the change is not established once how much inbox mail was kept is accounted for.",
     ]);
     expect(confidenceCard(data).title).toBe("The bar a result had to clear");
@@ -138,17 +141,24 @@ describe("summary cards on the sample", () => {
     const card = privacyCard(data);
     expect(card.title).toBe("Pseudonymised is not anonymous");
     expect(card.points).toEqual([
-      "From person-level data under pseudonyms (R0), the strongest of 3 simulated attackers re-identified 90% of 50 people.",
-      "From the published release (R1), which holds only groups of at least 5 people, the strongest re-identified 2%.",
+      "From person-level data under pseudonyms (R0, never published), the strongest of 3 simulated attackers re-identified 90% of the 50 people it targeted.",
+      "The published release (R1) holds only groups of at least 5 people and no person-level record, so these attacks have nothing to match there: its rate of 0% is by construction, not a measurement.",
       "No attack on the published group tables themselves was run.",
     ]);
+    // A measured, non-zero rate on the published release is reported as a measurement.
+    const risk = data.tables.risk.map((row) =>
+      row.release_variant === "R1" && row.attacker === "A2" ? { ...row, reid_top1: 0.02 } : row,
+    );
+    expect(privacyCard({ ...data, tables: { ...data.tables, risk } }).points[1]).toBe(
+      "Against the published release (R1), which holds only groups of at least 5 people, the strongest re-identified 2%.",
+    );
     expect(card.view).toBe("risk");
   });
 
   it("counts only the attackers that produced a rate", () => {
     const risk = data.tables.risk.map((row) => (row.release_variant === "R0" && row.attacker === "A3" ? { ...row, reid_top1: null } : row));
     expect(privacyCard({ ...data, tables: { ...data.tables, risk } }).points[0]).toBe(
-      "From person-level data under pseudonyms (R0), the strongest of 2 simulated attackers re-identified 90% of 50 people.",
+      "From person-level data under pseudonyms (R0, never published), the strongest of 2 simulated attackers re-identified 90% of the 50 people it targeted.",
     );
   });
 
@@ -156,8 +166,9 @@ describe("summary cards on the sample", () => {
     expect(qualityCard(data).points).toEqual([
       "6,731 of 6,731 files could be read.",
       "Removing 4,010 stored copies left 2,721 distinct messages.",
-      "97 addresses were merged into 75 identities by documented rules; against known answers, precision is 100% and recall 100%.",
+      "97 addresses were merged into 75 identities by documented rules; against the known answers of the synthetic corpus, precision is 100% and recall 100%.",
       "4,825 of 5,968 sender–recipient links entered the network; the rest belong to messages flagged out of it, such as mass mailings.",
+      "The counts of people have different bases: 75 identities are every address owner in the corpus after merging; 50 are the people in the observed network that the strongest attack targeted; 56 internal people are in a published group.",
     ]);
   });
 
@@ -208,7 +219,8 @@ describe("summary cards on the real outcomes", () => {
     const card = recordCard(data);
     expect(card.title).toBe("The record changed; no change in behaviour is established");
     expect(card.points).toEqual([
-      "H5, after-hours share of sent messages (weekdays): within the same 32 custodians it moved by a median of -0.44 (interval -0.51 to -0.37) between the reference weeks (2000-08-14 to 2000-12-02) and the crisis weeks (2001-08-14 to 2001-12-02). It is not read as behaviour: the hour convention of the timestamps changes by several hours between the reference and crisis windows.",
+      "The finding: the record changed (high confidence that it changed; cause not established). No behavioural finding about the crisis year is claimed.",
+      "H5, after-hours share of sent messages (weekdays): within the same 32 custodians it moved by a median of -0.44 (interval -0.51 to -0.37) between the reference weeks (2000-08-14 to 2000-12-02) and the crisis weeks (2001-08-14 to 2001-12-02). It is not read as behaviour: the hour convention of the timestamps changes by several hours between the reference and crisis windows. As a claim about behaviour H5 could not be tested; the same number is read here as a measurement of the record.",
       "H2 and H3 passed their planned statistical tests, but checks show that how the data was collected and analysed explains them, not a detectable change in how people communicated.",
       "H7: Measure H7 could not be tested with this data: every Bcc line in the corpus repeats the Cc line.",
       "H14, H21 and H22 moved the other way to the prediction over the same two windows, so the change in the record may explain them too.",
@@ -216,10 +228,43 @@ describe("summary cards on the real outcomes", () => {
     ]);
   });
 
+  it("does not let the record change explain a move the pre-crisis placebo already shows", () => {
+    // H21 as released: the placebo, whose windows lie before the record change, fell too.
+    const exploratory = data.tables.exploratory.map((row) =>
+      row.hypothesis === "H21"
+        ? { ...row, median_change: -0.148, placebo_median: -0.139, placebo_ci_low: -0.257, placebo_ci_high: -0.0672 }
+        : row,
+    );
+    const { points } = recordCard({ ...data, tables: { ...data.tables, exploratory } });
+    expect(points).toContain(
+      "H14 and H22 moved the other way to the prediction over the same two windows, so the change in the record may explain them too.",
+    );
+    expect(points).toContain(
+      "H21 moved the other way too, but the comparison before the crisis, which lies before the change in the record, already shows the same move, so that change does not explain it.",
+    );
+  });
+
+  it("calls the first week partial only when it begins before the analysis does", () => {
+    const whole = { ...data, run: { ...data.run, parameters: { ...data.run.parameters, analysis_start: "1999-12-27" } } };
+    expect(studiedCard(whole).points[0]).toBe(
+      "250,537 distinct messages from the public Enron email archive. The weekly network series has 118 weeks, beginning on the Mondays 1999-12-27 to 2002-03-25.",
+    );
+  });
+
+  it("notes the identifiers that are not retained and the fold, only where the release has them", () => {
+    const fields = data.tables.header_fields;
+    expect(headerNotes(fields)).toEqual(["X-FileName and X-Origin are direct identifiers that are not retained: the parser drops them."]);
+    const other = { field: "(other)", occurrences: 2, ruling: "dropped" };
+    expect(headerNotes([other, ...fields.filter((row) => row.field !== "X-Origin")])).toEqual([
+      "X-FileName is a direct identifier that is not retained: the parser drops it.",
+      "(other) counts occurrences of names without a ruling; it is not a field.",
+    ]);
+  });
+
   it("states the placebo limit when the record changed", () => {
     expect(confidenceCard(data).points).toEqual([
       "To hold up, a result had to survive a correction for testing many hypotheses at once, repeats that leave out one mailbox at a time, and checks against known quirks of the data.",
-      "Confidence of the 4 hypotheses stated before any data: 4 low.",
+      "Confidence of the 4 pre-registered hypotheses: 4 low.",
       "H16, share of sent-to contacts who also wrote to the custodian, rose by a median of 0.27 (interval 0.14 to 0.39), but the change is not established once how much inbox mail was kept is accounted for.",
       "The pre-crisis placebo tests lie before the change in the record, so they cannot detect it.",
     ]);
@@ -227,9 +272,8 @@ describe("summary cards on the real outcomes", () => {
 
   it("explains that the published zero restates the design", () => {
     expect(privacyCard(data).points).toEqual([
-      "From person-level data under pseudonyms (R0), the strongest of 3 simulated attackers re-identified 59.1% of 12,638 people.",
-      "From the published release (R1), which holds only groups of at least 5 people, the strongest re-identified 0%.",
-      "That zero follows from the design: the published tables hold no person-level records for an attack to match, so it is not a measurement of every remaining risk.",
+      "From person-level data under pseudonyms (R0, never published), the strongest of 3 simulated attackers re-identified 59.1% of the 12,638 people it targeted.",
+      "The published release (R1) holds only groups of at least 5 people and no person-level record, so these attacks have nothing to match there: its rate of 0% is by construction, not a measurement.",
       "No attack on the published group tables themselves was run.",
     ]);
   });
@@ -239,11 +283,12 @@ describe("summary cards on the real outcomes", () => {
       "517,364 of 517,401 files could be read.",
       "Removing 266,827 stored copies left 250,537 distinct messages.",
       "85,388 addresses were merged into 84,759 identities by documented rules.",
-      "A person checked 50 sampled merges and judged 100% of them correct (interval 92.9% to 100%).",
+      "A person checked 50 sampled merges and judged 100% of them correct (interval 92.9% to 100%). That sample gives no recall; precision and recall against known answers exist for the synthetic corpus only.",
       "823,488 of 1,328,123 sender–recipient links entered the network; the rest belong to messages flagged out of it, such as mass mailings.",
+      "The counts of people have different bases: 84,759 identities are every address owner in the corpus after merging; 12,638 are the people in the observed network that the strongest attack targeted; 56 internal people are in a published group.",
     ]);
     expect(studiedCard(data).points[0]).toBe(
-      "250,537 distinct messages from the public Enron email archive, over 118 weeks (weeks of 1999-12-27 to 2002-03-25).",
+      "250,537 distinct messages from the public Enron email archive. The weekly network series has 118 weeks, beginning on the Mondays 1999-12-27 to 2002-03-25; the first week is partial.",
     );
   });
 
@@ -293,18 +338,23 @@ describe("chart headlines", () => {
   });
 
   it("compares the releases in the risk headline", () => {
-    expect(riskHeadline(data.tables.risk)).toBe(
-      "The strongest attack re-identified 90% of people from person-level data (R0); the strongest against the published release (R1), 2%.",
+    // A measured, non-zero rate on the published release is reported as a measurement.
+    const measured = data.tables.risk.map((row) =>
+      row.release_variant === "R1" && row.attacker === "A2" ? { ...row, reid_top1: 0.02 } : row,
     );
+    expect(riskHeadline(measured)).toBe(
+      "The strongest attack re-identified 90% of people from person-level data (R0), which is never published; against the published release (R1), the strongest reached 2%.",
+    );
+    // A zero there is the design, never a measured drop.
     expect(riskHeadline(realShaped().tables.risk)).toBe(
-      "The strongest attack re-identified 59.1% of people from person-level data (R0); the strongest against the published release (R1), 0%. That zero follows from the design: the published tables hold no person-level records for an attack to match.",
+      "The strongest attack re-identified 59.1% of people from person-level data (R0), which is never published. The published release (R1) holds no person-level record, so these attacks have nothing to match there: its 0% is by construction, not a measurement.",
     );
     expect(riskHeadline([])).toBeNull();
   });
 
   it("finds the strongest attack per release", () => {
     expect(worstReidentification(data.tables.risk, "R0")).toEqual({ rate: 0.9, targets: 50 });
-    expect(worstReidentification(data.tables.risk, "R1")).toEqual({ rate: 0.02, targets: 50 });
+    expect(worstReidentification(data.tables.risk, "R1")).toEqual({ rate: 0, targets: 50 });
     expect(worstReidentification([], "R1")).toBeNull();
   });
 
@@ -312,7 +362,7 @@ describe("chart headlines", () => {
     expect(funnelHeadline(data.tables.data_quality)).toBe("Of 6,731 stored copies, 2,721 distinct messages remain after removing duplicates.");
     expect(funnelHeadline([])).toBeNull();
     expect(headerHeadline(data.tables.header_fields)).toBe(
-      "Of 17 header fields, Date is kept as metadata; 10 identifier fields are replaced by pseudonyms or discarded at ingest; Subject and X-Folder are content and never stored.",
+      "Of 17 named header fields, Date is kept as metadata; 10 identifier fields are replaced by pseudonyms or discarded at ingest; Subject and X-Folder are content and never stored.",
     );
   });
 });
