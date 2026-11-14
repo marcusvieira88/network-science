@@ -54,7 +54,7 @@ erDiagram
 | Release table | release | CSV + `report.md` | every person count ≥ k or suppressed |
 | UI data | ui | `ui/public/data/release.json` | built from release tables and the manifest's run block only |
 | Run manifest | release | `run_manifest.json` | fingerprints, parameters, seed, key fingerprint, stages run with the code version of each; no key, no paths with names, no wall-clock time, no durations (identical runs write identical bytes) |
-| Stage timings | logs (git-ignored) | `data/logs/stage_timings.json` | seconds per stage of the latest run; a run log, never data, outside the committed manifest because durations change on every run |
+| Stage timings | logs (git-ignored) | `data/logs/stage_timings.json` | seconds per stage, the latest of each; a run log, never data, outside the committed manifest because durations change on every run |
 
 ## Validation rules
 

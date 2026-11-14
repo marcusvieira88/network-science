@@ -446,7 +446,7 @@ flowchart LR
 
   | Metric | Source in this repository | Status |
   |---|---|---|
-  | Stage duration, `stage` label | `stages[].seconds` in `data/logs/stage_timings.json`, the git-ignored run log of the latest run (`write_stage_timings` in `src/enron_case/manifest.py`, called by `run_pipeline` in `src/enron_case/cli.py`); the committed manifest keeps no durations, so identical runs commit identical bytes | exists |
+  | Stage duration, `stage` label | `stages[].seconds` in `data/logs/stage_timings.json`, the git-ignored run log holding the latest seconds of each stage (`write_stage_timings` in `src/enron_case/manifest.py`, called by `run_pipeline` in `src/enron_case/cli.py`); the committed manifest keeps no durations, so identical runs commit identical bytes | exists |
   | Row counts per stage | `counts/ingest_counts.json`, `clean_counts.json`, `identity_counts.json`, `pseudo_counts.json`, written by `ctx.write_counts` (`src/enron_case/context.py`), shapes in `contracts/counts.py`; for example `files_parsed`, `messages_out`, `entities`, `events_in_network` | exists for `parse` to `pseudo`; `network`, `finding` and `risk` write no counts file |
   | Manual merge check | `counts/identity_manual.json` (`identity/review.py`) | exists |
   | Re-identification rate per release | `reid_top1`, `reid_ci_low`, `reid_ci_high` in `release/risk.csv`, by `release_variant` and `attacker` | exists |

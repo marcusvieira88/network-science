@@ -111,9 +111,15 @@ class RunManifest:
         path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
 
-def write_stage_timings(path: Path, seconds: dict[str, float]) -> None:
-    """Write the seconds each stage of this run took, in run order, to the run log."""
-    stages = [{"stage": name, "seconds": round(value, 2)} for name, value in seconds.items()]
+def write_stage_timings(path: Path, seconds: dict[str, float], merge: bool = False) -> None:
+    """Write the seconds each stage of this run took, in run order, to the run log. With
+    `merge`, a partial run keeps the previous timings of the stages it did not run, as the
+    manifest keeps their records."""
+    stages: list[JsonObject] = []
+    if merge and path.exists():
+        previous = json_object(path.read_text(encoding="utf-8"), "stage timings")
+        stages = [s for s in _objects(previous, "stages") if s["stage"] not in seconds]
+    stages += [{"stage": name, "seconds": round(value, 2)} for name, value in seconds.items()]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"stages": stages}, indent=2) + "\n", encoding="utf-8")
 

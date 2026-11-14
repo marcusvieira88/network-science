@@ -166,7 +166,7 @@ def run_pipeline(
     target = zones.path_for(paths, "cli", Zone.RELEASE, MANIFEST_FILE, "w")
     manifest.write(target, merge=not full_run)
     timings = zones.path_for(paths, "cli", Zone.LOGS, STAGE_TIMINGS_FILE, "w")
-    write_stage_timings(timings, seconds_per_stage)
+    write_stage_timings(timings, seconds_per_stage, merge=not full_run)
     return RunResult(manifest, ran)
 
 

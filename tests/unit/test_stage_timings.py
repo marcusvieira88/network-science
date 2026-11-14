@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from enron_case.config import MANIFEST_FILE, STAGE_TIMINGS_FILE
-from enron_case.manifest import RunManifest
+from enron_case.manifest import RunManifest, write_stage_timings
 from enron_case.zones import Zone
 from helpers import run_sample
 
@@ -45,4 +45,20 @@ def test_a_partial_run_drops_durations_a_previous_manifest_held(tmp_path: Path) 
     assert stages == [
         {"stage": "parse", "code_version": "old"},
         {"stage": "finding", "code_version": "new"},
+    ]
+
+
+def test_a_partial_run_keeps_the_timings_of_stages_it_did_not_run(tmp_path: Path) -> None:
+    path = tmp_path / STAGE_TIMINGS_FILE
+    write_stage_timings(path, {"parse": 2.0, "report": 1.0})
+    write_stage_timings(path, {"report": 3.0, "ui-data": 0.5}, merge=True)
+    stages = json.loads(path.read_text(encoding="utf-8"))["stages"]
+    assert stages == [
+        {"stage": "parse", "seconds": 2.0},
+        {"stage": "report", "seconds": 3.0},
+        {"stage": "ui-data", "seconds": 0.5},
+    ]
+    write_stage_timings(path, {"fetch": 1.0})
+    assert json.loads(path.read_text(encoding="utf-8"))["stages"] == [
+        {"stage": "fetch", "seconds": 1.0}
     ]
