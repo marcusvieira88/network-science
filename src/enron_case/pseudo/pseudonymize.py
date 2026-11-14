@@ -12,6 +12,7 @@ import polars as pl
 
 from enron_case.contracts import schemas
 from enron_case.contracts import vocab as v
+from enron_case.contracts.vocab import ROLE_STRENGTH
 from enron_case.errors import ContractViolation, PseudonymCollision
 from enron_case.pseudo.keys import EVENT_LABEL, ORG_LABEL, PERSON_LABEL, keyed_digest
 
@@ -71,7 +72,11 @@ def build_entities_p(key: bytes, entities: pl.DataFrame) -> pl.DataFrame:
 def build_events(
     key: bytes, messages: pl.DataFrame, entities: pl.DataFrame, address_map: pl.DataFrame
 ) -> pl.DataFrame:
-    """One row per (message, recipient) for messages with a timestamp and a sender."""
+    """One row per (message, recipient entity) for messages with a timestamp and a sender.
+
+    Several addresses of one recipient entity collapse into one event with the strongest role;
+    a recipient that is the sender's own entity (an alias) is dropped; `n_recipients` and
+    `weight` count recipient entities, not addresses."""
     pairs = _message_recipient_pairs(messages)
     pid_table = _pid_lookup(key, entities).select(
         "entity_id", "pid", "type", "is_internal", "org_pid"
@@ -81,7 +86,9 @@ def build_events(
     if repeated:
         raise ContractViolation(f"address_map lists {repeated} addresses more than once")
     resolved = _attach(pairs, addr_to_entity, pid_table, "sender_addr", "sender")
-    resolved = _attach(resolved, addr_to_entity, pid_table, "addr", "recipient")
+    resolved = _per_recipient_entity(
+        _attach(resolved, addr_to_entity, pid_table, "addr", "recipient")
+    )
     keyed = resolved.with_columns(
         pl.Series(
             "event_id",
@@ -94,6 +101,20 @@ def build_events(
         pl.Series("msg_pid", [message_pid(key, m) for m in resolved["msg_key"]], dtype=pl.String),
     )
     return schemas.conform(keyed.drop("msg_key", "sender_addr", "addr"), "events")
+
+
+def _per_recipient_entity(resolved: pl.DataFrame) -> pl.DataFrame:
+    rank = pl.col("role").replace_strict(ROLE_STRENGTH, return_dtype=pl.Int64)
+    collapsed = (
+        resolved.filter(pl.col("sender_pid") != pl.col("recipient_pid"))
+        .with_columns(rank.alias("_rank"))
+        .sort(["msg_key", "recipient_pid", "_rank", "addr"], descending=[False, False, True, False])
+        .unique(subset=["msg_key", "recipient_pid"], keep="first", maintain_order=True)
+        .drop("_rank")
+    )
+    return collapsed.with_columns(
+        pl.len().over("msg_key").cast(pl.Int64).alias("n_recipients")
+    ).with_columns((1.0 / pl.col("n_recipients")).alias("weight"))
 
 
 def _message_recipient_pairs(messages: pl.DataFrame) -> pl.DataFrame:

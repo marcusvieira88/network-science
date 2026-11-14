@@ -11,8 +11,8 @@ Rules, applied in this order; the first that fires decides the type:
 2. Behaviour (`entity_behaviour`):
    - role: sent more than `config.recipient_cap` recipients on at least
      `ROLE_MIN_MASS_SENDS` messages.
-   - list: never sends and is addressed by at least `LIST_MIN_DISTINCT_SENDERS` distinct
-     sender entities.
+   (No behavioural list rule: with ~150 collected mailboxes most real people never appear
+   as a sender, so "never sends" says nothing about being a list.)
 3. Otherwise person.
 
 `unknown` is in the contract vocabulary but no rule assigns it: every resolved entity has at
@@ -63,7 +63,6 @@ TOKEN_SPLIT = re.compile(r"[._-]")
 # Behaviour thresholds. "More than once" is the brief's definition of a role sender.
 ROLE_MIN_MASS_SENDS = 2
 # Not in config.py because the foundation is frozen for this work package; see the WP-C report.
-LIST_MIN_DISTINCT_SENDERS = 10
 
 
 @dataclass(frozen=True)
@@ -117,6 +116,4 @@ def entity_type(addresses: Sequence[str], behaviour: Behaviour) -> str:
             return kind
     if behaviour.mass_sends >= ROLE_MIN_MASS_SENDS:
         return ROLE
-    if behaviour.sent == 0 and behaviour.distinct_senders >= LIST_MIN_DISTINCT_SENDERS:
-        return LIST
     return PERSON

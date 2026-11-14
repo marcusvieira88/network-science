@@ -21,6 +21,8 @@ from itertools import combinations
 
 import polars as pl
 
+from enron_case.clean.addresses import clean_address
+from enron_case.config import MULTI_LABEL_SUFFIXES
 from enron_case.identity.classify import pattern_type
 
 N2 = "N2"
@@ -55,11 +57,9 @@ class Candidate:
 
 # ---- N1 normalisation helpers ---------------------------------------------------------------
 def normalize_address(raw: str) -> str:
-    """Lower-case and strip quotes, brackets, `mailto:` and stray punctuation."""
-    value = raw.strip(ADDRESS_STRIP).lower()
-    if value.startswith(MAILTO):
-        value = value[len(MAILTO) :]
-    return value.strip(ADDRESS_STRIP)
+    """Rule N1, single source in `clean.addresses` (no validity check here: callers look the
+    result up in the set of addresses the clean stage already accepted)."""
+    return clean_address(raw)
 
 
 def normalize_name(raw: str | None) -> str | None:
@@ -82,9 +82,12 @@ def local_part(addr: str) -> str:
 
 
 def registered_domain(addr: str) -> str:
-    """Last two labels of the domain. Known limit: wrong for public suffixes like `co.uk`."""
-    domain = addr.rsplit("@", 1)[-1]
-    return ".".join(domain.split(".")[-REGISTERED_LABELS:])
+    """Registered domain: the last two labels, or three when the last two form a multi-label
+    public suffix (`acme.co.uk`), so rule N2 never merges across companies under one suffix."""
+    labels = addr.rsplit("@", 1)[-1].split(".")
+    suffix = ".".join(labels[-REGISTERED_LABELS:])
+    take = REGISTERED_LABELS + 1 if suffix in MULTI_LABEL_SUFFIXES else REGISTERED_LABELS
+    return ".".join(labels[-take:])
 
 
 def is_generic(addr: str) -> bool:

@@ -263,3 +263,32 @@ def test_precision_and_recall_against_ground_truth(synth: SynthOutput) -> None:
     assert recall is not None
     assert precision >= 0.95
     print(f"dedupe precision={precision:.4f} recall={recall:.4f}")
+
+
+def test_records_without_sender_are_never_merged() -> None:
+    ts = datetime(2001, 5, 1, 10, 0, tzinfo=UTC)
+    a = _single("f1", None, ts, {"r@x.com": "to"})
+    b = _single("f2", None, ts, {"r@x.com": "to"})
+    assert len(dedupe([a, b])) == 2
+
+
+def test_empty_recipient_set_joins_only_an_unambiguous_host() -> None:
+    ts = datetime(2001, 5, 1, 10, 0, tzinfo=UTC)
+    empty = _single("f1", "s@x.com", ts, {})
+    full = _single("f2", "s@x.com", ts, {"r@x.com": "to"})
+    other = _single("f3", "s@x.com", ts, {"q@x.com": "to"})
+    assert len(dedupe([empty, full])) == 1  # Bcc-only copy joins the one message it can
+    assert len(dedupe([empty, full, other])) == 3  # two possible hosts: stays on its own
+
+
+def _single(file_id: str, sender: str | None, ts: datetime, recipients: dict[str, str]) -> Group:
+    return Group.single(
+        file_id=file_id,
+        owner="o",
+        folder_class="inbox",
+        sender=sender,
+        ts_utc=ts,
+        recipients=recipients,
+        message_id=None,
+        bad_address=sender is None,
+    )

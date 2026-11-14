@@ -9,14 +9,13 @@ from pathlib import Path
 import polars as pl
 
 from enron_case.cli import RunResult, run_pipeline, select
-from enron_case.config import Config
+from enron_case.config import SAMPLE_KEY_HEX, Config
 from enron_case.context import StageContext
 from enron_case.contracts import schemas
 from enron_case.synth import SynthOutput
 from enron_case.zones import Paths, Zone
 
-# Fixed key for the synthetic sample and tests only. Never used for real data.
-TEST_KEY_HEX = "7465737400000000000000000000000000000000000000000000000000000000"
+TEST_KEY_HEX = SAMPLE_KEY_HEX
 
 
 def tmp_paths(root: Path) -> Paths:

@@ -20,7 +20,7 @@ CONTENT_MARKERS = ["CANARYBODY", "CANARYSUBJ", "CANARYFOLDER", "CANARYFILE"]
 
 
 def _member(text: str, path: str = "maildir/a-ann/inbox/1.") -> dict[str, object]:
-    record, _ = parse_member(path, io.BytesIO(text.encode("latin-1")))
+    record, _, _ = parse_member(path, io.BytesIO(text.encode("latin-1")))
     assert record is not None
     return record
 
@@ -95,10 +95,12 @@ def test_address_lists_split_and_raw() -> None:
     assert record["parse_flags"] == ["bad_date", "folded"]
 
 
-def test_no_header_end_flag() -> None:
-    record = _member("Date: Mon, 14 May 2001 16:39:00 -0700\nFrom: a@x.com")
-    assert record["parse_flags"] == ["no_header_end"]
-    assert record["from_addr"] == "a@x.com"
+def test_member_without_header_end_is_rejected() -> None:
+    text = "Date: Mon, 14 May 2001 16:39:00 -0700\nFrom: a@x.com\nMerger: x\nCc: c@y.com"
+    record, names, reason = parse_member("maildir/a-ann/inbox/1.", io.BytesIO(text.encode()))
+    assert record is None
+    assert names == []
+    assert reason == "no_header_end"
 
 
 def test_identity_fields_from_path() -> None:

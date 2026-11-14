@@ -233,3 +233,11 @@ def test_homonym_stays_separate(synth: SynthOutput, tmp_path: Path) -> None:
     entity_of = dict(resolution.address_map.select("addr", "entity_id").iter_rows())
     assert entity_of[homonym["addresses"][0]] != entity_of[twin["addresses"][0]]
     assert resolution.blocked_by_guard.get(rules.GUARD_CROSS_ORG, 0) >= 1
+
+
+def test_public_suffix_does_not_merge_companies() -> None:
+    assert rules.registered_domain("john@acme.co.uk") == "acme.co.uk"
+    assert rules.registered_domain("john@mail.acme.co.uk") == "acme.co.uk"
+    assert rules.registered_domain("john@ect.enron.com") == "enron.com"
+    candidates = rules.subdomain_candidates(["john@acme.co.uk", "john@globex.co.uk"])
+    assert candidates == []

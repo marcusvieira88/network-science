@@ -93,7 +93,7 @@ def test_retain_keeps_first_occurrence_under_canonical_name() -> None:
 
 
 def test_dropped_fields_never_appear_in_returned_record() -> None:
-    record, names = parse_member(
+    record, names, _ = parse_member(
         "maildir/a-ann/canaryfolder_projects/1.", io.BytesIO(SAMPLE.encode("latin-1"))
     )
     assert record is not None
@@ -115,7 +115,7 @@ def test_dropped_fields_never_appear_in_returned_record() -> None:
     ],
 )
 def test_folder_reduced_to_class(folder: str, expected: str) -> None:
-    record, _ = parse_member(f"maildir/a-ann/{folder}/7.", io.BytesIO(SAMPLE.encode("latin-1")))
+    record, _, _ = parse_member(f"maildir/a-ann/{folder}/7.", io.BytesIO(SAMPLE.encode("latin-1")))
     assert record is not None
     assert record["folder_class"] == expected
     assert record["folder_class"] in vocab.FOLDER_CLASSES

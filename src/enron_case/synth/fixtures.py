@@ -244,10 +244,22 @@ class FixtureBuilder:
             if row["ts_utc"] is None or not row["recipients"]:
                 continue
             sender = self.by_addr[row["sender_addr"]]
-            n = row["n_recipients"]
+            # One event per recipient entity: strongest role, smallest address on ties; the
+            # sender's own entity (an alias) is not a recipient.
+            best: dict[str, dict[str, str]] = {}
+            for r in sorted(
+                row["recipients"], key=lambda r: (-v.ROLE_STRENGTH[r["role"]], r["addr"])
+            ):
+                tid = self.by_addr[r["addr"]].truth_id
+                if tid != sender.truth_id and tid not in best:
+                    best[tid] = r
+            recipients = sorted(best.values(), key=lambda r: r["addr"])
+            n = len(recipients)
+            if n == 0:
+                continue
             in_network = not (set(row["flags"]) & EXCLUSION_FLAGS)
             ts_hour = row["ts_utc"].replace(minute=0, second=0, microsecond=0)
-            for r in row["recipients"]:
+            for r in recipients:
                 recipient = self.by_addr[r["addr"]]
                 rows.append(
                     {

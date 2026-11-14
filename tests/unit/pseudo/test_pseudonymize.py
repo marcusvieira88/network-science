@@ -125,21 +125,22 @@ def tiny_events(**kwargs: object) -> pl.DataFrame:
     return pseudonymize.build_events(KEY, *tiny_inputs(**kwargs))  # type: ignore[arg-type]
 
 
-def test_one_event_per_recipient_with_weight_and_hour() -> None:
+def test_one_event_per_recipient_entity_with_weight_and_hour() -> None:
+    # Four addresses, three entities: r1@x.com and r1.alias@x.com are one person.
     events = tiny_events()
-    assert events.height == 4
-    assert events["weight"].to_list() == [0.25] * 4
-    assert events["n_recipients"].to_list() == [4] * 4
+    assert events.height == 3
+    assert events["weight"].to_list() == [1 / 3] * 3
+    assert events["n_recipients"].to_list() == [3] * 3
     assert set(events["ts_hour"].to_list()) == {datetime(2001, 5, 1, 10, tzinfo=UTC)}
     assert events["in_network"].all()
     assert events["msg_pid"].n_unique() == 1
-    assert events["event_id"].n_unique() == 4
+    assert events["event_id"].n_unique() == 3
 
 
 def test_recipients_resolve_through_address_map() -> None:
     events = tiny_events()
     r1 = pseudonymize.person_pid(KEY, "r1@x.com")
-    assert events.filter(pl.col("recipient_pid") == r1).height == 2
+    assert events.filter(pl.col("recipient_pid") == r1).height == 1
     assert events["sender_pid"].unique().to_list() == [pseudonymize.person_pid(KEY, "s@x.com")]
     r3 = events.filter(pl.col("role") == "bcc").row(0, named=True)
     assert r3["recipient_internal"] is False
@@ -259,3 +260,25 @@ def test_stage_writes_no_identifier_no_key_and_no_mapping(
     assert TEST_KEY_HEX not in logs
     for table in ("events", "entities_p"):
         assert not any("entity_id" in c or "addr" in c for c in ctx.read(table).columns)
+
+
+def test_alias_of_the_sender_is_not_a_tie() -> None:
+    """A message from s@x.com to its own alias and to r2: the alias is dropped (no self-loop)
+    and the remaining recipient carries the full weight."""
+    messages, entities, address_map = tiny_inputs()
+    messages = messages.with_columns(
+        pl.Series(
+            "recipients",
+            [[{"addr": "r1.alias@x.com", "role": "to"}, {"addr": "r2@x.com", "role": "to"}]],
+        )
+    )
+    sender_alias = address_map.with_columns(
+        pl.when(pl.col("addr") == "r1.alias@x.com")
+        .then(pl.lit("s@x.com"))
+        .otherwise(pl.col("entity_id"))
+        .alias("entity_id")
+    )
+    events = pseudonymize.build_events(KEY, messages, entities, sender_alias)
+    assert events.height == 1
+    assert events["weight"].to_list() == [1.0]
+    assert (events["sender_pid"] != events["recipient_pid"]).all()

@@ -17,8 +17,34 @@ CORPUS_ARCHIVE = "enron_mail_20150507.tar.gz"
 # SHA-256 of the archive above; pinned after the first verified download.
 CORPUS_SHA256 = "b3da1b3fe0369ec3140bb4fbce94702c33b7da810ec15d718b3fadf5cd748ca7"
 SAMPLE_ARCHIVE = "synthetic_maildir.tar.gz"
+# Fixed key for the synthetic sample and tests only. `--sample` always uses it, so the real key
+# never touches synthetic data and synthetic runs never need the real key.
+SAMPLE_KEY_HEX = "7465737400000000000000000000000000000000000000000000000000000000"
 
 INTERNAL_DOMAIN = "enron.com"
+# Two-label public suffixes; under these the registered domain takes three labels.
+MULTI_LABEL_SUFFIXES = frozenset(
+    {
+        "co.uk",
+        "org.uk",
+        "ac.uk",
+        "gov.uk",
+        "com.au",
+        "net.au",
+        "org.au",
+        "co.jp",
+        "co.nz",
+        "com.br",
+        "com.mx",
+        "co.za",
+        "com.sg",
+        "com.hk",
+        "co.in",
+        "com.cn",
+        "co.kr",
+        "com.ar",
+    }
+)
 SAMPLE_INTERNAL_DOMAIN = "acme-energy.com"
 
 # Public events, used only to annotate series. Never used to choose windows.

@@ -1,6 +1,9 @@
 """Header-block reader: the only code that touches the bytes of a message.
 
-It reads a member line by line up to the first blank line and never further. Each physical line
+It reads a member line by line up to the first blank (or whitespace-only) line and never further.
+It also stops at the first line that is neither a continuation nor a valid `Name: value` header
+line, and after MAX_HEADER_LINES lines; in both cases the block is marked not ended and the
+caller rejects the member, so body text can never be taken for header fields. Each physical line
 is classified by field name as soon as it is read; the value of a field that is not kept is
 discarded with that line, so no dropped value outlives the loop iteration that read it.
 """
@@ -15,8 +18,10 @@ from typing import IO
 ENCODING = "latin-1"
 CONTINUATION_START = (" ", "\t")
 LINE_END = "\r\n"
-# RFC 5322 field name: printable ASCII except colon, no whitespace. Anything else is not a
-# header line, so a body-like line in a member without a header end is never counted as a name.
+# Upper bound on physical header lines; the longest real header (a folded list of several
+# hundred recipients) stays far below it.
+MAX_HEADER_LINES = 5000
+# RFC 5322 field name: printable ASCII except colon, no whitespace.
 FIELD_NAME = re.compile(r"[\x21-\x39\x3b-\x7e]+")
 
 
@@ -33,13 +38,16 @@ class HeaderBlock:
 def read_header(stream: IO[bytes], keep: Collection[str]) -> HeaderBlock:
     """Read the header block of one message. `keep` holds lower-case field names to retain.
 
-    Stops after the first blank line (`ended`), or at end of stream (`ended` false).
+    Stops after the first blank or whitespace-only line (`ended`). Stops with `ended` false at
+    end of stream, at a line that is not a header line, or after MAX_HEADER_LINES lines.
     """
     block = HeaderBlock()
     keeping = False
-    while raw := stream.readline():
+    lines = 0
+    while lines < MAX_HEADER_LINES and (raw := stream.readline()):
+        lines += 1
         line = raw.decode(ENCODING).rstrip(LINE_END)
-        if not line:
+        if not line.strip():
             block.ended = True
             break
         if line.startswith(CONTINUATION_START):
@@ -50,8 +58,7 @@ def read_header(stream: IO[bytes], keep: Collection[str]) -> HeaderBlock:
             continue
         name, colon, value = line.partition(":")
         if not colon or not FIELD_NAME.fullmatch(name):
-            keeping = False
-            continue
+            break
         block.names_seen.append(name)
         keeping = name.lower() in keep
         if keeping:

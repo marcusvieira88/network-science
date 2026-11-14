@@ -35,12 +35,12 @@ def behaviour_of(rows: list[tuple[str, list[str]]]) -> dict[str, classify.Behavi
     return classify.entity_behaviour(msgs, {a: a for a in addrs}, CAP)
 
 
-def test_never_sends_and_addressed_by_many_is_a_list() -> None:
-    senders = [f"s{i}@org.com" for i in range(classify.LIST_MIN_DISTINCT_SENDERS)]
-    beh = behaviour_of([(s, ["group7@org.com"]) for s in senders])
-    assert classify.entity_type(["group7@org.com"], beh["group7@org.com"]) == "list"
-    fewer = behaviour_of([(s, ["group7@org.com"]) for s in senders[1:]])
-    assert classify.entity_type(["group7@org.com"], fewer["group7@org.com"]) == "person"
+def test_never_sending_is_not_enough_to_be_a_list() -> None:
+    """Only about 150 mailboxes were collected, so most real people never appear as a sender.
+    Behaviour alone must not turn them into lists; only list-like address patterns do."""
+    senders = [f"s{i}@org.com" for i in range(25)]
+    beh = behaviour_of([(s, ["jane.doe@org.com"]) for s in senders])
+    assert classify.entity_type(["jane.doe@org.com"], beh["jane.doe@org.com"]) == "person"
 
 
 def test_mass_sender_more_than_once_is_a_role() -> None:

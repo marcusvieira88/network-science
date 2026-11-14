@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import importlib
+import os
 import sys
 import tempfile
 import time
@@ -17,13 +18,21 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from enron_case import zones
-from enron_case.config import SAMPLE_INTERNAL_DOMAIN, Config
+from enron_case.config import SAMPLE_INTERNAL_DOMAIN, SAMPLE_KEY_HEX, Config
 from enron_case.context import LogFn, StageContext, stderr_log
 from enron_case.errors import KeyProblem, PipelineError, UsageError
 from enron_case.manifest import RunManifest, code_version
 from enron_case.zones import Paths, Zone
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+
+def _repo_root() -> Path:
+    """The checkout: where this source tree lives in an editable install, else the current
+    directory (the Makefile always runs from the repository root)."""
+    source_root = Path(__file__).resolve().parents[2]
+    return source_root if (source_root / "pyproject.toml").exists() else Path.cwd().resolve()
+
+
+REPO_ROOT = _repo_root()
 
 
 @dataclass(frozen=True)
@@ -47,6 +56,7 @@ STAGES: tuple[Stage, ...] = (
     Stage("ui-data", "uiexport", "run"),
 )
 DEFAULT_LAST = "report"  # ui-data runs only when asked for
+KEEP_INGEST_WARNING = "warning: the ingest zone (addresses, names) stays on disk after this run"
 STAGE_NAMES = tuple(s.name for s in STAGES)
 
 
@@ -202,6 +212,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if getattr(args, "sample", False) or args.command == "verify":
+        os.environ["ENRON_CASE_KEY"] = SAMPLE_KEY_HEX
+        os.environ.pop("ENRON_CASE_KEY_FILE", None)
     try:
         if args.command == "check-key":
             load_key_fingerprint()
@@ -216,17 +229,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "run":
             stages = select(args.first, args.last)
             if args.keep_ingest:
-                stderr_log("warning: --keep-ingest leaves identifiers on disk after the run")
+                stderr_log(KEEP_INGEST_WARNING)
         else:
             stages = select(args.name, args.name)
         paths = Paths.for_run(REPO_ROOT, args.sample)
         keep = args.keep_ingest or args.command == "stage"
+        if args.command == "stage":
+            stderr_log(KEEP_INGEST_WARNING)
         run_pipeline(paths, config, args.sample, stages, keep_ingest=keep)
         print(paths.release_root / "report.md")
         return 0
     except PipelineError as exc:
         stderr_log(f"error: {exc}")
         return exc.exit_code
+    except Exception as exc:
+        stderr_log(f"error: unexpected {type(exc).__name__}; details withheld (may hold data)")
+        return 1
 
 
 if __name__ == "__main__":

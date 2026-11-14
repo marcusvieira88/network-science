@@ -21,6 +21,7 @@ MAILDIR_ROOT = "maildir"
 # root / owner / folder / file at least
 MIN_PATH_PARTS = 4
 REJECT_OUTSIDE_MAILDIR = "outside_maildir"
+REJECT_NO_HEADER_END = "no_header_end"
 ADDRESS_SEPARATOR = ","
 # Rows per DataFrame batch; keeps Python row objects bounded on the 517k-member corpus.
 BATCH_ROWS = 50_000
@@ -67,14 +68,21 @@ def split_addresses(value: str | None) -> list[str]:
     return [part.strip() for part in value.split(ADDRESS_SEPARATOR) if part.strip()]
 
 
-def parse_member(member_path: str, stream: IO[bytes]) -> tuple[Record | None, list[str]]:
-    """One `header_records` row (None if the path is outside the maildir layout) and the
-    names of every header field seen in the member."""
+def parse_member(
+    member_path: str, stream: IO[bytes]
+) -> tuple[Record | None, list[str], str | None]:
+    """One `header_records` row, the names of every header field seen, and a reject reason.
+
+    A member outside the maildir layout, or whose header block does not end cleanly, is
+    rejected (record None): without a clean end, body lines could pass for header fields.
+    """
     location = member_location(member_path)
     if location is None:
-        return None, []
+        return None, [], REJECT_OUTSIDE_MAILDIR
     owner, raw_folder = location
     block = read_header(stream, allowlist.KEEP_NAMES)
+    if not block.ended:
+        return None, [], REJECT_NO_HEADER_END
     kept = allowlist.retain(block.fields)
     ts_utc = parse_date(kept.get("Date"))
     flags = []
@@ -82,8 +90,6 @@ def parse_member(member_path: str, stream: IO[bytes]) -> tuple[Record | None, li
         flags.append("bad_date")
     if block.folded:
         flags.append("folded")
-    if not block.ended:
-        flags.append("no_header_end")
     record: Record = {
         "file_id": vocab.file_id(member_path),
         "mailbox_owner": owner,
@@ -96,7 +102,7 @@ def parse_member(member_path: str, stream: IO[bytes]) -> tuple[Record | None, li
         record[column] = split_addresses(kept.get(name))
     for name, column in OPTIONAL_FIELDS.items():
         record[column] = kept.get(name) or None
-    return record, block.names_seen
+    return record, block.names_seen, None
 
 
 def parse_archive(archive: Path) -> tuple[pl.DataFrame, IngestCounts]:
@@ -118,9 +124,9 @@ def parse_archive(archive: Path) -> tuple[pl.DataFrame, IngestCounts]:
                 if stream is None:
                     raise CorpusError("archive member could not be opened")
                 with stream:
-                    record, names = parse_member(member.name, stream)
+                    record, names, reason = parse_member(member.name, stream)
                 if record is None:
-                    rejected[REJECT_OUTSIDE_MAILDIR] += 1
+                    rejected[reason or REJECT_OUTSIDE_MAILDIR] += 1
                     continue
                 fields.update(allowlist.canonical(name) for name in names)
                 flags.update(record["parse_flags"])

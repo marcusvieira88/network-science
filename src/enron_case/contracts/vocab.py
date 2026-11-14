@@ -22,6 +22,29 @@ FOLDER_VOCAB: dict[str, str] = {
     "deleted_items": "deleted",
 }
 
+# Header field names ruled on in contracts/header-allowlist.md. Only these names are published
+# in release/header_fields.csv; any other name is counted under OTHER_HEADER_FIELD.
+KNOWN_HEADER_FIELDS = (
+    "Message-ID",
+    "Date",
+    "From",
+    "To",
+    "Cc",
+    "Bcc",
+    "Subject",
+    "Mime-Version",
+    "Content-Type",
+    "Content-Transfer-Encoding",
+    "X-From",
+    "X-To",
+    "X-cc",
+    "X-bcc",
+    "X-Folder",
+    "X-Origin",
+    "X-FileName",
+)
+OTHER_HEADER_FIELD = "(other)"
+
 RECIPIENT_ROLES = ("to", "cc", "bcc")
 ROLE_STRENGTH = {"to": 3, "cc": 2, "bcc": 1}
 ENTITY_TYPES = ("person", "list", "system", "role", "unknown")

@@ -7,7 +7,7 @@ import io
 from hypothesis import given
 from hypothesis import strategies as st
 
-from enron_case.ingest.headers import read_header
+from enron_case.ingest.headers import MAX_HEADER_LINES, read_header
 
 KEEP_ALL = frozenset({"from", "to", "subject", "x-to"})
 
@@ -90,17 +90,33 @@ def test_empty_value_is_kept_as_empty_string() -> None:
     assert block.fields == [("X-To", "")]
 
 
-def test_line_without_colon_is_ignored() -> None:
-    block = read_header(io.BytesIO(b"garbage line\nFrom: a@x.com\n\n"), KEEP_ALL)
-    assert block.fields == [("From", "a@x.com")]
+def test_line_without_colon_ends_the_block_unended() -> None:
+    block = read_header(io.BytesIO(b"From: a@x.com\ngarbage line\nCc: c@x.com\n\n"), KEEP_ALL)
+    assert not block.ended
     assert block.names_seen == ["From"]
 
 
-def test_line_whose_prefix_is_not_a_field_name_is_ignored() -> None:
+def test_whitespace_only_line_ends_the_header() -> None:
+    raw = b"From: a@x.com\nTo: b@x.com\n \nMerger: CANARYBODY\nCc: lawyer@y.com\n"
+    block = read_header(io.BytesIO(raw), KEEP_ALL)
+    assert block.ended
+    assert block.names_seen == ["From", "To"]
+
+
+def test_line_cap_stops_reading() -> None:
+    raw = b"From: a@x.com\n" + b"X-A: 1\n" * (MAX_HEADER_LINES + 10) + b"\n"
+    stream = io.BytesIO(raw)
+    block = read_header(stream, KEEP_ALL)
+    assert not block.ended
+    assert len(block.names_seen) == MAX_HEADER_LINES
+
+
+def test_line_whose_prefix_is_not_a_field_name_stops_reading() -> None:
     raw = b"From: a@x.com\nNote from Ann: CANARYBODY\nX-To: b\n\n"
     block = read_header(io.BytesIO(raw), KEEP_ALL)
-    assert block.names_seen == ["From", "X-To"]
-    assert block.fields == [("From", "a@x.com"), ("X-To", "b")]
+    assert not block.ended
+    assert block.names_seen == ["From"]
+    assert block.fields == [("From", "a@x.com")]
 
 
 _name = st.sampled_from(["From", "To", "Subject", "X-To", "X-Weird"])

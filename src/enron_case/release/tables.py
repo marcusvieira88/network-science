@@ -10,7 +10,7 @@ from typing import Any
 
 import polars as pl
 
-from enron_case.contracts import schemas
+from enron_case.contracts import schemas, vocab
 from enron_case.errors import ContractViolation
 
 STEP_PARSE = "files parsed"
@@ -84,11 +84,17 @@ def header_fields(ingest: dict[str, Any]) -> pl.DataFrame:
     unruled = sorted(set(occurrences) - set(rulings))
     if unruled:
         raise ContractViolation(f"ingest_counts: {len(unruled)} header fields without a ruling")
+    known = {name: n for name, n in occurrences.items() if name in vocab.KNOWN_HEADER_FIELDS}
+    other = sum(n for name, n in occurrences.items() if name not in vocab.KNOWN_HEADER_FIELDS)
+    names = list(known)
+    counts = list(known.values())
+    labels = [rulings[name] for name in known]
+    if other:
+        # Unknown names are never published: they can be fragments of message text.
+        names.append(vocab.OTHER_HEADER_FIELD)
+        counts.append(other)
+        labels.append("dropped")
     return pl.DataFrame(
-        {
-            "field": list(occurrences),
-            "occurrences": list(occurrences.values()),
-            "ruling": [rulings[name] for name in occurrences],
-        },
+        {"field": names, "occurrences": counts, "ruling": labels},
         schema=schemas.table("header_fields").polars_schema,
     )

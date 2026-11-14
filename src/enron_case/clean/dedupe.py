@@ -121,10 +121,14 @@ def merge(members: list[Group], rule: str) -> Group:
 
 
 def exact_pass(groups: Iterable[Group]) -> list[Group]:
-    """Merge groups with the same message key (sender, second, recipient set)."""
+    """Merge groups with the same message key (sender, second, recipient set).
+
+    A record without a valid sender is never merged: with no sender, two unrelated messages
+    in the same second to the same recipients would be indistinguishable."""
     buckets: dict[str, list[Group]] = defaultdict(list)
     for group in groups:
-        buckets[group.key].append(group)
+        bucket = group.key if group.sender is not None else f"{group.key}|{min(group.file_ids)}"
+        buckets[bucket].append(group)
     merged = (merge(sorted(members, key=_order), "exact") for members in buckets.values())
     return sorted(merged, key=_order)
 
@@ -132,14 +136,17 @@ def exact_pass(groups: Iterable[Group]) -> list[Group]:
 def subset_pass(groups: Iterable[Group]) -> list[Group]:
     """Within one sender and second, merge each recipient set into a superset holding it.
 
-    Records without a timestamp are left alone. A set contained in several incomparable
-    supersets joins the largest one (ties broken by the sorted addresses), never more than
-    one, so unrelated messages are not chained together.
+    Records without a timestamp or without a valid sender are left alone. A record without
+    recipients (e.g. a Bcc-only recipient's copy) joins only when exactly one message is
+    available to host it; an empty set is a subset of every set, so with two or more hosts it
+    stays on its own rather than joining an unrelated message. A set contained in several
+    incomparable supersets joins the largest one (ties broken by the sorted addresses), never
+    more than one, so unrelated messages are not chained together.
     """
     buckets: dict[tuple[str | None, datetime], list[Group]] = defaultdict(list)
     out: list[Group] = []
     for group in groups:
-        if group.ts_utc is None:
+        if group.ts_utc is None or group.sender is None:
             out.append(group)
         else:
             buckets[(group.sender, group.ts_utc.replace(microsecond=0))].append(group)
@@ -155,6 +162,9 @@ def _merge_subsets(bucket: list[Group]) -> list[Group]:
         if group in maximal:
             continue
         hosts = [m for m in maximal if group.addrs < m.addrs]
+        if not group.addrs and len(hosts) != 1:
+            members[group.key] = [group]
+            continue
         host = min(hosts, key=lambda m: (-len(m.addrs), sorted(m.addrs)))
         members[host.key].append(group)
     return [merge(sorted(found, key=_order), "subset") for found in members.values()]
