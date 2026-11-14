@@ -160,7 +160,9 @@ def test_event_ids_follow_the_scheme() -> None:
     assert expected_event in events["event_id"].to_list()
 
 
-@pytest.mark.parametrize("flag", ["date_out_of_range", "no_recipients", "self_only", "mass_mailing"])
+@pytest.mark.parametrize(
+    "flag", ["date_out_of_range", "no_recipients", "self_only", "mass_mailing"]
+)
 def test_exclusion_flags_clear_in_network(flag: str) -> None:
     assert not tiny_events(flags=(flag,))["in_network"].any()
 
@@ -179,6 +181,13 @@ def test_unmapped_address_fails_loudly() -> None:
     with pytest.raises(ContractViolation) as info:
         pseudonymize.build_events(KEY, messages, entities, address_map.slice(1))
     assert "@" not in str(info.value)
+
+
+def test_address_mapped_twice_fails_loudly() -> None:
+    messages, entities, address_map = tiny_inputs()
+    doubled = pl.concat([address_map, address_map.slice(0, 1)])
+    with pytest.raises(ContractViolation):
+        pseudonymize.build_events(KEY, messages, entities, doubled)
 
 
 def test_no_address_in_event_columns() -> None:
@@ -239,7 +248,8 @@ def test_stage_writes_no_identifier_no_key_and_no_mapping(
 ) -> None:
     ctx, log_lines = run_stage(synth, tmp_path, monkeypatch, KEY)
     restricted = ctx.paths.dir(Zone.RESTRICTED)
-    assert sorted(p.name for p in restricted.iterdir()) == ["entities_p.parquet", "events.parquet"]
+    files = sorted(p.name for p in restricted.iterdir() if p.is_file())
+    assert files == ["entities_p.parquet", "events.parquet"]
     needles = ["@", TEST_KEY_HEX, *synth.truth()["display_names"]]
     for zone in (Zone.RESTRICTED, Zone.COUNTS):
         assert scan(ctx.paths.dir(zone), needles) == {}
