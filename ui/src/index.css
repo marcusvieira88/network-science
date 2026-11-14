@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark theme only. One accent (blue); chart series use the validated dark categorical steps. */
+@layer base {
+  :root {
+    color-scheme: dark;
+    --background: 240 6% 4%;
+    --foreground: 40 10% 93%;
+    --card: 240 5% 7%;
+    --card-foreground: 40 10% 93%;
+    --popover: 240 5% 8%;
+    --popover-foreground: 40 10% 93%;
+    --primary: 213 76% 56%;
+    --primary-foreground: 240 6% 4%;
+    --secondary: 240 4% 13%;
+    --secondary-foreground: 40 10% 93%;
+    --muted: 240 4% 13%;
+    --muted-foreground: 50 5% 64%;
+    --accent: 240 4% 15%;
+    --accent-foreground: 40 10% 93%;
+    --destructive: 0 72% 65%;
+    --destructive-foreground: 240 6% 4%;
+    --border: 240 4% 16%;
+    --input: 240 4% 18%;
+    --ring: 213 76% 56%;
+    --radius: 0.6rem;
+
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --chart-3: #199e70;
+    --chart-4: #c98500;
+    --chart-5: #d55181;
+    --chart-6: #008300;
+    --chart-7: #9085e9;
+    --chart-8: #e66767;
+    --chart-other: #6b6b66;
+    --chart-grid: #2a2a2e;
+    --chart-marker: #8a8984;
+  }
+
+  /* Print: black on white, so the one-page summary reads on paper and saves toner. */
+  @media print {
+    :root {
+      color-scheme: light;
+      --background: 0 0% 100%;
+      --foreground: 0 0% 8%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 8%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 0 0% 8%;
+      --primary: 213 80% 36%;
+      --primary-foreground: 0 0% 100%;
+      --secondary: 0 0% 94%;
+      --secondary-foreground: 0 0% 8%;
+      --muted: 0 0% 94%;
+      --muted-foreground: 0 0% 28%;
+      --accent: 0 0% 92%;
+      --accent-foreground: 0 0% 8%;
+      --destructive: 0 72% 40%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 0 0% 78%;
+      --input: 0 0% 78%;
+      --ring: 213 80% 36%;
+    }
+
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+}
+
+/* React Sigma's canvas and controls on the dark theme. Set on its root element, so they win over
+   the light defaults its stylesheet puts on :root, whatever order the stylesheets load in. */
+.react-sigma {
+  --sigma-background-color: hsl(var(--background));
+  --sigma-controls-background-color: hsl(var(--card));
+  --sigma-controls-background-color-hover: hsl(var(--accent));
+  --sigma-controls-border-color: hsl(var(--border));
+  --sigma-controls-color: hsl(var(--foreground));
+}

@@ -1,0 +1,197 @@
+/**
+ * Data shaping for the Clusters view: message weight between the published groups, summed over a
+ * period. Inputs are only `community_groups` and `community_graph`, so nothing finer than a group
+ * of at least k people can appear.
+ */
+import { type ArtifactCheckRow, type CommunityEdgeRow, type CommunityGroupRow, DataError, type Period } from "@/lib/data";
+import { OTHER_GROUP, compareGroups } from "@/lib/network";
+import { outsideShare } from "@/lib/outside";
+
+export const PERIOD_OPTIONS = [
+  { id: "baseline", label: "Baseline year" },
+  { id: "crisis", label: "Crisis weeks" },
+  { id: "all", label: "All weeks" },
+] as const;
+
+export type PeriodId = (typeof PERIOD_OPTIONS)[number]["id"];
+
+const TOP_PARTNERS = 3;
+
+/** The H2 artifact check for drift of groups fixed on the baseline (finding/artifacts.py). */
+const DRIFT_CHECK = { hypothesis: "H2", check: "baseline_placebo" } as const;
+
+/** Whether the release's drift check passed; null when it could not run or is absent. */
+export function driftCheckPasses(checks: ArtifactCheckRow[]): boolean | null {
+  const row = checks.find((c) => c.hypothesis === DRIFT_CHECK.hypothesis && c.check === DRIFT_CHECK.check);
+  return row?.passes ?? null;
+}
+
+export interface ClusterPeriods {
+  baseline: Period;
+  crisis: Period;
+}
+
+/** The date range of a period option; null for all weeks. */
+export function periodRange(id: PeriodId, periods: ClusterPeriods): Period | null {
+  return id === "all" ? null : periods[id];
+}
+
+const DAYS_AFTER_MONDAY = 6;
+
+/** The Sunday ending the week that starts on this Monday (ISO dates). */
+export function weekEnd(monday: string): string {
+  const day = new Date(`${monday}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + DAYS_AFTER_MONDAY);
+  return day.toISOString().slice(0, 10);
+}
+
+/**
+ * A week belongs to a period when any of its days falls inside it, so the week of an event that
+ * starts a window midweek (the crisis begins on a Tuesday) is counted.
+ */
+export function weekInPeriod(week: string, range: Period | null): boolean {
+  return range === null || (week <= range.end && weekEnd(week) >= range.start);
+}
+
+/** The weeks with at least one published tie in the period, in order. */
+export function periodWeeks(edges: CommunityEdgeRow[], range: Period | null): string[] {
+  return [...new Set(edges.filter((e) => weekInPeriod(e.week, range)).map((e) => e.week))].sort();
+}
+
+export interface ClusterMatrix {
+  /** Group labels by label order, `other` last; the index of every row and column. */
+  groups: string[];
+  sizes: number[];
+  /** directed[i][j]: weight sent from group i to group j; suppressed cells count as 0. */
+  directed: number[][];
+  /** Both directions summed between two groups; the diagonal holds the within-group weight once. */
+  symmetric: number[][];
+}
+
+function requireIndex(index: Map<string, number>, group: string): number {
+  const found = index.get(group);
+  if (found === undefined) throw new DataError(`community_graph has a tie to unpublished group ${group}`);
+  return found;
+}
+
+export function clusterMatrix(
+  groupRows: CommunityGroupRow[],
+  edges: CommunityEdgeRow[],
+  range: Period | null,
+): ClusterMatrix {
+  const sorted = [...groupRows].sort((x, y) => compareGroups(x.group, y.group));
+  const groups = sorted.map((g) => g.group);
+  const index = new Map(groups.map((group, i) => [group, i]));
+  const directed = groups.map(() => groups.map(() => 0));
+  for (const edge of edges) {
+    if (!weekInPeriod(edge.week, range)) continue;
+    const src = requireIndex(index, edge.src_group);
+    const dst = requireIndex(index, edge.dst_group);
+    const row = directed[src];
+    if (row) row[dst] = (row[dst] ?? 0) + (edge.weight ?? 0);
+  }
+  const cell = (i: number, j: number) => directed[i]?.[j] ?? 0;
+  const symmetric = groups.map((_, i) => groups.map((__, j) => (i === j ? cell(i, i) : cell(i, j) + cell(j, i))));
+  return { groups, sizes: sorted.map((g) => g.n_persons), directed, symmetric };
+}
+
+interface Partner {
+  group: string;
+  weight: number;
+}
+
+export interface GroupSummary {
+  group: string;
+  nPersons: number;
+  /** All weight the group takes part in: within the group, sent and received. */
+  total: number;
+  within: number;
+  /** within / total; null when the group has no weight in the period. */
+  withinShare: number | null;
+  /**
+   * within / the weight among real groups (total minus weight with outside people); null for the
+   * outside bucket and for a group with no weight among real groups in the period.
+   */
+  withinNamedShare: number | null;
+  /** Weight among real groups: total minus weight with the outside bucket (0 for the bucket). */
+  namedTotal: number;
+  /** The heaviest partner groups (both directions summed), at most TOP_PARTNERS; never the outside bucket. */
+  partners: Partner[];
+}
+
+export function groupSummaries(matrix: ClusterMatrix): GroupSummary[] {
+  return matrix.groups.map((group, i) => {
+    const row = matrix.symmetric[i] ?? [];
+    const total = row.reduce((sum, weight) => sum + weight, 0);
+    const within = row[i] ?? 0;
+    const outsideIndex = matrix.groups.indexOf(OTHER_GROUP);
+    const named = total - (outsideIndex >= 0 && outsideIndex !== i ? (row[outsideIndex] ?? 0) : 0);
+    // The outside bucket is no partner group, and it has none: it is not a community.
+    const partners = (group === OTHER_GROUP ? [] : matrix.groups)
+      .map((partner, j) => ({ group: partner, weight: row[j] ?? 0 }))
+      .filter((p, j) => j !== i && p.weight > 0 && p.group !== OTHER_GROUP)
+      .sort((x, y) => y.weight - x.weight || compareGroups(x.group, y.group))
+      .slice(0, TOP_PARTNERS);
+    return {
+      group,
+      nPersons: matrix.sizes[i] ?? 0,
+      total,
+      within,
+      withinShare: total > 0 ? within / total : null,
+      withinNamedShare: group !== OTHER_GROUP && named > 0 ? within / named : null,
+      namedTotal: group === OTHER_GROUP ? 0 : named,
+      partners,
+    };
+  });
+}
+
+/** The period's weight with the outside bucket at either end over all its weight (lib/outside.ts). */
+export function outsideWeightShare(edges: CommunityEdgeRow[], range: Period | null): number | null {
+  return outsideShare(edges, "weight", (week) => weekInPeriod(week, range));
+}
+
+export interface ShareChange {
+  group: string;
+  /** Cross-group share among real groups (1 − withinNamedShare) in each period. */
+  before: number;
+  after: number;
+  change: number;
+}
+
+/**
+ * A group is named as the largest change only if its weight among real groups reaches this in
+ * both periods. Post-hoc presentation rule, added after the real release named a group whose
+ * crisis share rested on a single tie of weight 2.12: a share over almost no weight is noise.
+ * At 50 the smallest groups with near-empty crisis periods (weights about 2 to 28) are skipped.
+ */
+export const MIN_COMPARABLE_WEIGHT = 50;
+
+/**
+ * The named group whose cross-group share among real groups changed most (either way); null if
+ * none is comparable. Weight with the outside bucket is left out: it is not a community but the
+ * people with no tie in the baseline period plus communities under k, and it grows after the
+ * baseline as new people appear, so counting it would read new arrivals as groups mixing.
+ */
+export function largestCrossShareChange(
+  before: GroupSummary[],
+  after: GroupSummary[],
+  minWeight: number = MIN_COMPARABLE_WEIGHT,
+): ShareChange | null {
+  const later = new Map(after.map((s) => [s.group, s]));
+  let largest: ShareChange | null = null;
+  for (const summary of before) {
+    const afterSummary = later.get(summary.group);
+    const withinBefore = summary.withinNamedShare;
+    const withinAfter = afterSummary?.withinNamedShare ?? null;
+    if (withinBefore === null || withinAfter === null) continue;
+    if (summary.namedTotal < minWeight || (afterSummary?.namedTotal ?? 0) < minWeight) continue;
+    const candidate = {
+      group: summary.group,
+      before: 1 - withinBefore,
+      after: 1 - withinAfter,
+      change: withinBefore - withinAfter,
+    };
+    if (largest === null || Math.abs(candidate.change) > Math.abs(largest.change)) largest = candidate;
+  }
+  return largest;
+}

@@ -1,0 +1,232 @@
+import { describe, expect, it } from "vitest";
+
+import { DataError, RELEASE_URL, SAMPLE_URL, TABLE_COLUMNS, loadRelease, parseRelease } from "@/lib/data";
+import { PrivacyError } from "@/lib/privacy";
+import { htmlResponse, jsonResponse, rawSample } from "@/test/sample";
+
+type Tables = Record<string, Record<string, unknown>[]>;
+
+function tablesOf(doc: Record<string, unknown>): Tables {
+  return doc.tables as Tables;
+}
+
+function firstRow(doc: Record<string, unknown>, table: string): Record<string, unknown> {
+  const row = tablesOf(doc)[table]?.[0];
+  if (!row) throw new Error(`fixture has no ${table} rows`);
+  return row;
+}
+
+describe("parseRelease", () => {
+  it("accepts the committed sample with every release table", () => {
+    const data = parseRelease(rawSample());
+    expect(Object.keys(data.tables).sort()).toEqual(Object.keys(TABLE_COLUMNS).sort());
+    expect(data.tables.hypotheses.map((h) => h.hypothesis)).toEqual(["H1", "H2", "H3", "H4"]);
+    expect(data.tables.data_quality[1]).toMatchObject({ step: "deduplicate", count_in: 6731, count_out: 2721 });
+    expect(data.events).toHaveLength(5);
+    expect(data.run.seed).toBe(20011202);
+  });
+
+  it("reads the exploratory crisis and reference windows", () => {
+    const data = parseRelease(rawSample());
+    expect(data.windows).toEqual({
+      crisis: { start: "2001-08-14", end: "2001-12-02" },
+      reference: { start: "2000-08-14", end: "2000-12-02" },
+    });
+  });
+
+  it("rejects a missing or malformed window", () => {
+    const missing = rawSample();
+    delete missing.windows;
+    expect(() => parseRelease(missing)).toThrow(/windows/);
+    const reversed = rawSample();
+    reversed.windows = {
+      crisis: { start: "2001-12-02", end: "2001-08-14" },
+      reference: { start: "2000-08-14", end: "2000-12-02" },
+    };
+    expect(() => parseRelease(reversed)).toThrow(/window crisis/);
+  });
+
+  it("rejects a tie to a group that is not published", () => {
+    const doc = rawSample();
+    firstRow(doc, "community_graph").dst_group = "G99";
+    expect(() => parseRelease(doc)).toThrow(/1 ties to unpublished groups/);
+  });
+
+  it("keeps suppressed cells as null", () => {
+    const data = parseRelease(rawSample());
+    const tenPlus = data.tables.degree_distribution.filter((row) => row.degree_bucket === "10+");
+    expect(tenPlus.length).toBeGreaterThan(0);
+    expect(tenPlus.every((row) => row.persons === null)).toBe(true);
+  });
+
+  it("accepts null for a float the release could not compute (NaN or ±inf upstream)", () => {
+    const doc = rawSample();
+    Object.assign(firstRow(doc, "hypotheses"), { effect: null, ci_low: null, ci_high: null, null_z: null });
+    firstRow(doc, "artifact_checks").passes = null;
+    const data = parseRelease(doc);
+    expect(data.tables.hypotheses[0]?.effect).toBeNull();
+    expect(data.tables.artifact_checks[0]?.passes).toBeNull();
+  });
+
+  it("reads the twenty-one exploratory hypotheses with nullable equalised results, whatever their id prefix", () => {
+    const data = parseRelease(rawSample());
+    const rows = data.tables.exploratory;
+    // H5–H25 continue the numbering after H1–H4; H25 is post hoc.
+    expect(rows.map((r) => r.order)).toEqual(Array.from({ length: 21 }, (_, i) => i + 5));
+    expect(rows[20]?.family).toBe("post hoc");
+    // No hypothesis is held true: H16 fails its retention check.
+    expect(rows.filter((r) => r.outcome === "confident")).toEqual([]);
+    expect(rows[0]?.equalised_median).toBeNull();
+    expect(rows[11]).toMatchObject({
+      hypothesis: "H16",
+      family: "second",
+      outcome: "inconclusive",
+      equalised_median: 0.1,
+      retention_passes: false,
+    });
+  });
+
+  it("rejects an exploratory outcome outside its enum", () => {
+    const doc = rawSample();
+    firstRow(doc, "exploratory").outcome = "supported";
+    expect(() => parseRelease(doc)).toThrow(/column outcome/);
+  });
+
+  it("rejects an exploratory hypothesis id without a number", () => {
+    const doc = rawSample();
+    firstRow(doc, "exploratory").hypothesis = "Hx";
+    expect(() => parseRelease(doc)).toThrow(/column hypothesis/);
+  });
+
+  it("rejects a missing table", () => {
+    const doc = rawSample();
+    delete tablesOf(doc).risk;
+    expect(() => parseRelease(doc)).toThrow(/missing tables: risk/);
+  });
+
+  it("rejects a wrong value type", () => {
+    const doc = rawSample();
+    firstRow(doc, "community_groups").n_persons = "14";
+    expect(() => parseRelease(doc)).toThrow(DataError);
+  });
+
+  it("rejects a value outside an enum", () => {
+    const doc = rawSample();
+    firstRow(doc, "hypotheses").supported = "maybe";
+    expect(() => parseRelease(doc)).toThrow(/column supported/);
+  });
+
+  it("rejects an extra column", () => {
+    const doc = rawSample();
+    firstRow(doc, "community_groups").members = 3;
+    expect(() => parseRelease(doc)).toThrow(DataError);
+  });
+
+  it("rejects an unknown format version", () => {
+    const doc = rawSample();
+    doc.format_version = 1;
+    expect(() => parseRelease(doc)).toThrow(/format_version/);
+  });
+
+  it("rejects a table whose value is not a list", () => {
+    const doc = rawSample();
+    (doc.tables as Record<string, unknown>).risk = {};
+    expect(() => parseRelease(doc)).toThrow(new DataError("table risk is not a list"));
+  });
+
+  it("rejects a malformed run block", () => {
+    const doc = rawSample();
+    doc.run = { ...(doc.run as Record<string, unknown>), seed: "20011202" };
+    expect(() => parseRelease(doc)).toThrow(new DataError("run block is malformed"));
+  });
+
+  it("rejects a malformed public event", () => {
+    const doc = rawSample();
+    doc.events = [{ date: "2001-08-14", label: "first" }, { date: "14 August 2001", label: "second" }];
+    expect(() => parseRelease(doc)).toThrow(new DataError("event 1 is malformed"));
+  });
+
+  it("rejects a missing contract version", () => {
+    const doc = rawSample();
+    delete doc.contract_version;
+    expect(() => parseRelease(doc)).toThrow(new DataError("contract_version is missing"));
+  });
+
+  it("rejects identifier-shaped values and small person counts", () => {
+    const leaky = rawSample();
+    firstRow(leaky, "header_fields").ruling = "a@b.example";
+    expect(() => parseRelease(leaky)).toThrow(PrivacyError);
+    const small = rawSample();
+    firstRow(small, "community_groups").n_persons = 4;
+    expect(() => parseRelease(small)).toThrow(PrivacyError);
+  });
+});
+
+describe("loadRelease", () => {
+  it("loads release.json when it exists", async () => {
+    const urls: string[] = [];
+    const result = await loadRelease(async (url) => {
+      urls.push(url);
+      return jsonResponse(rawSample());
+    }, "/");
+    expect(result).toMatchObject({ status: "ok", source: "release" });
+    expect(urls).toEqual([`/${RELEASE_URL}`]);
+  });
+
+  it("falls back to the sample only when release.json is missing", async () => {
+    for (const missing of [new Response("", { status: 404 }), htmlResponse()]) {
+      const result = await loadRelease(
+        async (url) => (url.endsWith(RELEASE_URL) ? missing.clone() : jsonResponse(rawSample())),
+        "/",
+      );
+      expect(result).toMatchObject({ status: "ok", source: "sample" });
+    }
+  });
+
+  it("reports a malformed release.json instead of falling back", async () => {
+    const result = await loadRelease(async (url) =>
+      url.endsWith(RELEASE_URL) ? new Response("{not json", { headers: { "content-type": "application/json" } }) : jsonResponse(rawSample()),
+    "/");
+    expect(result).toEqual({ status: "error", message: "release.json is not valid JSON" });
+  });
+
+  it("reports a release.json the server fails to serve instead of falling back", async () => {
+    for (const status of [401, 403, 500]) {
+      const result = await loadRelease(
+        async (url) => (url.endsWith(RELEASE_URL) ? new Response("", { status }) : jsonResponse(rawSample())),
+        "/",
+      );
+      expect(result).toEqual({ status: "error", message: `release.json could not be loaded (HTTP ${status})` });
+    }
+  });
+
+  it("counts an HTML fallback page for the sample as missing too", async () => {
+    const result = await loadRelease(async (url) => (url.endsWith(RELEASE_URL) ? new Response("", { status: 404 }) : htmlResponse()), "/");
+    expect(result).toEqual({ status: "error", message: "No release data found. Run `make ui` or `make ui-sample` first." });
+  });
+
+  it("reads a release.json served without a content type", async () => {
+    const body = new TextEncoder().encode(JSON.stringify(rawSample()));
+    const result = await loadRelease(async () => new Response(body), "/");
+    expect(result).toMatchObject({ status: "ok", source: "release" });
+  });
+
+  it("reports a failure that is not an Error by its text", async () => {
+    const result = await loadRelease(() => Promise.reject("offline"), "/");
+    expect(result).toEqual({ status: "error", message: "offline" });
+  });
+
+  it("reports when neither file exists", async () => {
+    const result = await loadRelease(async () => new Response("", { status: 404 }), "/");
+    expect(result.status).toBe("error");
+  });
+
+  it("requests only the two local data files", async () => {
+    const urls: string[] = [];
+    await loadRelease(async (url) => {
+      urls.push(url);
+      return new Response("", { status: 404 });
+    }, "./");
+    expect(urls).toEqual([`./${RELEASE_URL}`, `./${SAMPLE_URL}`]);
+  });
+});

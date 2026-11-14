@@ -1,0 +1,547 @@
+"""Stage table contracts v1 (specs/001-enron-network-analysis/contracts/data-contracts.md).
+
+These schemas are the interfaces between work packages. Change them only through the lead,
+with a version bump and a note in docs/ai-workflow-log.md.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+import polars as pl
+
+from enron_case.contracts import vocab as v
+from enron_case.errors import ContractViolation
+from enron_case.zones import Zone
+
+CONTRACT_VERSION = "1.7"
+
+STR = pl.String()
+INT = pl.Int64()
+FLOAT = pl.Float64()
+BOOL = pl.Boolean()
+DATE = pl.Date()
+TS = pl.Datetime("us", "UTC")
+STR_LIST = pl.List(pl.String())
+RECIPIENTS = pl.List(pl.Struct({"addr": pl.String(), "role": pl.String()}))
+
+HEX16 = r"^[0-9a-f]{16}$"
+HEX20 = r"^[0-9a-f]{20}$"
+PID = v.PSEUDONYM_PATTERN
+ORG = v.ORG_PSEUDONYM_PATTERN
+EVENT_ID = v.EVENT_ID_PATTERN
+MSG_PID = v.MESSAGE_PSEUDONYM_PATTERN
+
+
+@dataclass(frozen=True)
+class Col:
+    name: str
+    dtype: pl.DataType
+    nullable: bool = False
+    enum: tuple[str, ...] | None = None
+    pattern: str | None = None
+
+
+@dataclass(frozen=True)
+class Table:
+    name: str
+    zone: Zone
+    cols: tuple[Col, ...]
+    sort: tuple[str, ...]
+    fmt: str = "parquet"  # "parquet" or "csv"
+
+    @property
+    def filename(self) -> str:
+        return f"{self.name}.{self.fmt}"
+
+    @property
+    def polars_schema(self) -> dict[str, pl.DataType]:
+        return {c.name: c.dtype for c in self.cols}
+
+
+def _t(name: str, zone: Zone, sort: tuple[str, ...], *cols: Col, fmt: str = "parquet") -> Table:
+    return Table(name=name, zone=zone, cols=cols, sort=sort, fmt=fmt)
+
+
+_HYPOTHESIS_COLS = (
+    Col("hypothesis", STR, enum=v.HYPOTHESES),
+    Col("metric", STR, enum=v.METRICS),
+    Col("scope", STR, enum=v.SCOPES),
+    Col("change_week", DATE, nullable=True),
+    Col("p_perm", FLOAT),
+    Col("p_holm", FLOAT),
+    Col("effect", FLOAT),
+    Col("ci_low", FLOAT),
+    Col("ci_high", FLOAT),
+    Col("null_z", FLOAT),
+    Col("loo_min_effect", FLOAT),
+    Col("loo_max_effect", FLOAT),
+    Col("robust_variants_passed", INT),
+    Col("robust_variants_total", INT),
+    Col("supported", STR, enum=v.SUPPORT),
+    Col("confidence", STR, enum=v.CONFIDENCE),
+    Col("is_headline", BOOL),
+)
+
+_RISK_COLS = (
+    Col("release_variant", STR, enum=v.RELEASE_VARIANTS),
+    Col("attacker", STR, enum=v.ATTACKERS),
+    Col("n_targets", INT),
+    Col("unique_share", FLOAT),
+    Col("median_anonymity_set", FLOAT),
+    Col("reid_top1", FLOAT),
+    Col("reid_ci_low", FLOAT),
+    Col("reid_ci_high", FLOAT),
+    Col("utility_effect_ratio", FLOAT, nullable=True),
+    Col("finding_survives", BOOL, nullable=True),
+)
+
+
+def _artifact_cols(n_units_nullable: bool) -> tuple[Col, ...]:
+    return (
+        Col("hypothesis", STR, enum=v.HYPOTHESES),
+        Col("check", STR),
+        Col("statistic", FLOAT),
+        Col("ci_low", FLOAT),
+        Col("ci_high", FLOAT),
+        Col("n_units", INT, nullable=n_units_nullable),
+        Col("passes", BOOL, nullable=True),
+        Col("note", STR),
+    )
+
+
+EXPLORATORY_OUTCOMES = ("confident", "inconclusive", "not supported")
+EXPLORATORY_CONFIDENT, EXPLORATORY_INCONCLUSIVE, EXPLORATORY_NOT_SUPPORTED = EXPLORATORY_OUTCOMES
+# H5–H14, H15–H24, and H25 (stated after every other result and after reading prior work).
+EXPLORATORY_FAMILIES = ("first", "second", "post hoc")
+# Caveat recorded when a hypothesis fails its retention check (finding/exploratory.py).
+# A message between two custodians can survive in either mailbox, so these measures depend less
+# on what one inbox kept; the sender's own retention still moves them.
+RETENTION_FAILED = {
+    "H16": "fails the retention check: among custodian-to-custodian contacts, whose messages "
+    "can survive in either mailbox and so depend less on what one inbox kept, the change is "
+    "not established",
+    "H25": "fails the retention check: counting only the custodians written to, which depends "
+    "less on what the custodian's inbox kept, the change is not established",
+}
+# Why a hypothesis cannot be confident whatever its numbers (docs/hypotheses-exploratory.md).
+EXPLORATORY_CAVEATS = {
+    "H5": "invalid: the hour convention of the timestamps changes by several hours between the "
+    "reference and crisis windows",
+    # Added in the pre-delivery review, after every result: a shift of hours moves messages
+    # across midnight, so a weekday-or-weekend measure crosses the same change as H5.
+    "H6": "timestamp-sensitive (post hoc): the hour convention changes between the windows, "
+    "which moves messages across midnight and so between weekday and weekend",
+    "H7": "untestable: every Bcc line in the corpus repeats the Cc line",
+    "H19": "retention-sensitive: the 26-week look-back depends on how much older mail was kept",
+}
+
+
+def _profile_cols(nullable: bool) -> tuple[Col, ...]:
+    """Monthly record profile (finding/profile.py): custodians' mail held per month and the
+    after-hours share of their weekday sent mail. Released with months below k suppressed."""
+    return (
+        Col("month", DATE),
+        Col("custodians_sending", INT, nullable=nullable),
+        Col("sent_messages", INT, nullable=nullable),
+        Col("after_hours_share", FLOAT, nullable=True),
+        Col("custodians_receiving", INT, nullable=nullable),
+        Col("received_messages", INT, nullable=nullable),
+    )
+
+
+def _exploratory_cols(counts_nullable: bool) -> tuple[Col, ...]:
+    """H5–H25 results (E1–E21 in docs/hypotheses-exploratory.md); one row per hypothesis."""
+    return (
+        Col("order", INT),
+        Col("hypothesis", STR),
+        Col("family", STR, enum=EXPLORATORY_FAMILIES),
+        Col("measure", STR),
+        Col("direction", STR, enum=("up", "down")),
+        Col("custodians", INT, nullable=counts_nullable),
+        Col("median_change", FLOAT, nullable=True),
+        Col("ci_low", FLOAT, nullable=True),
+        Col("ci_high", FLOAT, nullable=True),
+        Col("p", FLOAT, nullable=True),
+        Col("p_holm", FLOAT, nullable=True),
+        Col("placebo_custodians", INT, nullable=counts_nullable),
+        Col("placebo_median", FLOAT, nullable=True),
+        Col("placebo_ci_low", FLOAT, nullable=True),
+        Col("placebo_ci_high", FLOAT, nullable=True),
+        Col("placebo_passes", BOOL, nullable=counts_nullable),
+        Col("loo_stable", BOOL, nullable=counts_nullable),
+        Col("outcome", STR, nullable=counts_nullable, enum=EXPLORATORY_OUTCOMES),
+        Col("caveat", STR),
+        Col("equalised_median", FLOAT, nullable=True),
+        Col("equalised_ci_low", FLOAT, nullable=True),
+        Col("equalised_ci_high", FLOAT, nullable=True),
+        Col("equalised_p", FLOAT, nullable=True),
+        # The family size times `equalised_p`, capped at 1: Holm's multiplier for the family's
+        # smallest p and conservative at every other rank (added after results were seen).
+        Col("equalised_p_holm", FLOAT, nullable=True),
+        # Retention check (added after the data-science review): the hypothesis on a measure
+        # that inbox retention cannot move; null where no such check applies.
+        Col("retention_median", FLOAT, nullable=True),
+        Col("retention_ci_low", FLOAT, nullable=True),
+        Col("retention_ci_high", FLOAT, nullable=True),
+        Col("retention_passes", BOOL, nullable=True),
+    )
+
+
+# H26 (O1): custodian departures (finding/departures.py; docs/hypotheses-exploratory.md).
+DEPARTURE_WINDOWS = ("crisis", "reference", "placebo after", "placebo before")
+# The crisis window cut at `config.CRISIS_SPLIT`; descriptive, published only together.
+DEPARTURE_SPLITS = ("crisis before the split", "crisis from the split")
+DEPARTURE_PERIODS = DEPARTURE_WINDOWS + DEPARTURE_SPLITS
+DEPARTURE_OUTCOMES = ("high", "moderate", "low", "not established")
+# The variant holding the stated definition; the others are robustness variants.
+DEPARTURE_PRIMARY = "primary"
+# A p-value's band: below alpha over the hypotheses stated, below alpha, at or above it.
+P_BANDS = ("below the family bound", "below alpha", "alpha or above", "not computable")
+
+
+def _departure_cols(counts_nullable: bool) -> tuple[Col, ...]:
+    """One row per window of the primary definition: custodians at risk at its start, how many
+    stopped sending while their mailbox kept receiving (departures), how many stopped with
+    their mailbox (record ends), and departures over at risk."""
+    return (
+        Col("order", INT),
+        Col("period", STR, enum=DEPARTURE_PERIODS),
+        Col("period_start", DATE),
+        Col("period_end", DATE),
+        Col("at_risk", INT, nullable=counts_nullable),
+        Col("departures", INT, nullable=counts_nullable),
+        Col("record_ends", INT, nullable=True),
+        Col("hazard", FLOAT, nullable=True),
+    )
+
+
+# One row per variant: the crisis-against-reference test, its placebo, the rolling placebo
+# windows, leave-one-out (primary only) and the outcome of the decision rule (primary only).
+_DEPARTURE_TEST_COLS = (
+    Col("order", INT),
+    Col("variant", STR),
+    Col("in_rule", BOOL),
+    Col("crisis_above_reference", BOOL, nullable=True),
+    Col("p", FLOAT, nullable=True),
+    Col("p_band", STR, nullable=True, enum=P_BANDS),
+    Col("placebo_p", FLOAT, nullable=True),
+    Col("placebo_p_band", STR, nullable=True, enum=P_BANDS),
+    Col("rolling_windows", INT),
+    Col("above_rolling", BOOL, nullable=True),
+    Col("loo_stable", BOOL, nullable=True),
+    Col("outcome", STR, nullable=True, enum=DEPARTURE_OUTCOMES),
+    # Power at these sizes (added after the data-science review, post hoc): the fewest crisis
+    # (placebo after) departures that would reach p below alpha with none in the earlier window.
+    Col("detectable_departures", INT, nullable=True),
+    Col("placebo_detectable_departures", INT, nullable=True),
+)
+# Restricted only: the person counts the release needs to decide what it may publish.
+_DEPARTURE_TEST_SUPPRESSION_COLS = (
+    Col("smallest_at_risk", INT),
+    Col("smallest_cell", INT),
+    Col("placebo_smallest_cell", INT),
+)
+DEPARTURE_SUPPRESSION_COLUMNS = tuple(c.name for c in _DEPARTURE_TEST_SUPPRESSION_COLS)
+
+
+TABLES: dict[str, Table] = {
+    t.name: t
+    for t in (
+        # ---- Zone 1: ingest (identifiers present; purged at end of run) ----
+        _t(
+            "header_records",
+            Zone.INGEST,
+            ("file_id",),
+            Col("file_id", STR, pattern=HEX16),
+            Col("mailbox_owner", STR),
+            Col("folder_class", STR, enum=v.FOLDER_CLASSES),
+            Col("date_raw_ok", BOOL),
+            Col("ts_utc", TS, nullable=True),
+            Col("from_addr", STR, nullable=True),
+            Col("to_addrs", STR_LIST),
+            Col("cc_addrs", STR_LIST),
+            Col("bcc_addrs", STR_LIST),
+            Col("x_from", STR, nullable=True),
+            Col("x_to", STR, nullable=True),
+            Col("x_cc", STR, nullable=True),
+            Col("x_bcc", STR, nullable=True),
+            Col("message_id", STR, nullable=True),
+            Col("parse_flags", STR_LIST),
+        ),
+        _t(
+            "messages",
+            Zone.INGEST,
+            ("msg_key",),
+            Col("msg_key", STR, pattern=HEX20),
+            Col("ts_utc", TS, nullable=True),
+            Col("sender_addr", STR, nullable=True),
+            Col("recipients", RECIPIENTS),
+            Col("n_recipients", INT),
+            Col("n_copies", INT),
+            Col("dedupe_rule", STR, enum=v.DEDUPE_RULES),
+            Col("owner_copies", STR_LIST),
+            Col("sent_copy_owner", STR, nullable=True),
+            Col("flags", STR_LIST),
+        ),
+        _t(
+            "entities",
+            Zone.INGEST,
+            ("entity_id",),
+            Col("entity_id", STR),
+            Col("type", STR, enum=v.ENTITY_TYPES),
+            Col("org_domain", STR),
+            Col("is_internal", BOOL),
+            Col("is_custodian", BOOL),
+            Col("n_addresses", INT),
+        ),
+        _t(
+            "address_map",
+            Zone.INGEST,
+            ("addr",),
+            Col("addr", STR),
+            Col("entity_id", STR),
+            Col("rule", STR, nullable=True, enum=v.IDENTITY_RULES),
+            Col("support", INT),
+        ),
+        # ---- Zone 2: restricted (pseudonyms only) ----
+        _t(
+            "events",
+            Zone.RESTRICTED,
+            ("ts_hour", "sender_pid", "recipient_pid", "event_id"),
+            Col("event_id", STR, pattern=EVENT_ID),
+            Col("msg_pid", STR, pattern=MSG_PID),
+            Col("ts_hour", TS),
+            Col("sender_pid", STR, pattern=PID),
+            Col("recipient_pid", STR, pattern=PID),
+            Col("role", STR, enum=v.RECIPIENT_ROLES),
+            Col("n_recipients", INT),
+            Col("weight", FLOAT),
+            Col("sender_type", STR, enum=v.ENTITY_TYPES),
+            Col("recipient_type", STR, enum=v.ENTITY_TYPES),
+            Col("sender_internal", BOOL),
+            Col("recipient_internal", BOOL),
+            Col("sender_org_pid", STR, pattern=ORG),
+            Col("recipient_org_pid", STR, pattern=ORG),
+            Col("in_network", BOOL),
+        ),
+        _t(
+            "entities_p",
+            Zone.RESTRICTED,
+            ("pid",),
+            Col("pid", STR, pattern=PID),
+            Col("type", STR, enum=v.ENTITY_TYPES),
+            Col("org_pid", STR, pattern=ORG),
+            Col("is_internal", BOOL),
+            Col("is_custodian", BOOL),
+        ),
+        _t(
+            "snapshots",
+            Zone.RESTRICTED,
+            ("scope", "week", "src_pid", "dst_pid"),
+            Col("scope", STR, enum=v.SCOPES),
+            Col("week", DATE),
+            Col("src_pid", STR, pattern=PID),
+            Col("dst_pid", STR, pattern=PID),
+            Col("weight", FLOAT),
+            Col("n_messages", INT),
+        ),
+        _t(
+            "metric_series",
+            Zone.RESTRICTED,
+            ("scope", "metric", "variant", "week"),
+            Col("scope", STR, enum=v.SCOPES),
+            Col("week", DATE),
+            Col("metric", STR, enum=v.METRICS),
+            Col("value", FLOAT, nullable=True),
+            Col("n_active", INT),
+            Col("variant", STR),
+        ),
+        _t(
+            "communities",
+            Zone.RESTRICTED,
+            ("pid",),
+            Col("pid", STR, pattern=PID),
+            Col("community", INT),
+        ),
+        _t("hypothesis_results", Zone.RESTRICTED, ("hypothesis",), *_HYPOTHESIS_COLS),
+        _t("risk_results", Zone.RESTRICTED, ("release_variant", "attacker"), *_RISK_COLS),
+        _t("artifact_results", Zone.RESTRICTED, ("hypothesis",), *_artifact_cols(False)),
+        _t("exploratory_results", Zone.RESTRICTED, ("order",), *_exploratory_cols(False)),
+        _t("profile_results", Zone.RESTRICTED, ("month",), *_profile_cols(False)),
+        _t("departure_results", Zone.RESTRICTED, ("order",), *_departure_cols(False)),
+        _t(
+            "departure_test_results",
+            Zone.RESTRICTED,
+            ("order",),
+            *_DEPARTURE_TEST_COLS,
+            *_DEPARTURE_TEST_SUPPRESSION_COLS,
+        ),
+        # ---- Zone 3: release (aggregates, k-thresholded; committed) ----
+        _t(
+            "data_quality",
+            Zone.RELEASE,
+            ("order",),
+            Col("order", INT),
+            Col("step", STR),
+            Col("count_in", INT),
+            Col("count_out", INT),
+            Col("removed", INT),
+            Col("rule", STR, nullable=True),
+            Col("precision", FLOAT, nullable=True),
+            Col("recall", FLOAT, nullable=True),
+            # Exact (Clopper-Pearson) interval of `precision` where it is estimated from a
+            # sample (the manual merge check); null where precision is measured on all of the
+            # ground truth or not at all.
+            Col("precision_ci_low", FLOAT, nullable=True),
+            Col("precision_ci_high", FLOAT, nullable=True),
+            fmt="csv",
+        ),
+        _t(
+            "header_fields",
+            Zone.RELEASE,
+            ("field",),
+            Col("field", STR),
+            Col("occurrences", INT),
+            Col("ruling", STR),
+            fmt="csv",
+        ),
+        _t(
+            "weekly_metrics",
+            Zone.RELEASE,
+            ("scope", "metric", "variant", "week"),
+            Col("scope", STR, enum=v.SCOPES),
+            Col("week", DATE),
+            Col("metric", STR, enum=v.METRICS),
+            Col("value", FLOAT, nullable=True),
+            Col("n_active", INT, nullable=True),
+            Col("variant", STR),
+            fmt="csv",
+        ),
+        _t("hypotheses", Zone.RELEASE, ("hypothesis",), *_HYPOTHESIS_COLS, fmt="csv"),
+        _t("risk", Zone.RELEASE, ("release_variant", "attacker"), *_RISK_COLS, fmt="csv"),
+        _t("artifact_checks", Zone.RELEASE, ("hypothesis",), *_artifact_cols(True), fmt="csv"),
+        _t("exploratory", Zone.RELEASE, ("order",), *_exploratory_cols(True), fmt="csv"),
+        _t("record_profile", Zone.RELEASE, ("month",), *_profile_cols(True), fmt="csv"),
+        _t("departures", Zone.RELEASE, ("order",), *_departure_cols(True), fmt="csv"),
+        _t("departure_tests", Zone.RELEASE, ("order",), *_DEPARTURE_TEST_COLS, fmt="csv"),
+        _t(
+            "degree_distribution",
+            Zone.RELEASE,
+            ("period", "degree_bucket"),
+            Col("period", STR),
+            Col("degree_bucket", STR),
+            Col("persons", INT, nullable=True),
+            fmt="csv",
+        ),
+        _t(
+            "community_graph",
+            Zone.RELEASE,
+            ("week", "src_group", "dst_group"),
+            Col("week", DATE),
+            Col("src_group", STR),
+            Col("dst_group", STR),
+            Col("weight", FLOAT, nullable=True),
+            Col("n_messages", INT, nullable=True),
+            fmt="csv",
+        ),
+        _t(
+            "community_groups",
+            Zone.RELEASE,
+            ("group",),
+            Col("group", STR),
+            Col("n_persons", INT),
+            fmt="csv",
+        ),
+    )
+}
+
+
+# Release columns that count persons; a published value must be at least k (or null).
+PERSON_COUNT_COLUMNS: dict[str, tuple[str, ...]] = {
+    "weekly_metrics": ("n_active",),
+    "degree_distribution": ("persons",),
+    "community_groups": ("n_persons",),
+    "risk": ("n_targets",),
+    "exploratory": ("custodians", "placebo_custodians"),
+    "record_profile": ("custodians_sending", "custodians_receiving"),
+    "departures": ("at_risk", "departures", "record_ends"),
+}
+# The weekly metric whose value is itself a person count.
+PERSON_COUNT_METRIC = "active_persons"
+
+
+def person_counts_below(name: str, df: pl.DataFrame, k: int) -> int:
+    """Published person counts below k in release table `name`: the person-count columns and
+    the values of the person-count metric."""
+    small = sum(
+        int((df.get_column(col).drop_nulls() < k).sum())
+        for col in PERSON_COUNT_COLUMNS.get(name, ())
+    )
+    if name == "weekly_metrics":
+        small += df.filter((pl.col("metric") == PERSON_COUNT_METRIC) & (pl.col("value") < k)).height
+    return small
+
+
+def table(name: str) -> Table:
+    try:
+        return TABLES[name]
+    except KeyError as exc:
+        raise ContractViolation(f"unknown table: {name}") from exc
+
+
+def conform(df: pl.DataFrame, name: str) -> pl.DataFrame:
+    """Select contract columns in order, cast to contract types and sort by the sort key."""
+    spec = table(name)
+    missing = [c.name for c in spec.cols if c.name not in df.columns]
+    extra = [c for c in df.columns if c not in spec.polars_schema]
+    if missing or extra:
+        raise ContractViolation(f"{name}: missing columns {missing}, extra columns {extra}")
+    out = df.select([pl.col(c.name).cast(c.dtype) for c in spec.cols])
+    return out.sort(list(spec.sort), nulls_last=True, maintain_order=True)
+
+
+def validate(df: pl.DataFrame, name: str) -> None:
+    """Raise ContractViolation unless `df` matches the contract exactly (columns, types,
+    nullability, enums, patterns, sort order)."""
+    spec = table(name)
+    names = [c.name for c in spec.cols]
+    if df.columns != names:
+        raise ContractViolation(f"{name}: columns {df.columns} != contract {names}")
+    for col in spec.cols:
+        series = df.get_column(col.name)
+        if series.dtype != col.dtype:
+            raise ContractViolation(f"{name}.{col.name}: dtype {series.dtype} != {col.dtype}")
+        if not col.nullable and series.null_count() > 0:
+            raise ContractViolation(f"{name}.{col.name}: nulls in non-nullable column")
+        values = series.drop_nulls()
+        if col.enum is not None:
+            bad = values.filter(~values.is_in(list(col.enum)))
+            if len(bad) > 0:
+                raise ContractViolation(f"{name}.{col.name}: {len(bad)} values outside enum")
+        if col.pattern is not None:
+            bad_count = len(values) - int(values.str.contains(col.pattern).sum())
+            if bad_count:
+                raise ContractViolation(f"{name}.{col.name}: {bad_count} values break pattern")
+    sorted_df = df.sort(list(spec.sort), nulls_last=True, maintain_order=True)
+    if not df.equals(sorted_df):
+        raise ContractViolation(f"{name}: not sorted by {spec.sort}")
+
+
+def leak_count(df: pl.DataFrame, patterns: tuple[str, ...] = v.LEAK_PATTERNS) -> int:
+    """Number of string cells (including list elements) matching any identifier pattern."""
+    combined = "|".join(f"(?:{p})" for p in patterns)
+    total = 0
+    for name, dtype in df.schema.items():
+        series = df.get_column(name)
+        if dtype == STR:
+            total += int(series.drop_nulls().str.contains(combined).sum())
+        elif dtype == STR_LIST:
+            exploded = series.explode().drop_nulls()
+            total += int(exploded.str.contains(combined).sum())
+    return total
+
+
+def is_pattern(value: str, pattern: str) -> bool:
+    return re.fullmatch(pattern.strip("^$"), value) is not None

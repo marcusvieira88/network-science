@@ -1,0 +1,17 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const DECLARATION = /^\s*(--[\w-]+):\s*([^;]+);/gm;
+
+/**
+ * jsdom does not load index.css, so the theme variables the WebGL view reads are copied from it
+ * onto the document root: the tests use the real theme, from the one place it is defined.
+ */
+export function applyThemeVariables(): void {
+  const css = readFileSync(join(import.meta.dirname, "..", "index.css"), "utf8");
+  // The screen theme only: the print block redefines the same names for paper.
+  const screen = css.slice(0, css.indexOf("@media print"));
+  for (const [, name, value] of screen.matchAll(DECLARATION)) {
+    if (name && value) document.documentElement.style.setProperty(name, value.trim());
+  }
+}

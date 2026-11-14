@@ -1,0 +1,32 @@
+# Data never leaves this machine: raw corpus, ingest zone, restricted zone.
+/data/
+release-sample/
+tests/fixtures/
+
+# Keys
+*.key
+key
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+
+# UI
+ui/node_modules/
+ui/dist/
+ui/public/data/release.json
+
+.DS_Store
+
+# Agent worktrees created inside the repository
+.claude/worktrees/
+
+# Environment files and private keys
+.env
+.env.*
+*.pem
