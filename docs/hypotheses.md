@@ -50,8 +50,8 @@ Let `d` = +1 for "up" and −1 for "down". Significance level α = 0.05 (`config
 - **inconclusive** if the effect cannot be computed (fewer than two baseline weeks,
   `config.min_baseline_weeks`; a constant baseline; or fewer than four weeks,
   `config.min_after_weeks`, after every candidate change point);
-- **no** if the interval lies wholly on the opposite side of zero (`d · ci_high < 0`);
-- **yes** if `p_holm < α` and the interval lies wholly on the hypothesised side (`d · ci_low > 0`);
+- **no** if the interval lies wholly on the opposite side of zero (both `d · ci_low < 0` and `d · ci_high < 0`);
+- **yes** if `p_holm < α` and the interval lies wholly on the hypothesised side (both `d · ci_low > 0` and `d · ci_high > 0`);
 - **no** if `p_holm ≥ α` and the interval does not lie wholly on the hypothesised side;
 - **inconclusive** otherwise (the change-point test and the interval disagree).
 
