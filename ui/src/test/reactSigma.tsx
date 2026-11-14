@@ -5,6 +5,7 @@
  * also answers what the Overlap mode's contour layer reads: display data, viewport and size.
  * Use with `vi.mock("@react-sigma/core", () => import("@/test/reactSigma"))`.
  */
+import { UndirectedGraph } from "graphology";
 import { type ReactNode, useCallback } from "react";
 import type { Settings } from "sigma/settings";
 import type { EdgeDisplayData, NodeDisplayData } from "sigma/types";
@@ -82,8 +83,13 @@ function loadedGraph(): NetworkGraph {
   return sigmaStub.graph;
 }
 
+/** Like Sigma, the stub always has a graph: an empty one until the view loads its first. */
+function drawnGraph(): NetworkGraph {
+  return sigmaStub.graph ?? new UndirectedGraph<NetworkNode, NetworkEdge>();
+}
+
 const sigma = {
-  getGraph: loadedGraph,
+  getGraph: drawnGraph,
   getNodeDisplayData: (key: string): NetworkNode | undefined =>
     loadedGraph().hasNode(key) ? loadedGraph().getNodeAttributes(key) : undefined,
   framedGraphToViewport: ({ x, y }: { x: number; y: number }) => ({ x, y }),

@@ -112,25 +112,24 @@ function nodePositions(graph: NetworkGraph): NodePositions {
 }
 
 /**
- * Loads the week's graph. With `animate` (the Overlap mode), groups start where they were last
- * drawn and Sigma moves them to the new week's positions.
+ * Loads the week's graph. With `animate` (the Overlap mode), groups start where they are drawn and
+ * Sigma moves them to the new week's positions. A week change mid-move cancels the running move
+ * (the effect's cleanup) and starts from where the groups are drawn at that instant, not from
+ * where the cut-off move was heading, so the groups do not jump.
  */
 function GraphLoader({ graph, animate }: { graph: NetworkGraph; animate: boolean }) {
   const loadGraph = useLoadGraph<NetworkNode, NetworkEdge>();
   const sigma = useSigma<NetworkNode, NetworkEdge>();
-  const shown = useRef<NodePositions>(new Map());
   useEffect(() => {
-    const previous = shown.current;
-    shown.current = nodePositions(graph);
+    const drawnBefore = nodePositions(sigma.getGraph());
     loadGraph(graph);
     if (!animate) return;
     // Sigma's graph is its own copy of `graph`: moving its nodes leaves the week's graph intact.
     const drawn = sigma.getGraph();
     const targets: Record<string, Record<string, number>> = {};
-    for (const [key, from] of previous) {
-      const target = shown.current.get(key);
-      if (!target || !drawn.hasNode(key)) continue;
-      targets[key] = { x: target.x, y: target.y };
+    for (const [key, from] of drawnBefore) {
+      if (!graph.hasNode(key) || !drawn.hasNode(key)) continue;
+      targets[key] = { x: graph.getNodeAttribute(key, "x"), y: graph.getNodeAttribute(key, "y") };
       drawn.mergeNodeAttributes(key, from);
     }
     if (Object.keys(targets).length === 0) return;

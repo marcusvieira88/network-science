@@ -223,6 +223,12 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
   const order = useMemo(() => placed.map((g) => g.group), [placed]);
   const individuals = mode === "individuals";
   const points2D = useMemo(() => anonymousPoints(named, seed, groupRadius), [named, seed]);
+  // The Overlap mode needs WebGL: if the WebGL view fails while it is chosen, show the Groups mode
+  // rather than leave a disabled tab selected.
+  const fallBackToSvg = () => {
+    setUseWebGL(false);
+    setMode((current) => (current === "overlap" ? "groups" : current));
+  };
   const flat = (
     <Network2D placed={placed} graph={graph} ties={ties} week={week} maxTie={maxTie} points={individuals ? points2D : null} />
   );
@@ -289,7 +295,7 @@ export function CommunityGraph({ groups, edges, weeks, events, minGroupSize, see
         </div>
         {useWebGL ? (
           <div className="space-y-2">
-            <RenderFallback fallback={flat} onFailure={() => setUseWebGL(false)}>
+            <RenderFallback fallback={flat} onFailure={fallBackToSvg}>
               <Suspense fallback={<LoadingNetwork />}>
                 <SigmaNetwork groups={named} edges={edges} week={week} maxTie={maxTie} mode={mode} seed={seed} />
               </Suspense>
