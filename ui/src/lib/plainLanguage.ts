@@ -67,7 +67,7 @@ function preregisteredVerdict(row: HypothesisRow, checks: ArtifactCheckRow[], he
 }
 
 /** The reason after "invalid:" or "untestable:", or null for any other caveat. */
-function untestableReason(caveat: string): string | null {
+export function untestableReason(caveat: string): string | null {
   const separator = caveat.indexOf(CAVEAT_SEPARATOR);
   if (separator < 0) return null;
   const prefix = caveat.slice(0, separator).trim().toLowerCase();

@@ -22,3 +22,18 @@ export function reidByVariant(rows: RiskRow[]): ReidByVariant[] {
     return point;
   });
 }
+
+export interface WorstAttack {
+  rate: number;
+  targets: number;
+}
+
+/** The strongest attacker's re-identification rate against one release, with its target count; null if none ran. */
+export function worstReidentification(rows: RiskRow[], variant: RiskRow["release_variant"]): WorstAttack | null {
+  let worst: WorstAttack | null = null;
+  for (const row of rows) {
+    if (row.release_variant !== variant || row.reid_top1 === null) continue;
+    if (worst === null || row.reid_top1 > worst.rate) worst = { rate: row.reid_top1, targets: row.n_targets };
+  }
+  return worst;
+}
