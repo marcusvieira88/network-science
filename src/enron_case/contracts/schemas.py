@@ -116,7 +116,7 @@ EXPLORATORY_CONFIDENT, EXPLORATORY_INCONCLUSIVE, EXPLORATORY_NOT_SUPPORTED = EXP
 EXPLORATORY_FAMILIES = ("first", "second")
 # Caveat recorded when a hypothesis fails its retention check (finding/exploratory.py).
 RETENTION_FAILED = (
-    "fails the retention check: among custodian-to-custodian contacts, whose replies are "
+    "fails the retention check: among custodian-to-custodian contacts, whose messages are "
     "visible whatever an inbox kept, the change is not established"
 )
 # Why a hypothesis cannot be confident whatever its numbers (docs/hypotheses-exploratory.md).

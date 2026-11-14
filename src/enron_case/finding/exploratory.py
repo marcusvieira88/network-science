@@ -81,7 +81,7 @@ FAMILY: tuple[Exploratory, ...] = (
     Exploratory("H13", UP, "share of sent messages to the top three recipients"),
     Exploratory("H14", UP, "share of received messages sent to 20 or more"),
     Exploratory("H15", UP, "share of sent messages with one recipient (derived from H14)"),
-    Exploratory("H16", UP, "share of sent-to contacts who also wrote back"),
+    Exploratory("H16", UP, "share of sent-to contacts who also wrote to the custodian"),
     Exploratory("H17", UP, "share of sent messages to another custodian"),
     Exploratory("H18", UP, "share of received messages from another custodian"),
     Exploratory("H19", DOWN, "share of contacts new against the prior 26 weeks"),
@@ -260,15 +260,17 @@ def _sent_contacts(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _reciprocity(tables: Tables, window: Window) -> pl.DataFrame:
+    """Share of the custodian's sent-to contacts who sent the custodian anything in the same
+    window. Not a reply: headers carry no thread, so any message in the window counts."""
     sent = _in(tables.sent, window)
     contacts = _sent_contacts(sent)
-    wrote_back = (
+    wrote_to_custodian = (
         _in(tables.received, window)
         .select("pid", pl.col("sender_pid").alias("contact"))
         .unique()
         .with_columns(pl.lit(True).alias("back"))
     )
-    joined = contacts.join(wrote_back, on=["pid", "contact"], how="left")
+    joined = contacts.join(wrote_to_custodian, on=["pid", "contact"], how="left")
     shares = joined.group_by("pid").agg(
         pl.col("back").fill_null(False).cast(pl.Float64).mean().alias("value")
     )
@@ -277,20 +279,20 @@ def _reciprocity(tables: Tables, window: Window) -> pl.DataFrame:
 
 def _reciprocity_between_custodians(tables: Tables, window: Window) -> pl.DataFrame:
     """Reciprocity counting only contacts who are themselves custodians. Their mail is collected
-    from both sides (a reply survives in the replier's own sent folder even if the custodian's
-    inbox lost it), so how much inbox mail was kept cannot move this measure. `n` is the
+    from both sides (a message from one survives in their own sent folder even if the other
+    custodian's inbox lost it), so how much inbox mail was kept cannot move this measure. `n` is the
     smaller of the custodian's sent and received counts, so both must meet the minimum."""
     sent = _in(tables.sent, window)
     received = _in(tables.received, window)
     custodians = list(tables.custodians)
     contacts = _sent_contacts(sent).filter(pl.col("contact").is_in(custodians))
-    wrote_back = (
+    wrote_to_custodian = (
         received.select("pid", pl.col("sender_pid").alias("contact"))
         .unique()
         .with_columns(pl.lit(True).alias("back"))
     )
     shares = (
-        contacts.join(wrote_back, on=["pid", "contact"], how="left")
+        contacts.join(wrote_to_custodian, on=["pid", "contact"], how="left")
         .group_by("pid")
         .agg(pl.col("back").fill_null(False).cast(pl.Float64).mean().alias("value"))
     )

@@ -56,15 +56,20 @@ def _value(df: pl.DataFrame, pid: str) -> float:
     return float(df.filter(pl.col("pid") == pid).get_column("value").item())
 
 
-def test_reciprocity_counts_contacts_who_wrote_back() -> None:
+def test_reciprocity_counts_contacts_who_also_wrote_to_the_custodian() -> None:
     tables = _tables(
         [
             _event("m1", 4, A, C),
             _event("m2", 5, A, D),  # A writes to C and D
-            _event("m3", 6, C, A),  # only C writes back
+            _event("m3", 6, C, A),  # only C writes to A (anything, not necessarily a reply)
         ]
     )
     assert _value(ex.MEASURES["H16"](tables, WINDOW), A) == 0.5
+
+
+def test_reciprocity_description_does_not_claim_a_reply() -> None:
+    h16 = next(h for h in ex.FAMILY if h.id == "H16")
+    assert h16.description == "share of sent-to contacts who also wrote to the custodian"
 
 
 def test_new_contact_share_uses_the_lookback() -> None:
@@ -256,7 +261,7 @@ def test_reciprocity_between_custodians_ignores_non_custodian_contacts() -> None
     rows = [
         _event("m1", 4, A, B),  # to custodian B
         _event("m2", 5, A, C),  # to non-custodian C
-        _event("m3", 6, C, A),  # C writes back: does not count here
+        _event("m3", 6, C, A),  # C writes to A: does not count here
     ]
     events = pl.DataFrame(rows)
     tables = ex.Tables(
@@ -265,7 +270,7 @@ def test_reciprocity_between_custodians_ignores_non_custodian_contacts() -> None
         frozenset(CUSTODIANS.to_list()),
     )
     result = ex._reciprocity_between_custodians(tables, WINDOW)
-    assert _value(result, A) == 0.0  # B did not write back
+    assert _value(result, A) == 0.0  # B did not write to A
     assert (
         int(result.filter(pl.col("pid") == A).get_column("n").item()) == 1
     )  # min(sent 2, received 1)
